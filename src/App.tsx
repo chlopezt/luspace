@@ -459,6 +459,7 @@ export default function App() {
       "registros_crecimiento",
       "medicamentos",
       "consultas_medicas",
+      "examenes_medicos",
     ];
   return (
     <div className="app-shell">
@@ -606,7 +607,7 @@ export default function App() {
                   </h1>
                   <div className="tabs" role="group" aria-label="Secciones">
                     {(view === "salud"
-                      ? ["Mediciones", "Tratamientos", "Consultas médicas"]
+                      ? ["Mediciones", "Tratamientos", "Consultas médicas", "Exámenes"]
                       : [
                           "Manual de apoyo",
                           "Adecuaciones PIE / PACI",
@@ -717,3 +718,4 @@ export default function App() {
     </div>
   );
 }
+
