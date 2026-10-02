@@ -25,9 +25,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          D1_ID="$(npx wrangler d1 list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const x=JSON.parse(s).find(d=>d.name==="luspace-db");process.stdout.write(x?.uuid||"")})')"
-          if [ -z "$D1_ID" ]; then D1_ID="$(npx wrangler d1 create luspace-db --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).uuid))')"; fi
-          if ! npx wrangler r2 bucket list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.exit(JSON.parse(s).some(b=>b.name==="luspace-files")?0:1))'; then npx wrangler r2 bucket create luspace-files; fi
+          D1_OUTPUT="$(npx wrangler d1 create luspace-db)"
+          D1_ID="$(printf '%s\n' "$D1_OUTPUT" | sed -n 's/^database_id = "\(.*\)"/\1/p')"
+          test -n "$D1_ID"
+          npx wrangler r2 bucket create luspace-files
           sed "s/REEMPLAZAR_CON_DATABASE_ID/$D1_ID/" wrangler.toml > wrangler.deploy.toml
       - run: npx wrangler d1 migrations apply luspace-db --remote --config wrangler.deploy.toml
       - run: npx wrangler pages project create luspace-app --production-branch main || true
