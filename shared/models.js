@@ -74,6 +74,17 @@ export const models = {
       f("archivo_r2_key", "Receta o examen", "file"),
     ],
   },
+  examenes_medicos: {
+    title: "Exámenes médicos",
+    module: "salud",
+    fields: [
+      f("nombre", "Nombre del examen", "text", { required: true }),
+      f("fecha", "Fecha de toma", "date", { required: true }),
+      f("lugar", "Centro, laboratorio o lugar"),
+      f("observaciones", "Observaciones", "textarea"),
+      f("archivo_id", "Resultado o imagen", "file"),
+    ],
+  },
   perfiles_escolares: {
     title: "Manual de apoyo",
     module: "escolar",
@@ -207,3 +218,4 @@ export const anamnesisSections = [
     ],
   ],
 ];
+
