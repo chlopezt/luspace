@@ -155,7 +155,7 @@ export function Field({
               disabled={busy}
             />
           )}
-          <small>{busy ? "Subiendo…" : "PDF, JPG o PNG · hasta 10 MB"}</small>
+          <small>{busy ? "Subiendo…" : "PDF, JPG o PNG · hasta 1.5 MB"}</small>
           {value && (
             <div className="actions">
               <a target="_blank" rel="noreferrer" href={"/api/files/" + value}>
@@ -533,3 +533,4 @@ export function Attachments({
     </section>
   );
 }
+
