@@ -228,7 +228,9 @@ export function RecordForm({
         if (v === undefined)
           v =
             f.type === "checkbox"
-              ? 0
+              ? table === "credenciales_discapacidad" && f.key === "activo"
+                ? 1
+                : 0
               : f.type === "select"
                 ? f.options[0]
                 : f.type === "date" &&
