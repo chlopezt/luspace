@@ -931,21 +931,20 @@ export async function handle(req, env) {
     }
     if (path === "files" && method === "POST") {
       member(a);
-      if (Number(req.headers.get("content-length")) > 11000000)
-        fail(413, "El archivo supera 10 MB.");
+      if (Number(req.headers.get("content-length")) > 1600000)
+        fail(413, "El archivo supera 1.5 MB.");
       const n = url.searchParams.get("child"),
         m = url.searchParams.get("module");
       await child(db, a, n);
       if (!modules[m]) fail(400, "Módulo inválido.");
-      if (!env.FILES) fail(503, "Almacenamiento no configurado.");
       const file = (await req.formData()).get("file");
       if (
         !file ||
         typeof file === "string" ||
         !file.size ||
-        file.size > 10000000
+        file.size > 1500000
       )
-        fail(400, "Adjunta un archivo de hasta 10 MB.");
+        fail(400, "Adjunta un archivo de hasta 1.5 MB.");
       const bytes = new Uint8Array(await file.arrayBuffer());
       let mime = "";
       if (
@@ -965,14 +964,11 @@ export async function handle(req, env) {
       else if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
         mime = "image/jpeg";
       if (!mime) fail(400, "Solo se permiten PDF, PNG y JPG.");
-      const id = uid(),
-        key = `${a.familia_id}/${n}/${id}`;
-      await env.FILES.put(key, bytes, { httpMetadata: { contentType: mime } });
-      try {
-        await db.batch([
+      const id = uid(), key = id;
+      await db.batch([
           stmt(
             db,
-            "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key) VALUES(?,?,?,?,?,?,?,?)",
+            "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key,contenido) VALUES(?,?,?,?,?,?,?,?,?)",
             id,
             a.familia_id,
             n,
@@ -981,13 +977,10 @@ export async function handle(req, env) {
             mime,
             file.size,
             key,
+            bytes,
           ),
           audit(db, a, "CREATE", "Archivo adjuntado a " + m, ip),
         ]);
-      } catch (e) {
-        await env.FILES.delete(key);
-        throw e;
-      }
       return json({ id }, 201);
     }
     if (path.startsWith("files/") && method === "GET") {
@@ -1000,8 +993,7 @@ export async function handle(req, env) {
       if (!f) fail(404, "Archivo no encontrado.");
       await child(db, a, f.nino_id);
       allowed(a, f.modulo);
-      const obj = await env.FILES.get(f.r2_key);
-      if (!obj) fail(404, "Archivo no disponible.");
+      if (!f.contenido) fail(404, "Archivo no disponible.");
       await audit(
         db,
         a,
@@ -1009,7 +1001,7 @@ export async function handle(req, env) {
         "Archivo consultado: " + f.modulo,
         ip,
       ).run();
-      return new Response(obj.body, {
+      return new Response(f.contenido, {
         headers: {
           "Content-Type": f.mime,
           "Cache-Control": "no-store",
@@ -1038,3 +1030,4 @@ export async function handle(req, env) {
     );
   }
 }
+
