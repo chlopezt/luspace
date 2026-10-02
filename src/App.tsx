@@ -202,12 +202,33 @@ function Auth({
 }
 function Rnd({ child, close }: { child: Row; close: () => void }) {
   const [record, setRecord] = useState<Row | null>(null),
+    [files, setFiles] = useState<Row[]>([]),
     [error, setError] = useState("");
   useEffect(() => {
-    api("records/credenciales_discapacidad?child=" + child.id)
-      .then((r) => setRecord(r[0] || {}))
+    Promise.all([
+      api("records/credenciales_discapacidad?child=" + child.id),
+      api("files?child=" + child.id + "&module=rnd"),
+    ])
+      .then(([records, attachments]) => {
+        setRecord(records[0] || {});
+        setFiles(attachments);
+      })
       .catch((e) => setError(e.message));
   }, [child.id]);
+  const linked = record
+    ? [record.frente_r2_key, record.reverso_r2_key].filter(Boolean)
+    : [];
+  const documents = [
+    ...(record?.frente_r2_key
+      ? [{ id: record.frente_r2_key, label: "Frente / documento" }]
+      : []),
+    ...(record?.reverso_r2_key
+      ? [{ id: record.reverso_r2_key, label: "Reverso" }]
+      : []),
+    ...files
+      .filter((file) => !linked.includes(file.id))
+      .map((file) => ({ id: file.id, label: "Documento adjunto: " + file.nombre })),
+  ];
   return (
     <Modal
       title="Credencial RND"
@@ -217,33 +238,25 @@ function Rnd({ child, close }: { child: Row; close: () => void }) {
     >
       <ErrorNote error={error} />
       {record ? (
-        record.id && (record.activo || record.frente_r2_key || record.reverso_r2_key) ? (
+        record.id || documents.length ? (
           <>
-            {!record.activo && (
+            {record?.id && !record.activo && (
               <p className="muted">
                 La credencial está adjunta, pero figura como inactiva. Puedes activarla desde Editar credencial.
               </p>
             )}
-            <RecordDetails table="credenciales_discapacidad" row={record} />
-            {["frente_r2_key", "reverso_r2_key"]
-              .filter((k) => record[k])
-              .map((k) => (
-                <section key={k}>
-                  <h3>
-                    {k === "frente_r2_key" ? "Frente / documento" : "Reverso"}
-                  </h3>
+            {record?.id && <RecordDetails table="credenciales_discapacidad" row={record} />}
+            {documents.map((document) => (
+                <section key={document.id}>
+                  <h3>{document.label}</h3>
                   <iframe
-                    title={
-                      k === "frente_r2_key"
-                        ? "Frente credencial"
-                        : "Reverso credencial"
-                    }
-                    src={"/api/files/" + record[k]}
+                    title={document.label}
+                    src={"/api/files/" + document.id}
                     className="credential-frame"
                   />
                   <a
                     className="secondary"
-                    href={"/api/files/" + record[k] + "?download=1"}
+                    href={"/api/files/" + document.id + "?download=1"}
                   >
                     <Download size={16} />
                     Descargar
