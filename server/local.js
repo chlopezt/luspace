@@ -15,7 +15,7 @@ export function localEnv(directory = process.env.LUSPACE_DATA_DIR || ".local") {
   sqlite.exec(
     "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS schema_migrations(name TEXT PRIMARY KEY)",
   );
-  for (const name of ["schema.sql", "0002_security.sql", "0003_audit_ip.sql", "0004_d1_file_storage.sql"]) {
+  for (const name of ["schema.sql", "0002_security.sql", "0003_audit_ip.sql", "0004_d1_file_storage.sql", "0005_d1_file_chunks.sql", "0006_medical_exams.sql"]) {
     if (
       !sqlite
         .prepare("SELECT name FROM schema_migrations WHERE name=?")
