@@ -931,8 +931,8 @@ export async function handle(req, env) {
     }
     if (path === "files" && method === "POST") {
       member(a);
-      if (Number(req.headers.get("content-length")) > 1600000)
-        fail(413, "El archivo supera 1.5 MB.");
+      if (Number(req.headers.get("content-length")) > 10500000)
+        fail(413, "El archivo supera 10 MB.");
       const n = url.searchParams.get("child"),
         m = url.searchParams.get("module");
       await child(db, a, n);
@@ -942,9 +942,9 @@ export async function handle(req, env) {
         !file ||
         typeof file === "string" ||
         !file.size ||
-        file.size > 1500000
+        file.size > 10000000
       )
-        fail(400, "Adjunta un archivo de hasta 1.5 MB.");
+        fail(400, "Adjunta un archivo de hasta 10 MB.");
       const bytes = new Uint8Array(await file.arrayBuffer());
       let mime = "";
       if (
@@ -964,11 +964,14 @@ export async function handle(req, env) {
       else if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
         mime = "image/jpeg";
       if (!mime) fail(400, "Solo se permiten PDF, PNG y JPG.");
-      const id = uid(), key = id;
+      const id = uid(), key = `d1:${id}`, chunkSize = 1000000;
+      const chunks = [];
+      for (let offset = 0; offset < bytes.length; offset += chunkSize)
+        chunks.push(bytes.slice(offset, offset + chunkSize));
       await db.batch([
           stmt(
             db,
-            "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key,contenido) VALUES(?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key) VALUES(?,?,?,?,?,?,?,?)",
             id,
             a.familia_id,
             n,
@@ -977,7 +980,9 @@ export async function handle(req, env) {
             mime,
             file.size,
             key,
-            bytes,
+          ),
+          ...chunks.map((part, indice) =>
+            stmt(db, "INSERT INTO archivo_chunks(archivo_id,indice,contenido) VALUES(?,?,?)", id, indice, part),
           ),
           audit(db, a, "CREATE", "Archivo adjuntado a " + m, ip),
         ]);
@@ -993,7 +998,20 @@ export async function handle(req, env) {
       if (!f) fail(404, "Archivo no encontrado.");
       await child(db, a, f.nino_id);
       allowed(a, f.modulo);
-      if (!f.contenido) fail(404, "Archivo no disponible.");
+      const chunks = await all(
+        db,
+        "SELECT contenido FROM archivo_chunks WHERE archivo_id=? ORDER BY indice",
+        f.id,
+      );
+      const parts = chunks.length ? chunks : f.contenido ? [{ contenido: f.contenido }] : [];
+      if (!parts.length) fail(404, "Archivo no disponible.");
+      const bytes = new Uint8Array(parts.reduce((size, part) => size + part.contenido.byteLength, 0));
+      let offset = 0;
+      for (const part of parts) {
+        const value = new Uint8Array(part.contenido);
+        bytes.set(value, offset);
+        offset += value.byteLength;
+      }
       await audit(
         db,
         a,
@@ -1001,7 +1019,7 @@ export async function handle(req, env) {
         "Archivo consultado: " + f.modulo,
         ip,
       ).run();
-      return new Response(f.contenido, {
+      return new Response(bytes, {
         headers: {
           "Content-Type": f.mime,
           "Cache-Control": "no-store",
