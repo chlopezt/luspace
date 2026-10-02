@@ -155,7 +155,7 @@ export function Field({
               disabled={busy}
             />
           )}
-          <small>{busy ? "Subiendo…" : "PDF, JPG o PNG · hasta 1.5 MB"}</small>
+          <small>{busy ? "Subiendo…" : "PDF, JPG o PNG · hasta 10 MB"}</small>
           {value && (
             <div className="actions">
               <a target="_blank" rel="noreferrer" href={"/api/files/" + value}>
@@ -526,6 +526,14 @@ export function Attachments({
             >
               <Download size={17} />
             </a>
+            <details className="file-preview">
+              <summary>Vista previa</summary>
+              {String(f.mime).startsWith("image/") ? (
+                <img src={"/api/files/" + f.id} alt={f.nombre} />
+              ) : (
+                <iframe title={"Vista previa de " + f.nombre} src={"/api/files/" + f.id} />
+              )}
+            </details>
           </li>
         ))}
       </ul>
