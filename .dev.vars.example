@@ -1,0 +1,4 @@
+# Solo para Wrangler local. No subir .dev.vars al repositorio.
+# Configura ambos como secretos de Pages en producción.
+SETUP_KEY=CAMBIAR_POR_UN_SECRETO_ALEATORIO
+IP_SALT=CAMBIAR_POR_OTRO_SECRETO_ALEATORIO

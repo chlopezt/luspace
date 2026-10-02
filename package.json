@@ -1,0 +1,48 @@
+{
+  "name": "luspace-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/api.test.mjs",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@react-pdf/renderer": "^4.9.0",
+    "@vitejs/plugin-react": "latest",
+    "buffer": "^6.0.3",
+    "lucide-react": "latest",
+    "pdf-lib": "^1.17.1",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "^3.10.1",
+    "typescript": "latest",
+    "vite": "latest",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.20",
+    "esbuild-wasm": "^0.28.2",
+    "exceljs": "^4.4.0",
+    "postcss": "^8.4.47",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^3.4.14",
+    "wrangler": "^4.146.0"
+  }
+}

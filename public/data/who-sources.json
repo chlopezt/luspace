@@ -1,0 +1,62 @@
+{
+  "source": "WHO Child Growth Standards 2006 and Growth Reference 2007",
+  "imported": "2026-10-02T02:57:46.005Z",
+  "columns": [
+    "age_months",
+    "L",
+    "M",
+    "S"
+  ],
+  "sources": [
+    {
+      "key": "weight_masculino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/child-growth-standards/indicators/weight-for-age/wfa_boys_0-to-5-years_zscores.xlsx",
+      "rows": 61
+    },
+    {
+      "key": "weight_femenino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/child-growth-standards/indicators/weight-for-age/wfa_girls_0-to-5-years_zscores.xlsx",
+      "rows": 61
+    },
+    {
+      "key": "height_masculino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/child-growth-standards/indicators/length-height-for-age/lhfa_boys_0-to-2-years_zscores.xlsx",
+      "rows": 25
+    },
+    {
+      "key": "height_femenino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/child-growth-standards/indicators/length-height-for-age/lhfa_girls_0-to-2-years_zscores.xlsx",
+      "rows": 25
+    },
+    {
+      "key": "height_masculino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/child-growth-standards/indicators/length-height-for-age/lhfa_boys_2-to-5-years_zscores.xlsx",
+      "rows": 37
+    },
+    {
+      "key": "height_femenino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/child-growth-standards/indicators/length-height-for-age/lhfa_girls_2-to-5-years_zscores.xlsx",
+      "rows": 37
+    },
+    {
+      "key": "weight_masculino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/growth-reference-5-19-years/weight-for-age-%285-10-years%29/hfa-boys-perc-who2007-exp_07eb5053-9a09-4910-aa6b-c7fb28012ce6.xlsx",
+      "rows": 60
+    },
+    {
+      "key": "weight_femenino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/growth-reference-5-19-years/weight-for-age-%285-10-years%29/hfa-girls-perc-who2007-exp_6040a43e-81da-48fa-a2d4-5c856fe4fe71.xlsx",
+      "rows": 60
+    },
+    {
+      "key": "height_masculino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/growth-reference-5-19-years/height-for-age-%285-19-years%29/hfa-boys-perc-who2007-exp.xlsx",
+      "rows": 168
+    },
+    {
+      "key": "height_femenino",
+      "url": "https://cdn.who.int/media/docs/default-source/child-growth/growth-reference-5-19-years/height-for-age-%285-19-years%29/hfa-girls-perc-who2007-exp.xlsx",
+      "rows": 168
+    }
+  ]
+}

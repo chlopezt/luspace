@@ -1,0 +1,136 @@
+import { DatabaseSync } from "node:sqlite";
+import {
+  readFileSync,
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  unlinkSync,
+} from "node:fs";
+import { resolve } from "node:path";
+import { handle } from "./api.js";
+export function localEnv(directory = process.env.LUSPACE_DATA_DIR || ".local") {
+  const root = resolve(directory);
+  mkdirSync(root, { recursive: true });
+  const sqlite = new DatabaseSync(resolve(root, "luspace.sqlite"));
+  sqlite.exec(
+    "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS schema_migrations(name TEXT PRIMARY KEY)",
+  );
+  for (const name of ["schema.sql", "0002_security.sql", "0003_audit_ip.sql"]) {
+    if (
+      !sqlite
+        .prepare("SELECT name FROM schema_migrations WHERE name=?")
+        .get(name)
+    ) {
+      sqlite.exec("BEGIN");
+      try {
+        sqlite.exec(
+          readFileSync(new URL("../db/" + name, import.meta.url), "utf8"),
+        );
+        sqlite
+          .prepare("INSERT INTO schema_migrations(name) VALUES(?)")
+          .run(name);
+        sqlite.exec("COMMIT");
+      } catch (e) {
+        sqlite.exec("ROLLBACK");
+        throw e;
+      }
+    }
+  }
+  const prepared = (sql, args = []) => ({
+    sql,
+    args,
+    bind(...a) {
+      return prepared(sql, a);
+    },
+    async first() {
+      return sqlite.prepare(sql).get(...args) || null;
+    },
+    async all() {
+      return { results: sqlite.prepare(sql).all(...args) };
+    },
+    async run() {
+      const r = sqlite.prepare(sql).run(...args);
+      return { meta: { changes: Number(r.changes) } };
+    },
+  });
+  const DB = {
+    prepare: prepared,
+    async batch(queries) {
+      sqlite.exec("BEGIN IMMEDIATE");
+      try {
+        const results = queries.map((q) => ({
+          meta: {
+            changes: Number(sqlite.prepare(q.sql).run(...q.args).changes),
+          },
+        }));
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (e) {
+        sqlite.exec("ROLLBACK");
+        throw e;
+      }
+    },
+  };
+  const objectPath = (key) => {
+    if (!/^[a-f0-9-]+\/[a-f0-9-]+\/[a-f0-9-]+$/.test(key))
+      throw new Error("Invalid object key");
+    return resolve(root, "files", ...key.split("/"));
+  };
+  const FILES = {
+    async put(key, data) {
+      const p = objectPath(key);
+      mkdirSync(resolve(p, ".."), { recursive: true });
+      writeFileSync(p, new Uint8Array(data));
+    },
+    async get(key) {
+      const p = objectPath(key);
+      return existsSync(p) ? { body: readFileSync(p) } : null;
+    },
+    async delete(key) {
+      const p = objectPath(key);
+      if (existsSync(p)) unlinkSync(p);
+    },
+  };
+  return { DB, FILES, LOCAL_DEV: true, close: () => sqlite.close() };
+}
+export function localApiPlugin() {
+  let env;
+  return {
+    name: "luspace-local-api",
+    configureServer(server) {
+      env = localEnv();
+      server.httpServer?.once("close", () => env.close());
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/")) return next();
+        try {
+          const chunks = [];
+          let size = 0;
+          for await (const chunk of req) {
+            size += chunk.length;
+            if (size > 11000000) {
+              res.statusCode = 413;
+              res.end("Archivo demasiado grande");
+              return;
+            }
+            chunks.push(chunk);
+          }
+          const base = "http://" + req.headers.host;
+          const request = new Request(new URL(req.url, base), {
+            method: req.method,
+            headers: req.headers,
+            body: ["GET", "HEAD"].includes(req.method)
+              ? undefined
+              : Buffer.concat(chunks),
+          });
+          const response = await handle(request, env);
+          res.writeHead(response.status, Object.fromEntries(response.headers));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (e) {
+          console.error(e);
+          res.statusCode = 500;
+          res.end("Error de servidor local");
+        }
+      });
+    },
+  };
+}
