@@ -217,8 +217,13 @@ function Rnd({ child, close }: { child: Row; close: () => void }) {
     >
       <ErrorNote error={error} />
       {record ? (
-        record.id && record.activo ? (
+        record.id && (record.activo || record.frente_r2_key || record.reverso_r2_key) ? (
           <>
+            {!record.activo && (
+              <p className="muted">
+                La credencial está adjunta, pero figura como inactiva. Puedes activarla desde Editar credencial.
+              </p>
+            )}
             <RecordDetails table="credenciales_discapacidad" row={record} />
             {["frente_r2_key", "reverso_r2_key"]
               .filter((k) => record[k])
