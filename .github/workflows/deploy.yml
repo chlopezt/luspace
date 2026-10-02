@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          D1_OUTPUT="$(npx wrangler d1 info luspace-db)"
-          D1_ID="$(printf '%s\n' "$D1_OUTPUT" | sed -n 's/^database_id = "\(.*\)"/\1/p')"
+          D1_OUTPUT="$(npx wrangler d1 list --config /dev/null)"
+          D1_ID="$(printf '%s\n' "$D1_OUTPUT" | grep -oE '[0-9a-f-]{36}' | head -1)"
           test -n "$D1_ID"
           npx wrangler r2 bucket create luspace-files || echo "R2 pendiente de activar en Cloudflare; se publica la aplicacion sin archivos adjuntos."
           sed "s/REEMPLAZAR_CON_DATABASE_ID/$D1_ID/" wrangler.toml > wrangler.deploy.toml
