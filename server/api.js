@@ -126,6 +126,8 @@ function permissions(a) {
 function member(a, module, action = "editar") {
   if (a.guest) fail(403, "El acceso de invitado es de solo lectura.");
   const p = permissions(a);
+  if (!module && !p.acciones?.some((x) => ["crear", "editar", "eliminar"].includes(x)))
+    fail(403, "Tu cuenta es de solo lectura.");
   if (module && (!p.modules?.includes(module) || !p.acciones?.includes(action)))
     fail(403, "Tu cuenta no tiene permiso para realizar esta acción.");
 }
