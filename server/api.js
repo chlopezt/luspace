@@ -159,6 +159,7 @@ async function validate(db, a, table, input, nino) {
       if (v !== null && (!Number.isFinite(v) || v < f.min || v > f.max))
         fail(400, `Revisa ${f.label}.`);
     } else if (f.type === "lines") {
+      if (v == null) v = [];
       if (typeof v === "string")
         v = v
           .split("\n")
@@ -1070,3 +1071,4 @@ export async function handle(req, env) {
     );
   }
 }
+
