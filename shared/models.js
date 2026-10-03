@@ -5,6 +5,7 @@ const f = (key, label, type = "text", extra = {}) => ({
   ...extra,
 });
 export const modules = {
+  perfil: "Perfil clínico",
   salud: "Salud",
   escolar: "Escolar",
   anamnesis: "Anamnesis",
@@ -17,13 +18,15 @@ export const models = {
     fields: [
       f("primer_nombre", "Nombre", "text", { required: true }),
       f("apellidos", "Apellidos"),
-      f("apodo", "Apodo"),
       f("fecha_nacimiento", "Fecha de nacimiento", "date", { required: true }),
       f("sexo_referencia", "Sexo de referencia OMS", "select", {
         options: ["sin_registrar", "masculino", "femenino"],
       }),
       f("grupo_sanguineo", "Grupo sanguíneo"),
       f("alergias", "Alergias y reacciones", "textarea"),
+      f("diagnostico", "Diagnóstico", "textarea"),
+      f("especialistas_json", "Profesionales y especialistas (uno por línea)", "lines"),
+      f("foto_perfil_id", "Foto de perfil", "file"),
       f("rnd_habilitado", "Mostrar credencial RND", "checkbox"),
     ],
   },
@@ -101,6 +104,7 @@ export const models = {
         "textarea",
       ),
       f("adecuaciones_json", "Adecuaciones vigentes (una por línea)", "lines"),
+      f("paec_json", "PAEC: apoyos emocionales y conductuales (uno por línea)", "lines"),
     ],
   },
   historial_colegios: {
@@ -218,4 +222,3 @@ export const anamnesisSections = [
     ],
   ],
 ];
-

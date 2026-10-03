@@ -80,7 +80,7 @@ export default function Dashboard({
           <h1>Hola, familia.</h1>
           <p className="muted">
             Una mirada tranquila al cuidado de{" "}
-            {child.apodo || child.primer_nombre}.
+            {child.primer_nombre}.
           </p>
         </div>
       </section>

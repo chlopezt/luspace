@@ -528,6 +528,23 @@ export function Attachments({
             >
               <Download size={17} />
             </a>
+            {!readonly && (
+              <button
+                className="link-button danger"
+                aria-label={"Eliminar " + f.nombre}
+                onClick={async () => {
+                  if (!confirm("¿Eliminar este archivo? Esta acción no se puede deshacer.")) return;
+                  try {
+                    await api("files/" + f.id, "DELETE");
+                    await load();
+                  } catch (e) {
+                    setError((e as Error).message);
+                  }
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
             <details className="file-preview">
               <summary>Vista previa</summary>
               {String(f.mime).startsWith("image/") ? (
@@ -543,4 +560,3 @@ export function Attachments({
     </section>
   );
 }
-

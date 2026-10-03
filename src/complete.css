@@ -292,8 +292,10 @@ small {
 .attachments {
   margin-top: 26px;
 }
+.patient-photo { width: 112px; height: 112px; object-fit: cover; border-radius: 18px; border: 1px solid var(--line); margin-bottom: 14px; }
 .attachments li {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   border-top: 1px solid var(--line);
@@ -307,9 +309,9 @@ small {
   flex: 1;
   overflow-wrap: anywhere;
 }
-.file-preview { width: 100%; margin-top: 8px; }
+.file-preview { width: 100%; margin-top: 4px; }
 .file-preview summary { cursor: pointer; color: var(--accent); font-weight: 700; }
-.file-preview img, .file-preview iframe { display: block; width: 100%; max-height: 360px; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; object-fit: contain; background: white; }
+.file-preview img, .file-preview iframe { display: block; width: min(100%, 520px); height: 180px; max-height: 180px; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; object-fit: contain; background: white; }
 .timeline {
   display: grid;
   gap: 20px;
@@ -700,4 +702,3 @@ li {
     animation: none !important;
   }
 }
-

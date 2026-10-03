@@ -91,7 +91,7 @@ async function actor(req, db) {
   if (s.usuario_id) {
     const u = await first(
       db,
-      "SELECT id,familia_id,nombre,correo,rol FROM usuarios WHERE id=? AND activo=1",
+      "SELECT id,familia_id,nombre,correo,rol,permisos_json FROM usuarios WHERE id=? AND activo=1",
       s.usuario_id,
     );
     if (!u) fail(401, "Acceso revocado.");
@@ -988,6 +988,18 @@ export async function handle(req, env) {
         ]);
       return json({ id }, 201);
     }
+    if (path.startsWith("files/") && method === "DELETE") {
+      member(a);
+      const id = path.split("/")[1];
+      const f = await first(db, "SELECT * FROM archivos WHERE id=? AND familia_id=?", id, a.familia_id);
+      if (!f) fail(404, "Archivo no encontrado.");
+      await db.batch([
+        stmt(db, "DELETE FROM archivo_chunks WHERE archivo_id=?", id),
+        stmt(db, "DELETE FROM archivos WHERE id=?", id),
+        audit(db, a, "DELETE", "Archivo eliminado: " + f.modulo, ip),
+      ]);
+      return json({ ok: true });
+    }
     if (path.startsWith("files/") && method === "GET") {
       const f = await first(
         db,
@@ -1058,4 +1070,3 @@ export async function handle(req, env) {
     );
   }
 }
-

@@ -549,7 +549,7 @@ export default function App() {
             >
               {children.map((c) => (
                 <option value={c.id} key={c.id}>
-                  {c.apodo || c.primer_nombre}
+          {c.primer_nombre}
                 </option>
               ))}
               {!children.length && <option>Mi familia</option>}
@@ -612,6 +612,9 @@ export default function App() {
                     </div>
                   </div>
                   <article className="card">
+                    {child.foto_perfil_id && (
+                      <img className="patient-photo" src={"/api/files/" + child.foto_perfil_id} alt={"Foto de " + child.primer_nombre} />
+                    )}
                     <RecordDetails table="ninos" row={child} />
                   </article>
                 </>
@@ -736,4 +739,3 @@ export default function App() {
     </div>
   );
 }
-

@@ -62,12 +62,13 @@ export function Report({ data }: { data: Row }) {
           <Text style={styles.h2}>LuSpace</Text>
         )}
         <Text style={styles.h1}>Informe de cuidado</Text>
+        {data.includePhoto && data.profilePhoto && <Image src={data.profilePhoto} style={{ width: 80, height: 80, objectFit: "cover", marginBottom: 8 }} />}
         <Text>
           {data.child.primer_nombre} {data.child.apellidos || ""}
         </Text>
-      <Text>Nacimiento: {data.child.fecha_nacimiento}</Text>
-      {"alergias" in data.child && <Text>Alergias: {data.child.alergias || "Sin registrar"}</Text>}
-      {"grupo_sanguineo" in data.child && <Text>Grupo sanguíneo: {data.child.grupo_sanguineo || "Sin registrar"}</Text>}
+      {data.child.fecha_nacimiento && <Text>Nacimiento: {data.child.fecha_nacimiento}</Text>}
+      {data.child.alergias && <Text>Alergias: {data.child.alergias}</Text>}
+      {data.child.grupo_sanguineo && <Text>Grupo sanguíneo: {data.child.grupo_sanguineo}</Text>}
         <Text>
           Emitido: {new Date(data.created).toLocaleDateString("es-CL")}
         </Text>
@@ -80,7 +81,7 @@ export function Report({ data }: { data: Row }) {
             <Text style={styles.h2} minPresenceAhead={80}>
               Anamnesis pediátrica
             </Text>
-            {anamnesisSections.map(([key, title, fields]) => (
+            {anamnesisSections.filter(([key]) => Object.values(data.anamnesis[key as string] || {}).some(Boolean)).map(([key, title, fields]) => (
               <View
                 key={String(key)}
                 wrap={(fields as string[]).some(
@@ -91,29 +92,28 @@ export function Report({ data }: { data: Row }) {
                 <Text style={styles.h2} minPresenceAhead={60}>
                   {title as string}
                 </Text>
-                {(fields as string[]).map((label, i) => (
+                {(fields as string[]).map((label, i) => data.anamnesis[key as string]?.[i] ? (
                   <Pair
                     key={i}
                     label={label}
                     value={
-                      data.anamnesis[key as string]?.[i] || "Sin registrar"
+                      data.anamnesis[key as string]?.[i]
                     }
                   />
-                ))}
+                ) : null)}
               </View>
             ))}
           </>
         )}
-        {Object.entries(data.sections).map(([table, rows]) => (
+        {Object.entries(data.sections).filter(([, rows]) => (rows as Row[]).length).map(([table, rows]) => (
           <View key={table}>
             <Text style={styles.h2} minPresenceAhead={60}>
               {(models as Row)[table].title}
             </Text>
-            {!(rows as Row[]).length && <Text>Sin registros</Text>}
             {(rows as Row[]).map((r: Row) => (
               <View style={styles.record} key={r.id}>
                 {(models as Row)[table].fields
-                  .filter((f: Row) => f.type !== "file")
+                  .filter((f: Row) => f.type !== "file" && r[f.key] !== null && r[f.key] !== undefined && r[f.key] !== "" && !(f.type === "lines" && !JSON.parse(r[f.key] || "[]").length))
                   .map((f: Row) => (
                     <Pair
                       key={f.key}
@@ -125,7 +125,7 @@ export function Report({ data }: { data: Row }) {
                             : "No"
                           : f.type === "lines"
                             ? JSON.parse(r[f.key] || "[]").join("\n")
-                            : String(r[f.key] ?? "Sin registrar")
+                            : String(r[f.key])
                       }
                     />
                   ))}

@@ -89,7 +89,7 @@ export default function Growth({ child, rows }: { child: Row; rows: Row[] }) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">CRECIMIENTO</p>
-          <h2>Evolución de {child.apodo || child.primer_nombre}</h2>
+          <h2>Evolución de {child.primer_nombre}</h2>
         </div>
         <select
           aria-label="Medida del gráfico"
