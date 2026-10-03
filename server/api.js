@@ -237,6 +237,11 @@ async function validate(db, a, table, input, nino) {
 async function records(db, a, table, nino) {
   allowed(a, models[table].module);
   await child(db, a, nino);
+  // El perfil usa `id` como clave; los demás módulos se relacionan por nino_id.
+  // Sin esta distinción, exportar "Perfil clínico" provocaba un error SQL y
+  // detenía por completo la descarga del informe.
+  if (table === "ninos")
+    return all(db, "SELECT * FROM ninos WHERE id=?", nino);
   return all(
     db,
     `SELECT * FROM ${table} WHERE nino_id=? ORDER BY rowid DESC`,
