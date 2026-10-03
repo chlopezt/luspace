@@ -14,6 +14,7 @@ import {
   LogOut,
   UserRound,
   Download,
+  Trash2,
 } from "lucide-react";
 import { api, type Row } from "./lib";
 import {
@@ -200,29 +201,34 @@ function Auth({
     </div>
   );
 }
-function Rnd({ child, close }: { child: Row; close: () => void }) {
+function Rnd({ child, close, readonly = false, onChange }: { child: Row; close: () => void; readonly?: boolean; onChange?: () => void }) {
   const [record, setRecord] = useState<Row | null>(null),
     [files, setFiles] = useState<Row[]>([]),
     [error, setError] = useState("");
+  async function load() {
+    try {
+      const [records, attachments] = await Promise.all([
+        api("records/credenciales_discapacidad?child=" + child.id),
+        api("files?child=" + child.id + "&module=rnd"),
+      ]);
+      setRecord(records[0] || {});
+      setFiles(attachments);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   useEffect(() => {
-    Promise.all([
-      api("records/credenciales_discapacidad?child=" + child.id),
-      api("files?child=" + child.id + "&module=rnd"),
-    ])
-      .then(([records, attachments]) => {
-        setRecord(records[0] || {});
-        setFiles(attachments);
-      })
-      .catch((e) => setError(e.message));
+    void load();
   }, [child.id]);
   const linked = record
     ? [record.frente_r2_key, record.reverso_r2_key].filter(Boolean)
     : [];
+  const fileIds = new Set(files.map((file) => file.id));
   const documents = [
-    ...(record?.frente_r2_key
+    ...(record?.frente_r2_key && fileIds.has(record.frente_r2_key)
       ? [{ id: record.frente_r2_key, label: "Frente / documento" }]
       : []),
-    ...(record?.reverso_r2_key
+    ...(record?.reverso_r2_key && fileIds.has(record.reverso_r2_key)
       ? [{ id: record.reverso_r2_key, label: "Reverso" }]
       : []),
     ...files
@@ -261,6 +267,18 @@ function Rnd({ child, close }: { child: Row; close: () => void }) {
                     <Download size={16} />
                     Descargar
                   </a>
+                  {!readonly && (
+                    <button type="button" className="link-button danger" onClick={async () => {
+                      if (!confirm("¿Eliminar este archivo de la credencial?")) return;
+                      try {
+                        await api("files/" + document.id, "DELETE");
+                        await load();
+                        onChange?.();
+                      } catch (e) { setError((e as Error).message); }
+                    }}>
+                      <Trash2 size={16} /> Eliminar archivo
+                    </button>
+                  )}
                 </section>
               ))}
           </>
@@ -285,6 +303,7 @@ function Export({
   const [selected, setSelected] = useState(
       allowed.includes("anamnesis") ? ["anamnesis"] : allowed.slice(0, 1),
     ),
+    [includePhoto, setIncludePhoto] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -313,6 +332,12 @@ function Export({
             </label>
           ))}
       </div>
+      {child.foto_perfil_id && (
+        <label className="check">
+          <input type="checkbox" checked={includePhoto} onChange={(e) => setIncludePhoto(e.target.checked)} />
+          Incluir foto de perfil
+        </label>
+      )}
       <ErrorNote error={error} />
       <button
         className="primary"
@@ -325,6 +350,19 @@ function Export({
               child: child.id,
               modules: selected,
             });
+            if (includePhoto && child.foto_perfil_id) {
+              const response = await fetch("/api/files/" + child.foto_perfil_id, { credentials: "same-origin" });
+              if (response.ok) {
+                const blob = await response.blob();
+                data.includePhoto = true;
+                data.profilePhoto = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve(String(reader.result));
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+              }
+            }
             const { exportPdf } = await import("./report");
             await exportPdf(data);
             close();
@@ -362,6 +400,7 @@ export default function App() {
     [menu, setMenu] = useState(false),
     [profile, setProfile] = useState<Row | null>(null),
     [rnd, setRnd] = useState(false),
+    [rndAvailable, setRndAvailable] = useState(false),
     [report, setReport] = useState(false),
     [tab, setTab] = useState(0),
     [dirty, setDirty] = useState(false);
@@ -408,6 +447,33 @@ export default function App() {
     setChildren(list);
     if (!childId && list.length) setChildId(list[0].id);
   }
+  async function refreshRnd() {
+    if (!childId || !me) {
+      setRndAvailable(false);
+      return;
+    }
+    try {
+      const [records, files] = await Promise.all([
+        api("records/credenciales_discapacidad?child=" + childId),
+        api("files?child=" + childId + "&module=rnd"),
+      ]);
+      const record = records[0] as Row | undefined;
+      const hasInformation = !!record && Object.entries(record).some(
+        ([key, value]) =>
+          !["id", "nino_id", "created_at", "updated_at"].includes(key) &&
+          value !== null &&
+          value !== "" &&
+          value !== 0 &&
+          value !== false,
+      );
+      setRndAvailable(Boolean(files.length || hasInformation));
+    } catch {
+      setRndAvailable(false);
+    }
+  }
+  useEffect(() => {
+    void refreshRnd();
+  }, [childId, me?.id]);
   function go(next: string) {
     if (
       dirty &&
@@ -438,7 +504,7 @@ export default function App() {
     }
   }
   const child = children.find((n) => n.id === childId),
-    readonly = !!me?.guest,
+    readonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
     available = readonly ? me?.modules : Object.keys(modules);
   if (loading)
     return (
@@ -555,7 +621,7 @@ export default function App() {
               {!children.length && <option>Mi familia</option>}
             </select>
           </label>
-          {child?.rnd_habilitado && available.includes("rnd") ? (
+          {child?.rnd_habilitado && rndAvailable && available.includes("rnd") ? (
             <button className="rnd" onClick={() => setRnd(true)}>
               <ShieldCheck size={17} />
               <span>Credencial RND</span>
@@ -684,8 +750,9 @@ export default function App() {
                     table="credenciales_discapacidad"
                     child={child}
                     readonly={readonly}
+                    onChange={() => void refreshRnd()}
                   />
-                  {!!child.rnd_habilitado && (
+                  {!!child.rnd_habilitado && rndAvailable && (
                     <button className="secondary" onClick={() => setRnd(true)}>
                       Ver credencial en pantalla completa
                     </button>
@@ -728,7 +795,14 @@ export default function App() {
           />
         </Modal>
       )}
-      {rnd && child && <Rnd child={child} close={() => setRnd(false)} />}{" "}
+      {rnd && child && (
+        <Rnd
+          child={child}
+          close={() => setRnd(false)}
+          readonly={readonly}
+          onChange={() => void refreshRnd()}
+        />
+      )}{" "}
       {report && child && (
         <Export
           child={child}
