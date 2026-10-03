@@ -134,9 +134,17 @@ function admin(a) {
   if (a.rol !== "superadmin")
     fail(403, "Solo la administración principal puede realizar esta acción.");
 }
+const fullEditorAccess = () => ({
+  modules: Object.keys(modules),
+  acciones: ["ver", "crear", "editar", "eliminar"],
+});
 function permissions(a) {
-  if (a.rol === "superadmin") return { modules: Object.keys(modules), acciones: ["ver", "crear", "editar", "eliminar"] };
-  try { return JSON.parse(a.permisos_json || "{}"); } catch { return {}; }
+  if (a.rol === "superadmin") return fullEditorAccess();
+  let p;
+  try { p = JSON.parse(a.permisos_json || "{}"); } catch { p = {}; }
+  if (a.rol === "editor" && (!Array.isArray(p?.modules) || !p.modules.length || !Array.isArray(p?.acciones) || !p.acciones.length))
+    return fullEditorAccess();
+  return p;
 }
 function member(a, module, action = "editar") {
   if (a.guest) fail(403, "El acceso de invitado es de solo lectura.");
@@ -422,7 +430,11 @@ export async function handle(req, env) {
         "SELECT nombre FROM familias WHERE id=?",
         a.familia_id,
       );
-      return json({ ...a, familia: family.nombre });
+      return json({
+        ...a,
+        permisos_json: JSON.stringify(permissions(a)),
+        familia: family.nombre,
+      });
     }
     if (path === "admin/storage-metrics" && method === "GET") {
       admin(a);
