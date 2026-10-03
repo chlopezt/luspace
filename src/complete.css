@@ -175,6 +175,20 @@ small {
   font-size: 14px;
   font-weight: 600;
 }
+.password-field { position: relative; display: block; }
+.password-field input { padding-right: 48px; }
+.password-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); min-height: 34px; min-width: 38px; padding: 6px; border: 0; background: transparent; color: var(--muted); }
+.storage-button { width: calc(100% - 28px); margin: 14px; display: inline-flex; align-items: center; gap: 8px; justify-content: center; border: 1px solid #bae6fd; color: #0369a1; background: #f0f9ff; border-radius: 10px; font-size: 13px; font-weight: 700; }
+.storage-metrics { display: grid; gap: 16px; }
+.storage-overview { display: flex; align-items: center; gap: 18px; padding: 8px 0; }
+.storage-donut { --usage: 0%; width: 108px; height: 108px; flex: 0 0 108px; display: grid; place-items: center; border-radius: 50%; background: conic-gradient(#14b8a6 var(--usage), #e7f1ef 0); position: relative; }
+.storage-donut::before { content: ""; width: 76px; height: 76px; border-radius: 50%; background: var(--surface); position: absolute; }
+.storage-donut strong { z-index: 1; font-size: 17px; }
+.storage-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+.storage-summary span { padding: 7px 10px; border-radius: 8px; background: var(--soft); font-size: 13px; font-weight: 700; }
+.storage-breakdown { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.storage-breakdown li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.storage-breakdown b { font-family: "JetBrains Mono", monospace; font-size: 12px; }
 .form-grid .field {
   margin: 0;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import {
   Activity,
   HeartPulse,
@@ -15,6 +15,9 @@ import {
   UserRound,
   Download,
   Trash2,
+  Eye,
+  EyeOff,
+  HardDrive,
 } from "lucide-react";
 import { api, type Row } from "./lib";
 import {
@@ -82,7 +85,8 @@ function Auth({
   guestToken: string;
 }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [showPassword, setShowPassword] = useState(false);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -157,14 +161,19 @@ function Auth({
                 </label>
                 <label className="field">
                   Contraseña{setup ? " (mínimo 12 caracteres)" : ""}
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    minLength={setup ? 12 : undefined}
-                    maxLength={128}
-                    autoComplete={setup ? "new-password" : "current-password"}
-                  />
+                  <span className="password-field">
+                    <input
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={setup ? 12 : undefined}
+                      maxLength={128}
+                      autoComplete={setup ? "new-password" : "current-password"}
+                    />
+                    <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </span>
                 </label>
               </>
             ) : (
@@ -193,8 +202,7 @@ function Auth({
         </form>
         {!setup && !guestToken && (
           <p className="muted">
-            Si olvidaste tu contraseña, pide a un SuperAdmin de tu familia que
-            restablezca tu acceso.
+            Si olvidaste tu contraseña, pide al administrador de tu familia que restablezca tu acceso.
           </p>
         )}
       </main>
@@ -378,6 +386,32 @@ function Export({
     </Modal>
   );
 }
+function StorageMetrics({ close }: { close: () => void }) {
+  const [metrics, setMetrics] = useState<Row | null>(null),
+    [error, setError] = useState("");
+  useEffect(() => {
+    api("admin/storage-metrics")
+      .then(setMetrics)
+      .catch((e) => setError((e as Error).message));
+  }, []);
+  const format = (bytes = 0) => {
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  };
+  const percent = Math.min(100, Number(metrics?.total_bytes || 0) / Number(metrics?.limit_bytes || 1) * 100);
+  return <Modal title="Estado de almacenamiento" description="Uso de archivos privados de tu familia." close={close}>
+    <ErrorNote error={error} />
+    {!metrics ? <p className="muted">Calculando almacenamiento…</p> : <div className="storage-metrics">
+      <div className="storage-overview">
+        <div className="storage-donut" style={{ "--usage": `${percent}%` } as CSSProperties}><strong>{percent.toFixed(1)}%</strong></div>
+        <div><strong>{format(metrics.total_bytes)} de {format(metrics.limit_bytes)}</strong><p className="muted">Límite de referencia Cloudflare R2</p></div>
+      </div>
+      <div className="storage-summary"><span>{metrics.total_files} archivos</span><span>Promedio {format(metrics.average_bytes)}</span></div>
+      <h3>Por tipo de archivo</h3>
+      <ul className="storage-breakdown">{metrics.breakdown.map((item: Row) => <li key={item.tipo}><span>{item.tipo}</span><b>{item.archivos} · {format(item.bytes)}</b></li>)}</ul>
+    </div>}
+  </Modal>;
+}
 const navigation = [
   ["inicio", "Inicio", Activity],
   ["perfil", "Perfil", UserRound],
@@ -400,6 +434,7 @@ export default function App() {
     [menu, setMenu] = useState(false),
     [profile, setProfile] = useState<Row | null>(null),
     [rnd, setRnd] = useState(false),
+    [storage, setStorage] = useState(false),
     [rndAvailable, setRndAvailable] = useState(false),
     [report, setReport] = useState(false),
     [tab, setTab] = useState(0),
@@ -578,6 +613,11 @@ export default function App() {
               </button>
             ))}
         </nav>
+        {me.rol === "superadmin" && (
+          <button className="storage-button" onClick={() => setStorage(true)}>
+            <HardDrive size={17} /> Estado almacenamiento
+          </button>
+        )}
         <div className="profile">
           <span>{me.nombre.slice(0, 1)}</span>
           <div>
@@ -808,6 +848,7 @@ export default function App() {
           onChange={() => void refreshRnd()}
         />
       )}{" "}
+      {storage && me?.rol === "superadmin" && <StorageMetrics close={() => setStorage(false)} />}
       {report && child && (
         <Export
           child={child}
