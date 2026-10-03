@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, HeartPulse, CalendarDays } from "lucide-react";
+import { BookOpen, CalendarDays, Pill, PencilLine, AlertTriangle } from "lucide-react";
 import { api, age, today, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
 import Growth from "./Growth";
@@ -59,12 +59,33 @@ export default function Dashboard({
     height = growth.find((r) => r.talla_cm),
     activeMeds = meds
       .map((m): Row => ({ ...m, next: nextDose(m, now) }))
-      .filter((m) => m.next)
-      .sort((a, b) => a.next - b.next),
+      .filter(
+        (m) =>
+          m.activo &&
+          m.fecha_inicio <= today() &&
+          (!m.fecha_termino || m.fecha_termino >= today()),
+      )
+      .sort((a, b) => (a.next || Number.MAX_SAFE_INTEGER) - (b.next || Number.MAX_SAFE_INTEGER)),
     upcomingVisits = visits
       .filter((v) => Date.parse(v.fecha) >= now)
       .sort((a, b) => a.fecha.localeCompare(b.fecha)),
-    mood = diary.find((d) => d.fecha === today());
+    mood = diary.find((d) => d.fecha === today()),
+    allergyItems = String(child.alergias || "")
+      .split(/[\n;|]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  const timeLabel = (value?: number) =>
+    value
+      ? new Date(value).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
+      : "Sin horario";
+  const visitDate = (value: string) => {
+    const date = new Date(value);
+    return {
+      month: date.toLocaleDateString("es-CL", { month: "short" }).replace(".", "").toUpperCase(),
+      day: date.toLocaleDateString("es-CL", { day: "2-digit" }),
+      time: date.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+    };
+  };
   return (
     <>
       <section className="intro">
@@ -84,10 +105,13 @@ export default function Dashboard({
         </div>
       </section>
       <ErrorNote error={error} />
-      {child.alergias && (
+      {allergyItems.length > 0 && (
         <div className="allergy">
-          <strong>Alergias registradas</strong>
-          <p>{child.alergias}</p>
+          <AlertTriangle size={18} aria-hidden="true" />
+          <strong>ALERGIAS REGISTRADAS:</strong>
+          <div className="allergy-items">
+            {allergyItems.map((item) => <span key={item}>• {item}</span>)}
+          </div>
         </div>
       )}
       <section className="stats">
@@ -119,16 +143,19 @@ export default function Dashboard({
       </section>
       <section className="grid">
         <Growth child={child} rows={growth} />
-        <article className="card medicine">
+        <article className="card medicine dashboard-panel">
           <div className="section-heading">
-            <h2>Próxima dosis</h2>
-            <HeartPulse size={21} />
+            <h2><Pill size={19} /> Medicamentos activos</h2>
           </div>
           {activeMeds.length ? (
-            <ul className="dashboard-list">
-              {activeMeds.map((med) => (
-                <li key={med.id}>
+            <ul className="dashboard-list medication-list">
+              {activeMeds.map((med, index) => (
+                <li key={med.id} className={index === 0 && med.next ? "next-dose" : ""}>
+                  <Pill size={17} aria-hidden="true" />
                   <button className="link-button" onClick={() => go("salud")}>{med.nombre}</button>
+                  <span className="dose">{med.dosis || "Dosis sin registrar"}</span>
+                  {index === 0 && med.next && <span className="dose-badge">en {Math.max(0, Math.ceil((med.next - now) / 60000))} min</span>}
+                  <time>{timeLabel(med.next)}</time>
                 </li>
               ))}
             </ul>
@@ -139,34 +166,41 @@ export default function Dashboard({
             Ver tratamientos
           </button>
         </article>
-        <article className="card school">
+        <article className="card school dashboard-panel">
           <div className="section-heading">
             <h2>Hoy en el colegio</h2>
             <BookOpen size={21} />
           </div>
-          <h3>{mood ? mood.estado_animo : "Bitácora pendiente"}</h3>
-          <p className="muted">
+          <div className="school-cta">
+            <h3>{mood ? mood.estado_animo : "Bitácora de hoy pendiente"}</h3>
+            <p className="muted">
             {mood
               ? mood.crisis_sobrecarga
                 ? "Sobrecarga registrada. Revisa los apoyos utilizados."
                 : "Sin sobrecarga registrada."
               : "Registra cómo estuvo su día y qué apoyos ayudaron."}
-          </p>
-          <button className="soft-action" onClick={() => go("escolar")}>
-            Abrir módulo escolar
-          </button>
+            </p>
+            <button className="primary" onClick={() => go("escolar")}>
+              <PencilLine size={16} /> Registrar bitácora
+            </button>
+          </div>
         </article>
-        <article className="card appointment">
+        <article className="card appointment dashboard-panel">
           <div className="section-heading">
-            <h2>Próximo control</h2>
+            <h2>Próximos controles médicos</h2>
             <CalendarDays size={21} />
           </div>
           {upcomingVisits.length ? (
-            <ul className="dashboard-list">
+            <ul className="dashboard-list appointment-list">
               {upcomingVisits.map((visit) => (
                 <li key={visit.id}>
-                  <button className="link-button" onClick={() => go("salud")}>{visit.especialidad || "Consulta médica"}</button>
-                  <span>{dateLabel(visit.fecha)}</span>
+                  {(() => { const date = visitDate(visit.fecha); return <>
+                    <time className="calendar-block"><b>{date.month}</b><strong>{date.day}</strong><small>{date.time}</small></time>
+                    <div>
+                      <button className="link-button" onClick={() => go("salud")}>{visit.especialidad || "Consulta médica"} ↗</button>
+                      <p>{visit.nombre_medico || "Profesional por confirmar"}</p>
+                    </div>
+                  </>; })()}
                 </li>
               ))}
             </ul>

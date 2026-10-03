@@ -627,6 +627,17 @@ export default function App() {
               <span>Credencial RND</span>
             </button>
           ) : null}
+          {child && (
+            <button
+              className="secondary header-pdf"
+              disabled={dirty}
+              title={dirty ? "Espera a que la anamnesis indique Guardado" : undefined}
+              onClick={() => setReport(true)}
+            >
+              <Download size={16} />
+              <span>Descargar PDF</span>
+            </button>
+          )}
           <Theme />
         </header>
         <main id="main" className="content" key={childId}>
@@ -646,17 +657,11 @@ export default function App() {
             </section>
           ) : (
             <>
-              <div className="page-tools">
-                {readonly && (
-                  <span className="badge">
-                    Consulta profesional · solo lectura
-                  </span>
-                )}
-                <button className="link-button" disabled={dirty} title={dirty ? "Espera a que la anamnesis indique Guardado" : undefined} onClick={() => setReport(true)}>
-                  <Download size={16} />
-                  Descargar informe PDF
-                </button>
-              </div>
+              {readonly && (
+                <div className="page-tools">
+                  <span className="badge">Consulta profesional · solo lectura</span>
+                </div>
+              )}
               {view === "inicio" && <Dashboard child={child} go={go} />}{" "}
               {view === "perfil" && (
                 <>

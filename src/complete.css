@@ -508,23 +508,39 @@ th {
   gap: 12px;
   margin-bottom: 22px;
 }
+.header-pdf { order: 1; }
+.header-pdf span { white-space: nowrap; }
 .age-value {
   font-size: 18px !important;
   line-height: 1.7;
 }
 .allergy {
-  border-left: 4px solid #d64b55;
-  background: var(--surface);
-  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px 10px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #8a4b08;
+  padding: 14px 18px;
   margin-bottom: 20px;
   border-radius: 10px;
 }
 .allergy strong {
-  color: #c22d38;
+  color: #a6520a;
+  font-size: 13px;
 }
-.allergy p {
-  margin: 5px 0 0;
-  white-space: pre-wrap;
+.allergy-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 24px;
+  font-size: 14px;
+}
+.allergy-items span { white-space: nowrap; }
+.stat p,
+.eyebrow {
+  color: #617b96;
+  font-weight: 700;
+  letter-spacing: .06em;
 }
 .countdown {
   font-family: "JetBrains Mono", monospace;
@@ -544,6 +560,36 @@ th {
 .eyebrow {
   font-size: 12px;
 }
+.dashboard-panel { min-height: 276px; display: flex; flex-direction: column; }
+.dashboard-panel .section-heading h2 { display: inline-flex; align-items: center; gap: 8px; }
+.dashboard-panel .section-heading h2 svg { color: #8b5cf6; }
+.medication-list { gap: 8px; }
+.medication-list li {
+  display: grid;
+  grid-template-columns: 18px minmax(96px, 1fr) minmax(70px, .8fr) auto minmax(68px, auto);
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  background: var(--soft);
+  border-radius: 8px;
+}
+.medication-list li > svg { color: #f05b91; }
+.medication-list .link-button { min-height: 0; padding: 0; text-align: left; }
+.medication-list .dose { font-size: 13px; color: var(--muted); }
+.medication-list time { color: var(--ink); font-size: 13px; font-weight: 700; white-space: nowrap; text-align: right; }
+.medication-list .next-dose { background: #ecfdf5; border: 1px solid #a7f3d0; }
+.dose-badge { color: #08796f; background: #d1fae5; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.school-cta { border: 1px solid var(--line); background: var(--soft); border-radius: 10px; padding: 15px; margin-top: 3px; }
+.school-cta h3 { margin-top: 0; font-size: 16px; }
+.school-cta .primary { margin-top: 7px; min-height: 38px; padding: 8px 14px; }
+.appointment-list { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.appointment-list li { display: flex; align-items: center; gap: 10px; }
+.calendar-block { width: 58px; min-width: 58px; display: grid; justify-items: center; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; overflow: hidden; color: #1d4ed8; padding: 3px 0 5px; }
+.calendar-block b { width: 100%; background: #dbeafe; text-align: center; font-size: 11px; letter-spacing: .04em; }
+.calendar-block strong { font-size: 18px; line-height: 1.2; }
+.calendar-block small { color: #2563eb; font-size: 10px; }
+.appointment-list .link-button { padding: 0; min-height: 0; }
+.appointment-list p { color: var(--muted); font-size: 13px; margin: 3px 0 0; }
 .stat small,
 .legend {
   font-size: 13px;
