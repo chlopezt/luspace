@@ -500,7 +500,7 @@ export async function handle(req, env) {
       member(a, "perfil", "editar");
       const id = path.split("/")[1];
       await child(db, a, id);
-      const v = await validate(db, a, "ninos", await body(req));
+      const v = await validate(db, a, "ninos", await body(req), id);
       await db.batch([
         stmt(
           db,
