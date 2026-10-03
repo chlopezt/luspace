@@ -1005,10 +1005,20 @@ export async function handle(req, env) {
       );
       const parts = chunks.length ? chunks : f.contenido ? [{ contenido: f.contenido }] : [];
       if (!parts.length) fail(404, "Archivo no disponible.");
-      const bytes = new Uint8Array(parts.reduce((size, part) => size + part.contenido.byteLength, 0));
+      // D1 puede entregar BLOB como ArrayBuffer, vista tipada o arreglo de bytes
+      // según el entorno de ejecución. Normalizamos antes de reconstruir el archivo.
+      const binary = (value) => {
+        if (value instanceof Uint8Array) return value;
+        if (value instanceof ArrayBuffer) return new Uint8Array(value);
+        if (ArrayBuffer.isView(value))
+          return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+        if (Array.isArray(value)) return Uint8Array.from(value);
+        fail(500, "El formato del archivo almacenado no es válido.");
+      };
+      const values = parts.map((part) => binary(part.contenido));
+      const bytes = new Uint8Array(values.reduce((size, value) => size + value.byteLength, 0));
       let offset = 0;
-      for (const part of parts) {
-        const value = new Uint8Array(part.contenido);
+      for (const value of values) {
         bytes.set(value, offset);
         offset += value.byteLength;
       }
