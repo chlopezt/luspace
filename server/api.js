@@ -119,12 +119,21 @@ function admin(a) {
   if (a.rol !== "superadmin")
     fail(403, "Solo la administración principal puede realizar esta acción.");
 }
-function member(a) {
+function permissions(a) {
+  if (a.rol === "superadmin") return { modules: Object.keys(modules), acciones: ["ver", "crear", "editar", "eliminar"] };
+  try { return JSON.parse(a.permisos_json || "{}"); } catch { return {}; }
+}
+function member(a, module, action = "editar") {
   if (a.guest) fail(403, "El acceso de invitado es de solo lectura.");
+  const p = permissions(a);
+  if (module && (!p.modules?.includes(module) || !p.acciones?.includes(action)))
+    fail(403, "Tu cuenta no tiene permiso para realizar esta acción.");
 }
 function allowed(a, module) {
   if (a.guest && !a.modules.includes(module))
     fail(403, "El enlace no incluye este módulo.");
+  if (!a.guest && a.rol !== "superadmin" && !permissions(a).modules?.includes(module))
+    fail(403, "Tu cuenta no tiene acceso a este módulo.");
 }
 async function child(db, a, id) {
   const n = await first(
@@ -425,7 +434,7 @@ export async function handle(req, env) {
       );
     }
     if (path === "children" && method === "POST") {
-      member(a);
+      member(a, "perfil", "crear");
       const v = await validate(db, a, "ninos", await body(req));
       const id = uid(),
         keys = Object.keys(v);
@@ -442,7 +451,7 @@ export async function handle(req, env) {
       return json({ id }, 201);
     }
     if (path.startsWith("children/") && method === "PUT") {
-      member(a);
+      member(a, "perfil", "editar");
       const id = path.split("/")[1];
       await child(db, a, id);
       const v = await validate(db, a, "ninos", await body(req));
@@ -471,7 +480,7 @@ export async function handle(req, env) {
       await child(db, a, nino);
       allowed(a, models[table].module);
       if (method === "GET") return json(await records(db, a, table, nino));
-      member(a);
+      member(a, models[table].module, method === "DELETE" ? "eliminar" : id ? "editar" : "crear");
       if (
         id &&
         !(await first(
@@ -562,7 +571,7 @@ export async function handle(req, env) {
           version: row?.version || 0,
         });
       if (method === "PUT") {
-        member(a);
+        member(a, "anamnesis", "editar");
         const b = await body(req);
         if (
           !Number.isInteger(b.version) ||
@@ -694,7 +703,7 @@ export async function handle(req, env) {
         return json(
           await all(
             db,
-            "SELECT id,nombre,correo,rol,activo FROM usuarios WHERE familia_id=? ORDER BY created_at",
+            "SELECT id,nombre,correo,rol,activo,permisos_json FROM usuarios WHERE familia_id=? ORDER BY created_at",
             a.familia_id,
           ),
         );
@@ -702,17 +711,19 @@ export async function handle(req, env) {
         const b = await body(req),
           id = uid();
         const name = text(b.nombre, 120);
-        if (!name || !["editor", "superadmin"].includes(b.rol))
+        if (!name || !["editor", "superadmin", "lector"].includes(b.rol))
           fail(400, "Nombre y rol requeridos.");
+        const soloLectura = b.rol === "lector";
         await db.batch([
           stmt(
             db,
-            "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,?)",
+            "INSERT INTO usuarios(id,familia_id,nombre,correo,rol,permisos_json) VALUES(?,?,?,?,?,?)",
             id,
             a.familia_id,
             name,
             email(b.correo),
-            b.rol,
+            soloLectura ? "editor" : b.rol,
+            JSON.stringify(soloLectura ? { modules: Object.keys(modules), acciones: ["ver"] } : { modules: Object.keys(modules), acciones: ["ver", "crear", "editar", "eliminar"] }),
           ),
           stmt(
             db,
@@ -760,6 +771,13 @@ export async function handle(req, env) {
             id,
           ),
         );
+      if (b.permisos_json !== undefined) {
+        let p;
+        try { p = typeof b.permisos_json === "string" ? JSON.parse(b.permisos_json) : b.permisos_json; } catch { fail(400, "Permisos inválidos."); }
+        if (!Array.isArray(p?.modules) || !Array.isArray(p?.acciones) || p.modules.some((m) => !modules[m]) || p.acciones.some((x) => !["ver", "crear", "editar", "eliminar"].includes(x)))
+          fail(400, "Permisos inválidos.");
+        ops.push(stmt(db, "UPDATE usuarios SET permisos_json=? WHERE id=?", JSON.stringify({ modules: [...new Set(p.modules)], acciones: [...new Set(p.acciones)] }), id));
+      }
       ops.push(
         stmt(db, "DELETE FROM sesiones WHERE usuario_id=?", id),
         audit(
@@ -931,11 +949,11 @@ export async function handle(req, env) {
       );
     }
     if (path === "files" && method === "POST") {
-      member(a);
       if (Number(req.headers.get("content-length")) > 10500000)
         fail(413, "El archivo supera 10 MB.");
       const n = url.searchParams.get("child"),
         m = url.searchParams.get("module");
+      member(a, m, "crear");
       await child(db, a, n);
       if (!modules[m]) fail(400, "Módulo inválido.");
       const file = (await req.formData()).get("file");
@@ -990,10 +1008,10 @@ export async function handle(req, env) {
       return json({ id }, 201);
     }
     if (path.startsWith("files/") && method === "DELETE") {
-      member(a);
       const id = path.split("/")[1];
       const f = await first(db, "SELECT * FROM archivos WHERE id=? AND familia_id=?", id, a.familia_id);
       if (!f) fail(404, "Archivo no encontrado.");
+      member(a, f.modulo, "eliminar");
       await db.batch([
         stmt(db, "DELETE FROM archivo_chunks WHERE archivo_id=?", id),
         stmt(db, "DELETE FROM archivos WHERE id=?", id),
@@ -1071,4 +1089,3 @@ export async function handle(req, env) {
     );
   }
 }
-
