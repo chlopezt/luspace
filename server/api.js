@@ -45,6 +45,21 @@ function pass(v) {
     fail(400, "La contraseña debe tener entre 12 y 128 caracteres.");
   return v;
 }
+function rut(v) {
+  const clean = text(v, 16).replace(/[^0-9kK]/g, "").toUpperCase();
+  if (!clean) return "";
+  if (clean.length < 2) fail(400, "RUT inválido.");
+  const body = clean.slice(0, -1);
+  const verifier = clean.slice(-1);
+  let sum = 0, factor = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * factor;
+    factor = factor === 7 ? 2 : factor + 1;
+  }
+  const expected = String(11 - (sum % 11)).replace("10", "K").replace("11", "0");
+  if (verifier !== expected) fail(400, "RUT inválido. Revisa el dígito verificador.");
+  return body.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "-" + verifier;
+}
 function auditStatement(db, a, action, detail, ip, address) {
   return stmt(
     db,
@@ -163,6 +178,8 @@ async function validate(db, a, table, input, nino) {
   const values = {};
   for (const f of models[table].fields) {
     let v = input[f.key];
+    if (f.type === "select" && (v === undefined || v === null || v === ""))
+      v = f.options?.[0] || "";
     if (f.type === "checkbox") {
       v = v ? 1 : 0;
     } else if (f.type === "number") {
@@ -183,6 +200,8 @@ async function validate(db, a, table, input, nino) {
       )
         fail(400, "Adecuaciones inválidas.");
       v = JSON.stringify(v);
+    } else if (f.type === "rut") {
+      v = v == null ? "" : rut(v);
     } else {
       v = v == null ? "" : text(v);
     }
