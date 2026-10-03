@@ -405,6 +405,26 @@ export async function handle(req, env) {
       );
       return json({ ...a, familia: family.nombre });
     }
+    if (path === "admin/storage-metrics" && method === "GET") {
+      admin(a);
+      const total = await first(
+        db,
+        "SELECT count(*) AS total_files, coalesce(sum(bytes),0) AS total_bytes, coalesce(avg(bytes),0) AS average_bytes FROM archivos WHERE familia_id=?",
+        a.familia_id,
+      );
+      const breakdown = await all(
+        db,
+        "SELECT CASE WHEN modulo='rnd' THEN 'Credenciales RND' WHEN modulo='escolar' THEN 'Bitácoras y escolar' WHEN modulo='salud' THEN 'Exámenes y recetas' WHEN modulo IN ('perfil','ninos') THEN 'Fotos de perfil' ELSE 'Otros documentos' END AS tipo, count(*) AS archivos, coalesce(sum(bytes),0) AS bytes FROM archivos WHERE familia_id=? GROUP BY tipo ORDER BY bytes DESC",
+        a.familia_id,
+      );
+      return json({
+        limit_bytes: 10 * 1024 * 1024 * 1024,
+        total_files: Number(total.total_files || 0),
+        total_bytes: Number(total.total_bytes || 0),
+        average_bytes: Number(total.average_bytes || 0),
+        breakdown,
+      });
+    }
     if (path === "logout" && method === "POST") {
       const raw = req.headers
         .get("cookie")
