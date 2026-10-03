@@ -90,6 +90,10 @@ export function Field({
     [busy, setBusy] = useState(false);
   const upload = async (file?: File) => {
     if (!file) return;
+    if (!child) {
+      setError("Guarda primero el perfil para poder adjuntar una imagen o documento.");
+      return;
+    }
     setBusy(true);
     onBusy?.(true);
     setError("");

@@ -725,7 +725,11 @@ export default function App() {
                   <div className="profile-cards">
                     <article className="card profile-card">
                       <h2>Datos personales e identificación</h2>
-                      {child.foto_perfil_id && <img className="patient-photo" src={"/api/files/" + child.foto_perfil_id} alt={"Foto de " + child.primer_nombre} />}
+                      {child.foto_perfil_id ? (
+                        <img className="patient-photo" src={"/api/files/" + child.foto_perfil_id} alt={"Foto de " + child.primer_nombre} />
+                      ) : (
+                        <div className="patient-avatar" aria-label="Sin foto de perfil"><UserRound size={48} /></div>
+                      )}
                       <RecordDetails table="ninos" row={child} onlyFields={["primer_nombre", "apellidos", "rut", "fecha_nacimiento", "sexo_referencia", "foto_perfil_id", "carnet_identidad_id"]} />
                     </article>
                     <article className="card profile-card">
@@ -836,6 +840,7 @@ export default function App() {
           <RecordForm
             table="ninos"
             initial={profile}
+            child={profile.id}
             onSave={async (v) => {
               const r = await api(
                 profile.id ? "children/" + profile.id : "children",
