@@ -307,6 +307,10 @@ small {
   margin-top: 26px;
 }
 .patient-photo { width: 112px; height: 112px; object-fit: cover; border-radius: 18px; border: 1px solid var(--line); margin-bottom: 14px; }
+.profile-cards { display: grid; gap: 18px; }
+.profile-card { padding: 22px; }
+.profile-card h2 { font-size: 17px; margin: 0 0 18px; color: var(--ink); }
+.profile-card .details { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .attachments li {
   display: flex;
   flex-wrap: wrap;

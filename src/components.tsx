@@ -110,6 +110,12 @@ export function Field({
     required: f.required,
     "aria-label": f.label,
   };
+  const formatRut = (value: string) => {
+    const clean = value.replace(/[^0-9kK]/g, "").toUpperCase();
+    if (clean.length < 2) return clean;
+    const body = clean.slice(0, -1).replace(/^0+/, "") || "0";
+    return body.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "-" + clean.slice(-1);
+  };
   return (
     <label
       className={
@@ -159,7 +165,7 @@ export function Field({
           {value && (
             <div className="actions">
               <a target="_blank" rel="noreferrer" href={"/api/files/" + value}>
-                Ver adjunto
+                {f.viewLabel || "Ver adjunto"}
               </a>
               {!disabled && (
                 <button
@@ -185,13 +191,14 @@ export function Field({
       ) : (
         <input
           {...common}
-          type={f.type}
+          type={f.type === "rut" ? "text" : f.type}
           value={value ?? ""}
+          inputMode={f.type === "rut" ? "text" : undefined}
           min={f.min}
           max={f.max}
           step={f.type === "number" ? "any" : undefined}
           maxLength={12000}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(f.type === "rut" ? formatRut(e.target.value) : e.target.value)}
         />
       )}
     </label>
@@ -330,10 +337,10 @@ export function RecordForm({
     </form>
   );
 }
-export function RecordDetails({ table, row }: { table: string; row: Row }) {
+export function RecordDetails({ table, row, onlyFields }: { table: string; row: Row; onlyFields?: string[] }) {
   return (
     <dl className="details">
-      {models[table].fields.map((f: any) => {
+      {models[table].fields.filter((f: any) => !onlyFields || onlyFields.includes(f.key)).map((f: any) => {
         let v = row[f.key];
         if (v === null || v === undefined || v === "") return null;
         if (f.type === "checkbox") v = v ? "Sí" : "No";
@@ -345,7 +352,7 @@ export function RecordDetails({ table, row }: { table: string; row: Row }) {
             <dd>
               {f.type === "file" ? (
                 <a href={"/api/files/" + v} target="_blank" rel="noreferrer">
-                  Abrir archivo
+                  {f.viewLabel || "Abrir archivo"}
                 </a>
               ) : (
                 String(v)

@@ -707,7 +707,7 @@ export default function App() {
                 <>
                   <div className="section-heading">
                     <h1>Perfil de {child.primer_nombre}</h1>
-                    <div className="actions">
+                    {!readonly && <div className="actions">
                       <button
                         className="secondary"
                         onClick={() => setProfile(child)}
@@ -720,14 +720,23 @@ export default function App() {
                       >
                         Agregar niño/a
                       </button>
-                    </div>
+                    </div>}
                   </div>
-                  <article className="card">
-                    {child.foto_perfil_id && (
-                      <img className="patient-photo" src={"/api/files/" + child.foto_perfil_id} alt={"Foto de " + child.primer_nombre} />
-                    )}
-                    <RecordDetails table="ninos" row={child} />
-                  </article>
+                  <div className="profile-cards">
+                    <article className="card profile-card">
+                      <h2>Datos personales e identificación</h2>
+                      {child.foto_perfil_id && <img className="patient-photo" src={"/api/files/" + child.foto_perfil_id} alt={"Foto de " + child.primer_nombre} />}
+                      <RecordDetails table="ninos" row={child} onlyFields={["primer_nombre", "apellidos", "rut", "fecha_nacimiento", "sexo_referencia", "foto_perfil_id", "carnet_identidad_id"]} />
+                    </article>
+                    <article className="card profile-card">
+                      <h2>Información médica y previsión</h2>
+                      <RecordDetails table="ninos" row={child} onlyFields={["grupo_sanguineo", "prevision_salud", "alergias", "diagnostico", "especialistas_json", "rnd_habilitado"]} />
+                    </article>
+                    <article className="card profile-card">
+                      <h2>Contactos de emergencia y datos escolares</h2>
+                      <RecordDetails table="ninos" row={child} onlyFields={["contacto_emergencia_principal_nombre", "contacto_emergencia_principal_parentesco", "contacto_emergencia_principal_telefono", "contacto_emergencia_secundario_nombre", "contacto_emergencia_secundario_parentesco", "contacto_emergencia_secundario_telefono", "colegio_actual", "curso_actual"]} />
+                    </article>
+                  </div>
                 </>
               )}
               {["salud", "escolar"].includes(view) && (
