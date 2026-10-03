@@ -499,7 +499,14 @@ export async function handle(req, env) {
       )
         fail(404, "Registro no encontrado.");
       if (method === "DELETE" && id) {
-        await db.batch([
+        const ops = [];
+        if (table === "credenciales_discapacidad") {
+          ops.push(
+            stmt(db, "DELETE FROM archivo_chunks WHERE archivo_id IN (SELECT id FROM archivos WHERE nino_id=? AND modulo='rnd')", nino),
+            stmt(db, "DELETE FROM archivos WHERE nino_id=? AND modulo='rnd'", nino),
+          );
+        }
+        ops.push(
           stmt(db, `DELETE FROM ${table} WHERE id=? AND nino_id=?`, id, nino),
           audit(
             db,
@@ -508,7 +515,8 @@ export async function handle(req, env) {
             `${models[table].title}: registro eliminado`,
             ip,
           ),
-        ]);
+        );
+        await db.batch(ops);
         return json({ ok: true });
       }
       if (method === "POST" || method === "PUT") {
