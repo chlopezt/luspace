@@ -242,7 +242,8 @@ export function RecordForm({
     ),
   );
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [calendarMinutes, setCalendarMinutes] = useState(60);
   const [uploads, setUploads] = useState<Record<string, boolean>>({});
   const uploading = Object.values(uploads).some(Boolean);
   async function submit(e: FormEvent) {
@@ -261,6 +262,30 @@ export function RecordForm({
     } finally {
       setBusy(false);
     }
+  }
+  function addToGoogleCalendar() {
+    const start = values.fecha;
+    if (!start) {
+      setError("Ingresa la fecha y hora antes de agregar la cita al calendario.");
+      return;
+    }
+    const begins = new Date(start);
+    if (!Number.isFinite(begins.getTime())) {
+      setError("La fecha y hora de la cita no es válida.");
+      return;
+    }
+    const ends = new Date(begins.getTime() + calendarMinutes * 60000);
+    const format = (date: Date) => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}${String(date.getMinutes()).padStart(2, "0")}00`;
+    const details = [
+      ["Profesional", values.medico_nombre],
+      ["Especialidad", values.especialidad],
+      ["Motivo", values.motivo_consulta],
+      ["Diagnóstico informado", values.diagnostico],
+      ["Plan de tratamiento", values.plan_tratamiento],
+    ].filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`).join("\n\n");
+    const title = `Consulta médica: ${values.especialidad || "Sin especialidad"} - ${values.medico_nombre || "Profesional"}`;
+    const params = new URLSearchParams({ action: "TEMPLATE", text: title, dates: `${format(begins)}/${format(ends)}`, details, ctz: "America/Santiago" });
+    window.open(`https://calendar.google.com/calendar/render?${params}`, "_blank", "noopener,noreferrer");
   }
   return (
     <form onSubmit={submit}>
@@ -283,6 +308,20 @@ export function RecordForm({
           <button type="button" className="secondary" onClick={onCancel}>
             Cancelar
           </button>
+        )}
+        {table === "consultas_medicas" && (
+          <>
+            <label className="calendar-duration">
+              Duración
+              <select value={calendarMinutes} onChange={(e) => setCalendarMinutes(Number(e.target.value))}>
+                <option value={30}>30 min</option>
+                <option value={60}>60 min</option>
+              </select>
+            </label>
+            <button type="button" className="secondary" onClick={addToGoogleCalendar}>
+              Agregar a Google Calendar
+            </button>
+          </>
         )}
         <button className="primary" disabled={busy || uploading}>
           {uploading ? "Esperando archivo…" : busy ? "Guardando…" : "Guardar"}

@@ -57,15 +57,14 @@ export default function Dashboard({
   }, [child.id]);
   const weight = growth.find((r) => r.peso_kg),
     height = growth.find((r) => r.talla_cm),
-    next = meds
+    activeMeds = meds
       .map((m): Row => ({ ...m, next: nextDose(m, now) }))
       .filter((m) => m.next)
-      .sort((a, b) => a.next - b.next)[0],
-    visit = visits
+      .sort((a, b) => a.next - b.next),
+    upcomingVisits = visits
       .filter((v) => Date.parse(v.fecha) >= now)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha))[0],
-    mood = diary.find((d) => d.fecha === today()),
-    remaining = next ? Math.max(0, Math.floor((next.next - now) / 1000)) : 0;
+      .sort((a, b) => a.fecha.localeCompare(b.fecha)),
+    mood = diary.find((d) => d.fecha === today());
   return (
     <>
       <section className="intro">
@@ -125,22 +124,14 @@ export default function Dashboard({
             <h2>Próxima dosis</h2>
             <HeartPulse size={21} />
           </div>
-          {next ? (
-            <>
-              <h3>{next.nombre}</h3>
-              <p>{next.dosis}</p>
-              <strong className="countdown">
-                {Math.floor(remaining / 3600)} h{" "}
-                {Math.floor((remaining % 3600) / 60)} min {remaining % 60} s
-              </strong>
-              <p className="muted">
-                {dateLabel(new Date(next.next!).toISOString())}
-              </p>
-              <p className="muted">
-                Horario orientativo según la pauta registrada; no confirma
-                administración.
-              </p>
-            </>
+          {activeMeds.length ? (
+            <ul className="dashboard-list">
+              {activeMeds.map((med) => (
+                <li key={med.id}>
+                  <button className="link-button" onClick={() => go("salud")}>{med.nombre}</button>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="empty-state">Sin tratamientos activos programados.</p>
           )}
@@ -170,12 +161,15 @@ export default function Dashboard({
             <h2>Próximo control</h2>
             <CalendarDays size={21} />
           </div>
-          {visit ? (
-            <>
-              <h3>{visit.especialidad || "Consulta médica"}</h3>
-              <p>{visit.medico_nombre}</p>
-              <p className="date">{dateLabel(visit.fecha)}</p>
-            </>
+          {upcomingVisits.length ? (
+            <ul className="dashboard-list">
+              {upcomingVisits.map((visit) => (
+                <li key={visit.id}>
+                  <button className="link-button" onClick={() => go("salud")}>{visit.especialidad || "Consulta médica"}</button>
+                  <span>{dateLabel(visit.fecha)}</span>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="empty-state">No hay controles programados.</p>
           )}
