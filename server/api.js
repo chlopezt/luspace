@@ -2,6 +2,7 @@ import { models, modules, anamnesisSections } from "../shared/models.js";
 import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
 import { subscription } from "./subscription.js";
+import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -479,6 +480,16 @@ export async function handle(req, env) {
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
+      if(path==='platform/storage-migration') {
+        if(method==='GET')return json(await migrationStatus(env));
+        if(method==='POST') {
+          await limit(db,'r2-migration:'+a.id);
+          if(!r2Enabled(env))fail(503,'R2 no está habilitado o vinculado. Los originales siguen en D1.');
+          const result=await copyNextFile(env,a.id);
+          return json({...result,...await migrationStatus(env)});
+        }
+        fail(405,'Método no permitido.');
+      }
       const familyRoute=path.match(/^platform\/families\/([^/]+)(?:\/users\/([^/]+)\/(reset-password|active|close-sessions))?$/);
       if(familyRoute) {
         const [,familyId,userId,operation]=familyRoute;
@@ -569,7 +580,7 @@ export async function handle(req, env) {
         all(db,"SELECT accion,descripcion,created_at FROM auditoria_plataforma ORDER BY created_at DESC LIMIT 12")
       ]);
       await stmt(db, "INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)", uid(), a.id, "VIEW_OVERVIEW", "Consulta de métricas administrativas sin contenido clínico").run();
-      return json({ totals, families, statuses, roles, file_types:fileTypes, monthly_files:monthlyFiles.reverse(), registrations, logins, activity, period_days:days,generated_at:new Date().toISOString(), commercial_enabled: false });
+      return json({ totals, families, statuses, roles, file_types:fileTypes, monthly_files:monthlyFiles.reverse(), registrations, logins, activity, period_days:days,generated_at:new Date().toISOString(), commercial_enabled: false, storage_backend:r2Enabled(env)?'D1 (metadatos) + R2':'D1' });
     }
     if (path === "me" && method === "GET") {
       const family = await first(
@@ -774,6 +785,8 @@ export async function handle(req, env) {
       if (method === "DELETE" && id) {
         const ops = [];
         if (table === "credenciales_discapacidad") {
+          const attached=await all(db,"SELECT * FROM archivos WHERE familia_id=? AND nino_id=? AND modulo='rnd'",a.familia_id,nino);
+          for(const file of attached)await removeR2(env,file);
           ops.push(
             stmt(db, "DELETE FROM archivo_chunks WHERE archivo_id IN (SELECT id FROM archivos WHERE nino_id=? AND modulo='rnd')", nino),
             stmt(db, "DELETE FROM archivos WHERE nino_id=? AND modulo='rnd'", nino),
@@ -1327,14 +1340,18 @@ export async function handle(req, env) {
         mime = "image/jpeg";
       if (!mime) fail(400, "Solo se permiten PDF, PNG y JPG.");
       if(mime.startsWith('image/') && !familySubscription?.commercial_exempt && file.size>300000) fail(413,'La imagen supera 300 KB. Comprímela antes de adjuntarla.');
-      const id = uid(), key = `d1:${id}`, chunkSize = 1000000;
+      const id = uid(), chunkSize = 1000000;
+      const metadata={id,familia_id:a.familia_id,nino_id:n,mime,bytes:file.size};
+      let key=`d1:${id}`,sha=null;
       const chunks = [];
-      for (let offset = 0; offset < bytes.length; offset += chunkSize)
+      try {
+      if(r2Enabled(env)){const verified=await putVerified(env,metadata,bytes);key=verified.key;sha=verified.sha;}
+      else for (let offset = 0; offset < bytes.length; offset += chunkSize)
         chunks.push(bytes.slice(offset, offset + chunkSize));
       await db.batch([
           stmt(
             db,
-            "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key) VALUES(?,?,?,?,?,?,?,?)",
+            "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key,sha256,r2_verified_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
             id,
             a.familia_id,
             n,
@@ -1343,12 +1360,18 @@ export async function handle(req, env) {
             mime,
             file.size,
             key,
+            sha,
+            sha?new Date().toISOString():null,
           ),
           ...chunks.map((part, indice) =>
             stmt(db, "INSERT INTO archivo_chunks(archivo_id,indice,contenido) VALUES(?,?,?)", id, indice, part),
           ),
           audit(db, a, "CREATE", "Archivo adjuntado a " + m, ip),
         ]);
+      }catch(error){
+        if(r2Enabled(env))try{await env.FILES.delete(objectKey(metadata));}catch{console.error('R2 upload cleanup pending');}
+        throw error;
+      }
       return json({ id }, 201);
     }
     if (path.startsWith("files/") && method === "DELETE") {
@@ -1356,6 +1379,7 @@ export async function handle(req, env) {
       const f = await first(db, "SELECT * FROM archivos WHERE id=? AND familia_id=?", id, a.familia_id);
       if (!f) fail(404, "Archivo no encontrado.");
       member(a, f.modulo, "eliminar");
+      await removeR2(env,f);
       await db.batch([
         stmt(db, "DELETE FROM archivo_chunks WHERE archivo_id=?", id),
         stmt(db, "DELETE FROM archivos WHERE id=?", id),
@@ -1373,30 +1397,7 @@ export async function handle(req, env) {
       if (!f) fail(404, "Archivo no encontrado.");
       await child(db, a, f.nino_id);
       allowed(a, f.modulo);
-      const chunks = await all(
-        db,
-        "SELECT contenido FROM archivo_chunks WHERE archivo_id=? ORDER BY indice",
-        f.id,
-      );
-      const parts = chunks.length ? chunks : f.contenido ? [{ contenido: f.contenido }] : [];
-      if (!parts.length) fail(404, "Archivo no disponible.");
-      // D1 puede entregar BLOB como ArrayBuffer, vista tipada o arreglo de bytes
-      // según el entorno de ejecución. Normalizamos antes de reconstruir el archivo.
-      const binary = (value) => {
-        if (value instanceof Uint8Array) return value;
-        if (value instanceof ArrayBuffer) return new Uint8Array(value);
-        if (ArrayBuffer.isView(value))
-          return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-        if (Array.isArray(value)) return Uint8Array.from(value);
-        fail(500, "El formato del archivo almacenado no es válido.");
-      };
-      const values = parts.map((part) => binary(part.contenido));
-      const bytes = new Uint8Array(values.reduce((size, value) => size + value.byteLength, 0));
-      let offset = 0;
-      for (const value of values) {
-        bytes.set(value, offset);
-        offset += value.byteLength;
-      }
+      const bytes=await readFileBytes(env,f);
       await audit(
         db,
         a,
@@ -1417,6 +1418,7 @@ export async function handle(req, env) {
     }
     fail(404, "Ruta no encontrada.");
   } catch (e) {
+    if(String(e.message).includes('APP_STORAGE_LIMIT_EXCEEDED')) return json({error:'LuSpace alcanzó su reserva de almacenamiento. No se guardó el archivo.'},413);
     if(String(e.message).includes('STORAGE_QUOTA_EXCEEDED')) return json({error:'La cuota de almacenamiento está completa. No se guardó el archivo.'},413);
     if (e.status) return json({ error: e.message }, e.status);
     if (String(e.message).includes("UNIQUE"))
