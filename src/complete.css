@@ -1087,5 +1087,7 @@ html[data-theme="dark"] .admin-kpi,html[data-theme="dark"] .admin-panel,html[dat
   .home-allergy .allergy-items { min-width: 0; max-width: 100%; flex-wrap: wrap; }
   .home-allergy .allergy-items span { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .auth-page, .auth-card { min-width: 0; max-width: 100%; }
+  .app-shell .filters { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .filters label, .app-shell .filters input, .app-shell .filters select { min-width: 0; max-width: 100%; }
 }
 @media(max-width:800px){.admin-portal{grid-template-columns:1fr;padding:16px}}
