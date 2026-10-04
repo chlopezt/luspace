@@ -6,6 +6,7 @@ test('public presentation is responsive and links to login and signup without ex
   for(const width of [320,375,414,1280]){
     await page.setViewportSize({width,height:900});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    expect(await page.evaluate(()=>document.querySelector('.lp-header')!.getBoundingClientRect().bottom <= document.querySelector('.lp-hero')!.getBoundingClientRect().top)).toBe(true);
     await expect(page.locator('header').getByRole('link',{name:'Iniciar sesión'})).toBeVisible();
     await expect(page.locator('header').getByRole('link',{name:/Probar 14 días gratis/})).toBeVisible();
   }

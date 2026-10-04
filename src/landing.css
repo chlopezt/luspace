@@ -8,3 +8,4 @@
 @media(prefers-reduced-motion:reduce){html:has(.lp){scroll-behavior:auto}}
 .lp-illustration{overflow:clip;padding-bottom:45px}
 .lp-final>svg{display:block;margin:0 auto 16px}
+.lp .lp-header{height:auto;min-height:0;display:block;padding:0}
