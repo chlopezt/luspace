@@ -32,7 +32,6 @@ import {
 import { modules } from "../shared/models.js";
 import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
-import PlatformAdmin from "./PlatformAdmin";
 import AdminPortal from "./AdminPortal";
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
@@ -662,7 +661,7 @@ function FamilyApp() {
         <main id="main" className="content" key={childId}>
           {!me.guest && !subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.</p><p>Puedes consultar y descargar tu información. No se han eliminado tus datos.</p><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
           <ErrorNote error={error} />
-          {view === "plataforma" && me.platform_admin ? <PlatformAdmin back={() => go("inicio")} /> : !child ? (
+          {!child ? (
             <section className="card welcome">
               <h1>Comencemos con su perfil</h1>
               <p className="muted">
