@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Activity } from "lucide-react";
 import { type Row } from "./lib";
 export function months(birth: string, date: string) {
   return (
@@ -84,12 +85,18 @@ export default function Growth({ child, rows }: { child: Row; rows: Row[] }) {
   const last = measured.at(-1),
     ref = last && refs.find((r) => r[0] === Math.round(last.month)),
     p = ref && last ? percentile(last.observed, ref) : null;
+  const growthTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    const observed = payload.find((item: any) => item.dataKey === "observed")?.value;
+    const row = refs.find((item) => Math.abs(item[0] - Number(label)) < 0.51);
+    return <div className="growth-tooltip"><b>{Number(label).toFixed(1)} meses</b>{observed != null && <><span>{Number(observed).toFixed(2)} {metric === "peso_kg" ? "kg" : "cm"}</span>{row && <small>Percentil estimado: {percentile(Number(observed), row)}</small>}</>} </div>;
+  };
   return (
     <article className="card growth">
       <div className="section-heading">
         <div>
           <p className="eyebrow">CRECIMIENTO</p>
-          <h2>Evolución de {child.primer_nombre}</h2>
+          <h2><Activity size={20} /> Evolución de {child.primer_nombre}</h2>
         </div>
         <select
           aria-label="Medida del gráfico"
@@ -113,12 +120,7 @@ export default function Growth({ child, rows }: { child: Row; rows: Row[] }) {
                   tickFormatter={(n) => `${Math.round(n)} m`}
                 />
                 <YAxis domain={["auto", "auto"]} width={45} />
-                <Tooltip
-                  labelFormatter={(n) => `${Number(n).toFixed(1)} meses`}
-                  formatter={(v: any) =>
-                    v == null ? "" : Number(v).toFixed(2)
-                  }
-                />
+                <Tooltip content={growthTooltip} />
                 <Legend />
                 <Line
                   dataKey="p3"

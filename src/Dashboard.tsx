@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, Pill, PencilLine, AlertTriangle } from "lucide-react";
+import { Activity, AlertTriangle, Calendar, CalendarHeart, CheckCircle2, ChevronRight, Clock3, GraduationCap, Pill, PencilLine, Ruler, Scale, Stethoscope } from "lucide-react";
 import { api, age, today, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
 import Growth from "./Growth";
@@ -88,7 +88,7 @@ export default function Dashboard({
   };
   return (
     <>
-      <section className="intro">
+      <section className="intro home-intro">
         <div>
           <p className="eyebrow">
             {new Date().toLocaleDateString("es-CL", {
@@ -106,7 +106,7 @@ export default function Dashboard({
       </section>
       <ErrorNote error={error} />
       {allergyItems.length > 0 && (
-        <div className="allergy">
+        <div className="allergy home-allergy">
           <AlertTriangle size={18} aria-hidden="true" />
           <strong>ALERGIAS REGISTRADAS:</strong>
           <div className="allergy-items">
@@ -114,16 +114,14 @@ export default function Dashboard({
           </div>
         </div>
       )}
-      <section className="stats">
-        <article className="card stat">
-          <p>EDAD ACTUAL</p>
+      <section className="stats home-kpis">
+        <article className="card stat home-kpi age-kpi">
+          <span className="home-icon"><Calendar size={22} /></span><p>EDAD ACTUAL</p>
           <strong className="age-value">{age(child.fecha_nacimiento)}</strong>
-          <button className="link-button" onClick={() => go("perfil")}>
-            Ver perfil
-          </button>
+          <button className="link-button" onClick={() => go("perfil")}>Ver perfil <ChevronRight size={15} /></button>
         </article>
-        <article className="card stat teal">
-          <p>PESO RECIENTE</p>
+        <article className="card stat teal home-kpi">
+          <span className="home-icon teal-icon"><Scale size={22} /></span><p>PESO RECIENTE</p>
           <strong>{weight ? weight.peso_kg + " kg" : "Sin registro"}</strong>
           <small>
             {weight
@@ -131,8 +129,8 @@ export default function Dashboard({
               : "Agrega su primera medición"}
           </small>
         </article>
-        <article className="card stat violet">
-          <p>TALLA RECIENTE</p>
+        <article className="card stat violet home-kpi">
+          <span className="home-icon violet-icon"><Ruler size={22} /></span><p>TALLA RECIENTE</p>
           <strong>{height ? height.talla_cm + " cm" : "Sin registro"}</strong>
           <small>
             {height
@@ -141,9 +139,9 @@ export default function Dashboard({
           </small>
         </article>
       </section>
-      <section className="grid">
+      <section className="grid home-grid">
         <Growth child={child} rows={growth} />
-        <article className="card medicine dashboard-panel">
+        <article className="card medicine dashboard-panel home-panel">
           <div className="section-heading">
             <h2><Pill size={19} /> Medicamentos activos</h2>
           </div>
@@ -154,7 +152,7 @@ export default function Dashboard({
                   <Pill size={17} aria-hidden="true" />
                   <button className="link-button" onClick={() => go("salud")}>{med.nombre}</button>
                   <span className="dose">{med.dosis || "Dosis sin registrar"}</span>
-                  {index === 0 && med.next && <span className="dose-badge">en {Math.max(0, Math.ceil((med.next - now) / 60000))} min</span>}
+                  {index === 0 && med.next && <span className="dose-badge"><Clock3 size={13} /> en {Math.max(0, Math.ceil((med.next - now) / 60000))} min</span>}
                   <time>{timeLabel(med.next)}</time>
                 </li>
               ))}
@@ -166,10 +164,10 @@ export default function Dashboard({
             Ver tratamientos
           </button>
         </article>
-        <article className="card school dashboard-panel">
+        <article className="card school dashboard-panel home-panel">
           <div className="section-heading">
-            <h2>Hoy en el colegio</h2>
-            <BookOpen size={21} />
+            <h2><GraduationCap size={20} /> Hoy en el colegio</h2>
+            <span className={mood ? "home-status done" : "home-status"}>{mood ? <><CheckCircle2 size={14} /> Completado</> : "Pendiente"}</span>
           </div>
           <div className="school-cta">
             <h3>{mood ? mood.estado_animo : "Bitácora de hoy pendiente"}</h3>
@@ -185,10 +183,10 @@ export default function Dashboard({
             </button>
           </div>
         </article>
-        <article className="card appointment dashboard-panel">
+        <article className="card appointment dashboard-panel home-panel">
           <div className="section-heading">
-            <h2>Próximos controles médicos</h2>
-            <CalendarDays size={21} />
+            <h2><Stethoscope size={20} /> Próximos controles médicos</h2>
+            <CalendarHeart size={20} className="panel-heading-icon" />
           </div>
           {upcomingVisits.length ? (
             <ul className="dashboard-list appointment-list">
@@ -198,7 +196,8 @@ export default function Dashboard({
                     <time className="calendar-block"><b>{date.month}</b><strong>{date.day}</strong><small>{date.time}</small></time>
                     <div>
                       <button className="link-button" onClick={() => go("salud")}>{visit.especialidad || "Consulta médica"} ↗</button>
-                      <p>{visit.nombre_medico || "Profesional por confirmar"}</p>
+                      <p>{visit.medico_nombre || "Profesional por confirmar"}</p>
+                      <small>Programado <ChevronRight size={14} /></small>
                     </div>
                   </>; })()}
                 </li>

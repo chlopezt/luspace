@@ -204,6 +204,38 @@ small {
 .storage-technical span { color: var(--muted); font-size: 12px; }
 .storage-technical b { font-size: 13px; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .storage-overview { align-items: flex-start; } .storage-chart { width: 128px; height: 128px; flex-basis: 128px; } .storage-technical { grid-template-columns: 1fr; } .storage-technical h3 { grid-column: auto; } }
+
+/* Inicio analítico */
+.home-intro { margin-bottom: 22px; }
+.home-intro h1 { font-size: clamp(28px, 4vw, 36px); letter-spacing: -.035em; }
+.home-allergy { border-radius: 16px; min-height: 58px; box-shadow: 0 3px 12px #b7791f0d; }
+.home-kpis { gap: 16px; }
+.home-kpi { position: relative; padding: 20px 20px 17px; border: 1px solid #e8eff2; border-radius: 16px; box-shadow: 0 4px 14px #173f4308; overflow: hidden; }
+.home-kpi .home-icon { float: right; display: grid; place-items: center; width: 42px; height: 42px; color: #0d9488; background: #e6fffb; border-radius: 14px; }
+.home-kpi .violet-icon { color: #7c3aed; background: #f1eafe; }
+.home-kpi .teal-icon { color: #0d9488; background: #e6fffb; }
+.home-kpi strong { font-size: 24px; letter-spacing: -.03em; display: block; margin: 7px 0 2px; }
+.home-kpi .link-button { min-height: 0; padding: 2px 0 0; display: inline-flex; align-items: center; gap: 2px; }
+.home-grid { gap: 18px 22px; align-items: stretch; }
+.home-grid .card { border: 1px solid #e8eff2; border-radius: 18px; box-shadow: 0 4px 16px #173f4309; }
+.home-grid .growth { padding: 21px; }
+.growth .section-heading h2 { display: flex; align-items: center; gap: 8px; }
+.growth .section-heading h2 svg { color: #8b5cf6; }
+.growth-tooltip { display: grid; gap: 4px; background: var(--surface); padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 8px 20px #173f4320; font-size: 12px; }
+.growth-tooltip span { color: #08796f; font-weight: 800; }
+.dashboard-panel { padding: 21px; }
+.home-panel .section-heading { margin-bottom: 14px; }
+.home-panel .section-heading h2 { font-size: 17px; }
+.panel-heading-icon { color: #8b5cf6; }
+.medication-list li { padding: 11px 12px; background: #f8fafc; border: 1px solid #f0f4f5; }
+.dose-badge { display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 3px 10px #14b8a620; }
+.home-status { display: inline-flex; align-items: center; gap: 4px; border-radius: 99px; padding: 4px 8px; color: #9a5e05; background: #fffbeb; border: 1px solid #fde68a; font-size: 11px; font-weight: 800; }
+.home-status.done { color: #08796f; background: #ecfdf5; border-color: #a7f3d0; }
+.school-cta { background: linear-gradient(145deg, #f8fffe, #f1fbf9); border-color: #d9f2ed; padding: 18px; }
+.school-cta .primary { border-radius: 12px; box-shadow: 0 6px 16px #14b8a630; }
+.appointment-list li { padding: 4px 0; }
+.appointment-list small { display: inline-flex; align-items: center; color: #6d8197; margin-top: 3px; }
+.calendar-block { border-radius: 11px; box-shadow: 0 3px 9px #2563eb12; }
 .form-grid .field {
   margin: 0;
 }
