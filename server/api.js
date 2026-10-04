@@ -424,7 +424,39 @@ export async function handle(req, env) {
         ),
       });
     }
-    const a = await actor(req, db);
+    const platformCookie = (value, age=3600) => `luspace_platform=${value}; Path=/api/platform; HttpOnly; SameSite=Strict; Max-Age=${age}${new URL(req.url).protocol === "https:" ? "; Secure" : ""}`;
+    if (path === "platform/enroll" && method === "POST") {
+      const owner = await actor(req, db);
+      if (owner.guest || !await first(db,"SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1",owner.id)) fail(403,"Acceso exclusivo de plataforma.");
+      await limit(db,"platform-enroll:"+ip);
+      const b=await body(req);
+      const familyCredential=await first(db,"SELECT password_hash FROM credenciales_usuario WHERE usuario_id=?",owner.id);
+      if (!await verify(text(b.current_password,128),familyCredential.password_hash)) fail(401,"Contraseña familiar incorrecta.");
+      if (await first(db,"SELECT usuario_id FROM credenciales_plataforma WHERE usuario_id=?",owner.id)) fail(409,"El acceso administrativo ya está configurado.");
+      if (await verify(pass(b.password),familyCredential.password_hash)) fail(400,"Usa una contraseña distinta a la familiar.");
+      await stmt(db,"INSERT INTO credenciales_plataforma(usuario_id,correo,password_hash) VALUES(?,?,?)",owner.id,email(b.correo),await password(pass(b.password))).run();
+      return json({ok:true},201);
+    }
+    if (path === "platform/login" && method === "POST") {
+      await limit(db,"platform-login:"+ip);
+      const b=await body(req), mail=email(b.correo);
+      await limit(db,"platform-account:"+await hash(mail));
+      const u=await first(db,"SELECT c.* FROM credenciales_plataforma c JOIN administradores_plataforma a ON a.usuario_id=c.usuario_id JOIN usuarios u ON u.id=a.usuario_id WHERE c.correo=? AND a.activo=1 AND u.activo=1",mail);
+      const valid=await verify(typeof b.password==='string'?b.password.slice(0,128):'',u?.password_hash || '00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000');
+      if(!u || !valid) fail(401,"Correo o contraseña administrativos incorrectos.");
+      const raw=token();
+      await db.batch([stmt(db,"INSERT INTO sesiones_plataforma(id,usuario_id,expira_at) VALUES(?,?,?)",await hash(raw),u.usuario_id,new Date(Date.now()+3600000).toISOString()),stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)",uid(),u.usuario_id,"LOGIN","Inicio de sesión administrativo independiente")]);
+      return json({ok:true},200,{"Set-Cookie":platformCookie(raw)});
+    }
+    let a;
+    if(path.startsWith("platform/")) {
+      const raw=req.headers.get("cookie")?.match(/(?:^|;\s*)luspace_platform=([a-f0-9]{64})(?:;|$)/)?.[1];
+      if(!raw) fail(401,"Ingresa por el acceso administrativo.");
+      a=await first(db,"SELECT u.id,u.nombre FROM sesiones_plataforma s JOIN administradores_plataforma a ON a.usuario_id=s.usuario_id JOIN usuarios u ON u.id=a.usuario_id WHERE s.id=? AND s.expira_at>? AND a.activo=1 AND u.activo=1",await hash(raw),new Date().toISOString());
+      if(!a) fail(401,"Sesión administrativa vencida o revocada.");
+      if(path==='platform/me' && method==='GET') return json(a);
+      if(path==='platform/logout' && method==='POST') {await stmt(db,"DELETE FROM sesiones_plataforma WHERE id=?",await hash(raw)).run();return json({ok:true},200,{"Set-Cookie":platformCookie('',0)});}
+    } else a=await actor(req, db);
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
