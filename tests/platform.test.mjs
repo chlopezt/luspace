@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { localEnv } from "../server/local.js";
 import { handle } from "../server/api.js";
-test("platform admin is separate, read-only and cannot bypass family isolation", async () => {
+import {password} from '../server/security.js';
+test("platform admin manages operational controls without bypassing clinical isolation", async () => {
   const env = localEnv(mkdtempSync(join(tmpdir(), "luspace-platform-")));
   let cookie = "";
   async function call(path, method="GET",data) {
@@ -49,6 +50,54 @@ test("platform admin is separate, read-only and cannot bypass family isolation",
     assert.equal((await call("platform/overview","POST",{})).status,404);
     assert.equal((await call("platform/children")).status,404);
     assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM auditoria_plataforma").first()).n,3);
+    const detail=await call('platform/families/other');
+    assert.equal(detail.status,200);assert.ok(!JSON.stringify(detail.body).includes('SECRET-CHILD'));
+    assert.equal((await call('platform/families/missing')).status,404);
+    const controls={nombre:'Familia B',subscription_status:'active',trial_ends_at:null,storage_limit_bytes:52428800,commercial_exempt:true,blocked_modules:['salud'],ai_enabled:false,uploads_enabled:false,reports_enabled:false,reason:'QA operación autorizada',admin_password:'AdminPassword!2026'};
+    assert.equal((await call('platform/families/other','PUT',{...controls,admin_password:'wrong'})).status,401);
+    assert.equal((await call('platform/families/other','PUT',{...controls,reason:''})).status,400);
+    assert.equal((await call('platform/families/other','PUT',{...controls,blocked_modules:['not-a-module']})).status,400);
+    assert.equal((await call('platform/families/other','PUT',controls)).status,200);
+    for(const [id,role] of [['other-owner','superadmin'],['other-editor','editor']]) {
+      await env.DB.prepare('INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,?)').bind(id,'other',id,id+'@example.test',role).run();
+      await env.DB.prepare('INSERT INTO credenciales_usuario(usuario_id,password_hash) VALUES(?,?)').bind(id,await password('FamilyPassword!2026')).run();
+    }
+    const userPath='platform/families/other/users/other-editor/';
+    const auth={reason:'Soporte de acceso solicitado',admin_password:'AdminPassword!2026'};
+    assert.equal((await call('platform/families/'+me.familia_id+'/users/'+me.id+'/reset-password','POST',{...auth,new_password:'NewPassword!2026'})).status,403);
+    assert.equal((await call('platform/families/other/users/'+me.id+'/reset-password','POST',{...auth,new_password:'NewPassword!2026'})).status,404);
+    assert.equal((await call('platform/families/other/users/other-owner/active','POST',{...auth,active:false})).status,409);
+    assert.equal((await env.DB.prepare("SELECT activo FROM usuarios WHERE id='other-owner'").first()).activo,1);
+    await call('login','POST',{correo:'other-editor@example.test',password:'FamilyPassword!2026'});
+    const editorCookie=cookie;
+    assert.equal((await call('platform/families/other','PUT',controls)).status,401);
+    assert.equal((await call('records/medicamentos?child=secret-child')).status,403);
+    assert.equal((await call('export','POST',{child:'secret-child',modules:['perfil']})).status,403);
+    assert.equal((await call('consultation/preview','POST',{child:'secret-child',modules:['perfil']})).status,403);
+    assert.equal((await call('files?child=secret-child&module=perfil','POST',{})).status,403);
+    assert.equal((await call('me')).body.platform_controls.uploads_enabled,false);
+    cookie=adminCookie;
+    assert.equal((await call(userPath+'reset-password','POST',{...auth,new_password:'short'})).status,400);
+    assert.equal((await call(userPath+'reset-password','POST',{...auth,new_password:'NewPassword!2026'})).status,200);
+    cookie=editorCookie;assert.equal((await call('me')).status,401);
+    assert.equal((await call('login','POST',{correo:'other-editor@example.test',password:'FamilyPassword!2026'})).status,401);
+    assert.equal((await call('login','POST',{correo:'other-editor@example.test',password:'NewPassword!2026'})).status,200);
+    const changedCookie=cookie;
+    cookie=adminCookie;
+    assert.equal((await call(userPath+'active','POST',{...auth,active:false})).status,200);
+    cookie=changedCookie;assert.equal((await call('me')).status,401);
+    cookie=adminCookie;
+    assert.equal((await call(userPath+'active','POST',{...auth,active:true})).status,200);
+    assert.equal((await call('platform/families/other','PUT',controls)).status,429);
+    // Simulate the rate-limit window ending in this isolated test database.
+    await env.DB.prepare('DELETE FROM intentos_acceso WHERE clave=?').bind('platform-change:'+me.id).run();
+    assert.equal((await call(userPath+'close-sessions','POST',auth)).status,200);
+    assert.equal((await call('platform/families/other','PUT',{...controls,blocked_modules:[],ai_enabled:true,uploads_enabled:true,reports_enabled:true})).status,200);
+    cookie=familyCookie;
+    assert.equal((await call('records/medicamentos?child=secret-child')).status,404);
+    cookie=adminCookie;
+    const audits=await env.DB.prepare("SELECT descripcion FROM auditoria_plataforma WHERE accion='RESET_FAMILY_PASSWORD'").all();
+    assert.ok(audits.results.length);assert.ok(!JSON.stringify(audits).includes('NewPassword!2026'));assert.ok(!JSON.stringify(audits).includes('AdminPassword!2026'));
     await env.DB.prepare("UPDATE administradores_plataforma SET activo=0 WHERE usuario_id=?").bind(me.id).run();
     assert.equal((await call("platform/overview")).status,401);
     cookie=familyCookie;
