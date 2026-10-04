@@ -95,7 +95,8 @@ function Auth({
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(() => new URLSearchParams(location.search).get('google_error') || ""),
-    [showPassword, setShowPassword] = useState(false);
+    [showPassword, setShowPassword] = useState(false),
+    [recoveryOpen, setRecoveryOpen] = useState(false);
   const register = !setup && !guestToken && registration && location.pathname === "/registro";
   const createAccount = setup || register;
   async function continueGoogle(button: HTMLButtonElement) {
@@ -127,37 +128,28 @@ function Auth({
     }
   }
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-minimal-page">
       <div className="auth-theme">
         <Theme />
       </div>
-      <main className="auth-card">
+      <main className="auth-card auth-minimal">
         <a className="auth-home-logo" href="/presentacion" aria-label="LuSpace, volver al inicio"><Brand /></a>
         <a className="auth-back" href="/presentacion" aria-label="Volver al inicio">← Volver al inicio</a>
-        <p className="eyebrow">UN ESPACIO PARA ACOMPAÑAR</p>
         <h1>
           {guestToken
             ? "Acceso profesional"
             : createAccount
-              ? "Bienvenidos a LuSpace"
-              : "Bienvenido de nuevo"}
+              ? "Crea tu cuenta"
+              : "Bienvenido a LuSpace"}
         </h1>
-        <p className="muted">
-          {guestToken
-            ? "Consulta segura de los módulos compartidos por la familia."
-            : register
-              ? "Crea tu espacio familiar. Incluye 14 días de prueba y 50 MB para documentos, sin tarjeta ni cobro automático."
-              : setup
-              ? "Crea tu cuenta principal para comenzar. Después podrás invitar a otros cuidadores."
-              : "Ingresa para continuar con el cuidado de tu familia."}
-        </p>
+        {!setup && !guestToken && registration && <p className="auth-trial-badge">Familias nuevas: 14 días gratis · $0</p>}
+        {guestToken && <p className="muted">Acceso compartido por tu familia.</p>}
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
             {!setup && !guestToken && <>
               <button className="google-signin" type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/> <span>Continuar con Google</span></button>
-              {!google && <p className="muted">Google estará disponible al completar su configuración. Puedes usar correo y contraseña.</p>}
-              {google && <p className="muted">Si es tu primera vez, crearemos tu familia con 14 días gratis a $0, sin tarjeta ni cobro automático.</p>}
-              <p className="muted">O continúa con tu correo</p>
+              {!google && <p className="auth-hint">Google no está disponible todavía.</p>}
+              <div className="auth-divider"><span>o continúa con tu correo</span></div>
             </>}
             {createAccount && !guestToken && (
               <>
@@ -205,11 +197,10 @@ function Auth({
                   </span>
                 </label>
                 {register && <>
-                  <p className="muted">Usa letras y números. Guarda tu contraseña para volver a ingresar.</p>
+                  <p className="auth-hint">Usa letras y números.</p>
                   <label className="field">Confirmar contraseña
                     <input name="password_confirmation" type={showPassword ? "text" : "password"} required minLength={12} maxLength={128} autoComplete="new-password" />
                   </label>
-                  <p className="muted">Al terminar la prueba podrás consultar y descargar tus datos. Para seguir agregando información necesitarás activar una suscripción.</p>
                 </>}
               </>
             ) : (
@@ -237,16 +228,15 @@ function Auth({
           </fieldset>
         </form>
         {!createAccount && !guestToken && (
-          <p className="muted">
-            Si olvidaste tu contraseña, pide al administrador de tu familia que restablezca tu acceso.
-          </p>
+          <button type="button" className="auth-help" onClick={() => setRecoveryOpen(true)}>¿Olvidaste tu contraseña?</button>
         )}
         {!setup && !guestToken && (register
-          ? <p className="muted">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
+          ? <p className="auth-alternate">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
           : registration
             ? <div className="auth-trial"><p>¿Tu familia aún no tiene cuenta?</p><a href="/registro">Probar LuSpace durante 14 días</a><span>$0 durante la prueba · Sin tarjeta</span></div>
             : location.pathname === "/registro" && <p className="muted">El registro de nuevas familias todavía no está habilitado. <a href="/login">Volver al inicio de sesión</a></p>)}
       </main>
+      {recoveryOpen && <Modal title="Ayuda de acceso" description="Si olvidaste tu contraseña, pide al administrador de tu familia que restablezca tu acceso." close={() => setRecoveryOpen(false)}><button type="button" className="primary" onClick={() => setRecoveryOpen(false)}>Entendido</button></Modal>}
     </div>
   );
 }
