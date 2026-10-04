@@ -34,6 +34,7 @@ import {
 import { modules } from "../shared/models.js";
 import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
+import PlatformAdmin from "./PlatformAdmin";
 import Anamnesis from "./Anamnesis";
 import { Audit, Guests, Users } from "./Administration";
 
@@ -617,6 +618,7 @@ export default function App() {
               </button>
             ))}
         </nav>
+        {me.platform_admin && <button className="storage-button" onClick={() => go("plataforma")} aria-current={view === "plataforma" ? "page" : undefined}><ShieldCheck size={18}/> Administrar LuSpace</button>}
         {me.rol === "superadmin" && (
           <button className="storage-button" onClick={() => setStorage(true)}>
             <HardDrive size={17} /> Estado almacenamiento
@@ -643,7 +645,7 @@ export default function App() {
           >
             <Menu />
           </button>
-          <label className="child-selector">
+          {view === "plataforma" ? <strong>Administración de plataforma</strong> : <label className="child-selector">
             <span className="sr-only">Perfil seleccionado</span>
             <select
               value={childId}
@@ -664,14 +666,14 @@ export default function App() {
               ))}
               {!children.length && <option>Mi familia</option>}
             </select>
-          </label>
-          {child?.rnd_habilitado && rndAvailable && available.includes("rnd") ? (
+          </label>}
+          {view !== "plataforma" && child?.rnd_habilitado && rndAvailable && available.includes("rnd") ? (
             <button className="rnd" onClick={() => setRnd(true)}>
               <ShieldCheck size={17} />
               <span>Credencial RND</span>
             </button>
           ) : null}
-          {child && (
+          {view !== "plataforma" && child && (
             <button
               className="secondary header-pdf"
               disabled={dirty}
@@ -686,7 +688,7 @@ export default function App() {
         </header>
         <main id="main" className="content" key={childId}>
           <ErrorNote error={error} />
-          {!child ? (
+          {view === "plataforma" && me.platform_admin ? <PlatformAdmin back={() => go("inicio")} /> : !child ? (
             <section className="card welcome">
               <h1>Comencemos con su perfil</h1>
               <p className="muted">
