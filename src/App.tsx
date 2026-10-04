@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Activity,
   HeartPulse,
@@ -395,20 +396,22 @@ function StorageMetrics({ close }: { close: () => void }) {
       .catch((e) => setError((e as Error).message));
   }, []);
   const format = (bytes = 0) => {
-    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 2 : 1)} MB`;
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
   };
   const percent = Math.min(100, Number(metrics?.total_bytes || 0) / Number(metrics?.limit_bytes || 1) * 100);
-  return <Modal title="Estado de almacenamiento" description="Uso de archivos privados de tu familia." close={close}>
+  const colors = ["#14b8a6", "#8b5cf6", "#f59e0b", "#ef6a79"];
+  const tooltip = ({ active, payload }: any) => active && payload?.[0] ? <div className="chart-tooltip">{payload[0].payload.tipo || payload[0].payload.mes}<br /><b>{payload[0].payload.tipo ? `${format(payload[0].payload.bytes)} · ${payload[0].payload.archivos} archivos` : `${payload[0].value} MB acumulados`}</b></div> : null;
+  return <Modal title="Estado de almacenamiento" description="Dashboard de archivos privados · Cloudflare R2" close={close}>
     <ErrorNote error={error} />
-    {!metrics ? <p className="muted">Calculando almacenamiento…</p> : <div className="storage-metrics">
+    {!metrics ? <p className="muted">Calculando almacenamiento…</p> : <div className="storage-dashboard">
       <div className="storage-overview">
-        <div className="storage-donut" style={{ "--usage": `${percent}%` } as CSSProperties}><strong>{percent.toFixed(1)}%</strong></div>
-        <div><strong>{format(metrics.total_bytes)} de {format(metrics.limit_bytes)}</strong><p className="muted">Límite de referencia Cloudflare R2</p></div>
+        <div className="storage-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={[{ name: "Usado", value: Number(metrics.total_bytes) }, { name: "Disponible", value: Math.max(0, Number(metrics.limit_bytes) - Number(metrics.total_bytes)) }]} dataKey="value" innerRadius={48} outerRadius={68} startAngle={90} endAngle={-270} stroke="none"><Cell fill="#14b8a6" /><Cell fill="#e7f1ef" /></Pie></PieChart></ResponsiveContainer><div className="storage-chart-label"><b>{percent.toFixed(2)}%</b><span>usado</span></div></div>
+        <div><strong>{format(metrics.total_bytes)} de {format(metrics.limit_bytes)}</strong><p className="muted">Cuota de referencia Cloudflare R2 · 10 GB</p></div>
       </div>
-      <div className="storage-summary"><span>{metrics.total_files} archivos</span><span>Promedio {format(metrics.average_bytes)}</span></div>
-      <h3>Por tipo de archivo</h3>
-      <ul className="storage-breakdown">{metrics.breakdown.map((item: Row) => <li key={item.tipo}><span>{item.tipo}</span><b>{item.archivos} · {format(item.bytes)}</b></li>)}</ul>
+      <section className="storage-section"><h3>Desglose por tipo de archivo</h3><div className="storage-bars"><ResponsiveContainer width="100%" height={Math.max(190, metrics.breakdown.length * 52)}><BarChart data={metrics.breakdown} layout="vertical" margin={{ left: 28, right: 18 }}><XAxis type="number" hide /><YAxis dataKey="tipo" type="category" width={128} tick={{ fontSize: 12 }} /><Tooltip content={tooltip} /><Bar dataKey="bytes" radius={[0, 7, 7, 0]}>{metrics.breakdown.map((_: Row, i: number) => <Cell key={i} fill={colors[i % colors.length]} />)}</Bar></BarChart></ResponsiveContainer></div></section>
+      <section className="storage-section"><h3>Histórico de almacenamiento</h3>{metrics.history.length ? <div className="storage-history"><ResponsiveContainer width="100%" height={190}><BarChart data={metrics.history}><XAxis dataKey="mes" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} unit=" MB" /><Tooltip content={tooltip} /><Bar dataKey="mb" name="MB acumulados" fill="#8b5cf6" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div> : <p className="muted">Aún no hay archivos para construir un histórico mensual.</p>}</section>
+      <section className="storage-technical"><h3>Métricas técnicas R2</h3><div><span>Total de archivos</span><b>{metrics.total_files}</b></div><div><span>Promedio por archivo</span><b>{format(metrics.average_bytes)}</b></div><div><span>Costo estimativo</span><b>${Number(metrics.estimated_cost_usd).toFixed(2)} USD</b></div><div><span>Proyección de límite</span><b>{metrics.projected_days_to_limit === null ? "Sin datos suficientes" : `${metrics.projected_days_to_limit} días`}</b></div><div className="wide"><span>Último archivo subido</span><b>{metrics.latest_file || "Aún no hay archivos"}</b></div></section>
     </div>}
   </Modal>;
 }
