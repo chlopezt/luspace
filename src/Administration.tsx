@@ -1,7 +1,23 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, AlertTriangle, Archive, KeyRound, ShieldCheck, UsersRound } from "lucide-react";
 import { api, dateLabel, download, type Row } from "./lib";
 import { modules } from "../shared/models.js";
 import { Empty, ErrorNote, Modal } from "./components";
+
+const allModules = Object.keys(modules);
+const actions = ["ver", "crear", "editar", "eliminar", "descargar", "adjuntar"];
+const sensitiveItems = [["rnd", "Credencial RND"], ["anamnesis", "Anamnesis"], ["diagnosticos", "Diagnósticos"], ["examenes", "Exámenes"], ["recetas", "Recetas"], ["foto_perfil", "Foto de perfil"]] as const;
+const privacyItems = [["rut", "RUT"], ["telefono", "Teléfonos"], ["direccion", "Dirección"], ["diagnosticos", "Diagnósticos"], ["archivos", "Archivos adjuntos"]] as const;
+
+function AdminDashboard({ onBackup }: { onBackup: () => void }) {
+  const [data, setData] = useState<Row | null>(null), [error, setError] = useState("");
+  useEffect(() => { api("admin/dashboard").then(setData).catch((e) => setError(e.message)); }, []);
+  const mb = (n = 0) => n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+  if (!data) return <div className="admin-dashboard card"><p className="muted">Preparando resumen de administración…</p><ErrorNote error={error} /></div>;
+  const cards = [[UsersRound, data.summary.members, "Miembros activos", "menta"], [KeyRound, data.summary.guests, "Invitados vigentes", "violet"], [Activity, data.summary.sessions, "Sesiones activas", "blue"], [Archive, data.summary.files, `${mb(data.summary.bytes)} en R2`, "amber"]] as const;
+  return <section className="admin-dashboard"><div className="admin-kpis">{cards.map(([Icon, value, label, tone]) => <article className={`admin-kpi ${tone}`} key={label}><Icon size={20}/><strong>{value}</strong><span>{label}</span></article>)}</div><div className="admin-grid"><article className="card admin-panel"><div className="admin-title"><div><ShieldCheck size={20}/><h2>Seguridad y alertas</h2></div><span className="status-good">Protegido</span></div><ul className="admin-alerts"><li><AlertTriangle size={16}/><span>{data.alerts.rnd_expiring ? `${data.alerts.rnd_expiring} credencial(es) RND próxima(s) a vencer` : "No hay credenciales próximas a vencer"}</span></li><li><AlertTriangle size={16}/><span>{data.alerts.inactive_users.length ? `${data.alerts.inactive_users.length} cuenta(s) sin actividad por 30 días` : "Todas las cuentas registran actividad reciente"}</span></li><li><ShieldCheck size={16}/><span>Contraseñas fuertes y sesiones revocables activas</span></li></ul></article><article className="card admin-panel"><div className="admin-title"><div><Activity size={20}/><h2>Accesos de la semana</h2></div></div><div className="admin-chart"><ResponsiveContainer width="100%" height={150}><BarChart data={data.access_series}><XAxis dataKey="day" tick={{fontSize:10}}/><YAxis allowDecimals={false} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="total" fill="#8b5cf6" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></article></div><div className="admin-grid"><article className="card admin-panel"><div className="admin-title"><div><Activity size={20}/><h2>Actividad reciente</h2></div></div><div className="admin-feed">{data.recent.length ? data.recent.map((r: Row, i: number) => <p key={i}><b>{r.actor}</b> · {r.descripcion}<small>{dateLabel(r.created_at)}</small></p>) : <p className="muted">Aún no hay eventos registrados.</p>}</div></article><article className="card admin-panel"><div className="admin-title"><div><KeyRound size={20}/><h2>Invitados activos</h2></div></div><div className="admin-feed">{data.guests.length ? data.guests.map((g: Row) => <p key={g.id}><b>{g.destino_nombre}</b> · vence {dateLabel(g.expira_at)}<small>{g.contador_accesos} accesos · {JSON.parse(g.modulos_json).length} módulos</small></p>) : <p className="muted">No hay enlaces profesionales activos.</p>}</div></article></div><article className="card admin-backup"><div><Archive size={20}/><div><h2>Estado de datos</h2><p>{data.summary.files} documentos · {mb(data.summary.bytes)} · respaldo disponible bajo demanda</p></div></div><button className="primary" onClick={onBackup}>Generar respaldo JSON</button></article></section>;
+}
 export function Guests({ child }: { child: Row }) {
   const [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
@@ -188,7 +204,9 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
     [error, setError] = useState(""),
     [ok, setOk] = useState(""),
     [busy, setBusy] = useState(false),
-    [reset, setReset] = useState<Row | null>(null);
+    [reset, setReset] = useState<Row | null>(null),
+    [permissionsFor, setPermissionsFor] = useState<Row | null>(null),
+    [settings, setSettings] = useState<Row | null>(null);
   async function load() {
     if (me.rol === "superadmin")
       try {
@@ -200,6 +218,9 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
   useEffect(() => {
     void load();
   }, []);
+  useEffect(() => {
+    if (me.rol === "superadmin") api("family/settings").then(setSettings).catch((e) => setError(e.message));
+  }, [me.rol]);
   async function submit(
     e: FormEvent<HTMLFormElement>,
     path: string,
@@ -235,6 +256,8 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
       )}
       {me.rol === "superadmin" && (
         <>
+          <AdminDashboard onBackup={async () => { try { download(new Blob([JSON.stringify(await api("backup"), null, 2)], { type: "application/json" }), "luspace-respaldo.json"); setOk("Respaldo generado y registrado en auditoría."); } catch (e) { setError((e as Error).message); } }} />
+          {settings && <form className="card admin-settings" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { const values = Object.fromEntries(new FormData(e.currentTarget)); await api("family/settings", "PUT", { ...settings, nombre: values.nombre, nino_principal_id: values.nino_principal_id, rnd_visible: values.rnd_visible === "on", modulos_activos_json: allModules.filter((m) => values["module_" + m] === "on") }); setOk("Configuración familiar actualizada."); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}><h2>Configuración familiar</h2><div className="form-grid"><label className="field">Nombre de la familia<input name="nombre" defaultValue={settings.nombre}/></label><label className="field">Niño/a principal<select name="nino_principal_id"><option value="">Seleccionar después</option><option value={settings.nino_principal_id}>{settings.nino_principal_id ? "Perfil principal actual" : "Sin perfil seleccionado"}</option></select></label><label className="check"><input name="rnd_visible" type="checkbox" defaultChecked={!!settings.rnd_visible}/> Mostrar botón Credencial RND</label><div className="wide"><strong>Módulos activos</strong><div className="check-grid">{allModules.map((m) => <label className="check" key={m}><input name={`module_${m}`} type="checkbox" defaultChecked={JSON.parse(settings.modulos_activos_json || "[]").includes(m)}/>{modules[m as keyof typeof modules]}</label>)}</div></div></div><button className="secondary" disabled={busy}>Guardar configuración</button></form>}
           <form
             className="card spaced"
             onSubmit={(e) => void submit(e, "users")}
@@ -266,6 +289,7 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
                   <option value="editor">
                     Editora / administrador operativo
                   </option>
+                  <option value="lector">Solo lectura</option>
                   <option value="superadmin">SuperAdmin</option>
                 </select>
               </label>
@@ -280,7 +304,9 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
                 <h3>{r.nombre}</h3>
                 <p>{r.correo}</p>
                 <p className="muted">
-                  {r.rol} · {r.activo ? "Activo" : "Revocado"}
+                  {JSON.parse(r.permisos_json || "{}").acciones?.length === 1
+                    ? "Solo lectura"
+                    : r.rol} · {r.activo ? "Activo" : "Revocado"}
                 </p>
                 {r.id !== me.id && (
                   <div className="actions">
@@ -305,6 +331,13 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
                     </button>
                     <button className="secondary" onClick={() => setReset(r)}>
                       Restablecer contraseña
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => setPermissionsFor(r)}
+                    >
+                      Configurar permisos
                     </button>
                   </div>
                 )}
@@ -371,8 +404,16 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
           </form>
         </Modal>
       )}
+      {permissionsFor && <PermissionsModal user={permissionsFor} busy={busy} close={() => setPermissionsFor(null)} onSave={async (permisos_json) => { setBusy(true); try { await api("users/" + permissionsFor.id, "PUT", { permisos_json }); setOk("Permisos actualizados y sesiones cerradas."); setPermissionsFor(null); await load(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }} />}
     </>
   );
+}
+
+function PermissionsModal({ user, close, onSave, busy }: { user: Row; close: () => void; onSave: (permissions: Row) => Promise<void>; busy: boolean }) {
+  const initial = (() => { try { return JSON.parse(user.permisos_json || "{}"); } catch { return {}; } })();
+  const [p, setP] = useState<Row>({ modules: initial.modules || allModules, acciones: initial.acciones || ["ver"], sensibles: initial.sensibles || [], privacidad: initial.privacidad || [] });
+  const toggle = (key: string, value: string) => setP((old) => ({ ...old, [key]: old[key].includes(value) ? old[key].filter((x: string) => x !== value) : [...old[key], value] }));
+  return <Modal title={`Permisos de ${user.nombre}`} description="Los cambios se aplican de inmediato y cierran sus sesiones activas." close={close}><div className="permission-editor"><section><h3>Módulos visibles</h3>{allModules.map((m) => <label className="check" key={m}><input type="checkbox" checked={p.modules.includes(m)} onChange={() => toggle("modules",m)}/>{modules[m as keyof typeof modules]}</label>)}</section><section><h3>Acciones permitidas</h3>{actions.map((a) => <label className="check" key={a}><input type="checkbox" checked={p.acciones.includes(a)} disabled={a === "ver"} onChange={() => toggle("acciones",a)}/>{a}</label>)}</section><section><h3>Documentos sensibles permitidos</h3>{sensitiveItems.map(([k,l]) => <label className="check" key={k}><input type="checkbox" checked={p.sensibles.includes(k)} onChange={() => toggle("sensibles",k)}/>{l}</label>)}</section><section><h3>Ocultar datos privados</h3>{privacyItems.map(([k,l]) => <label className="check" key={k}><input type="checkbox" checked={p.privacidad.includes(k)} onChange={() => toggle("privacidad",k)}/>{l}</label>)}</section></div><button className="primary" disabled={busy || !p.modules.length || !p.acciones.includes("ver")} onClick={() => void onSave(p)}>Guardar permisos</button></Modal>;
 }
 export function Audit() {
   const [rows, setRows] = useState<Row[]>([]),
