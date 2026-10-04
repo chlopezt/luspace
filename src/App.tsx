@@ -68,10 +68,10 @@ function Theme() {
             onClick={() => setValue(String(k))}
             className={value === k ? "active" : ""}
             aria-label={String(label)}
+            title={String(label)}
             aria-pressed={value === k}
           >
             <Icon size={16} />
-            <span>{String(label)}</span>
           </button>
         );
       })}
@@ -698,7 +698,7 @@ function FamilyApp() {
             <section className="card welcome">
               <h1>Comencemos con su perfil</h1>
               <p className="muted">
-                Registra los datos de Luciano o de otro niño/a de tu familia.
+                Registra los datos de un niño o niña de tu familia.
                 Podrás editarlos cuando quieras.
               </p>
               {!readonly && (

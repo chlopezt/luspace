@@ -53,11 +53,14 @@ test("platform admin manages operational controls without bypassing clinical iso
     const detail=await call('platform/families/other');
     assert.equal(detail.status,200);assert.ok(!JSON.stringify(detail.body).includes('SECRET-CHILD'));
     assert.equal((await call('platform/families/missing')).status,404);
-    const controls={nombre:'Familia B',subscription_status:'active',trial_ends_at:null,storage_limit_bytes:52428800,commercial_exempt:true,blocked_modules:['salud'],ai_enabled:false,uploads_enabled:false,reports_enabled:false,reason:'QA operación autorizada',admin_password:'AdminPassword!2026'};
+    const controls={nombre:'Familia B',subscription_status:'active',trial_ends_at:null,storage_limit_bytes:1073741824,commercial_exempt:true,blocked_modules:['salud'],ai_enabled:false,uploads_enabled:false,reports_enabled:false,reason:'QA operación autorizada',admin_password:'AdminPassword!2026'};
     assert.equal((await call('platform/families/other','PUT',{...controls,admin_password:'wrong'})).status,401);
     assert.equal((await call('platform/families/other','PUT',{...controls,reason:''})).status,400);
     assert.equal((await call('platform/families/other','PUT',{...controls,blocked_modules:['not-a-module']})).status,400);
     assert.equal((await call('platform/families/other','PUT',controls)).status,200);
+    const quotaUpdated=await call('platform/families/other');
+    assert.equal(quotaUpdated.body.family.storage_limit_bytes,1073741824);
+    assert.equal(quotaUpdated.body.family.subscription_status,'active');
     for(const [id,role] of [['other-owner','superadmin'],['other-editor','editor']]) {
       await env.DB.prepare('INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,?)').bind(id,'other',id,id+'@example.test',role).run();
       await env.DB.prepare('INSERT INTO credenciales_usuario(usuario_id,password_hash) VALUES(?,?)').bind(id,await password('FamilyPassword!2026')).run();
