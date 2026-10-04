@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS administradores_plataforma (
+  usuario_id TEXT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  activo INTEGER NOT NULL DEFAULT 1 CHECK(activo IN (0,1)),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS auditoria_plataforma (
+  id TEXT PRIMARY KEY,
+  usuario_id TEXT REFERENCES usuarios(id) ON DELETE SET NULL,
+  accion TEXT NOT NULL,
+  descripcion TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
