@@ -30,7 +30,7 @@ jobs:
           test -n "$D1_ID"
           sed "s/REEMPLAZAR_CON_DATABASE_ID/$D1_ID/" wrangler.toml > wrangler.deploy.toml
           echo "D1_ID=$D1_ID"
-          if ! npx wrangler r2 bucket create luspace-files; then
+          if ! npx wrangler r2 bucket info luspace-files && ! npx wrangler r2 bucket create luspace-files; then
             echo "R2 pendiente de activar en Cloudflare; se publica la aplicacion sin archivos adjuntos."
             sed '/^\[\[r2_buckets\]\]/,/^$/d' wrangler.deploy.toml > wrangler.pages.toml
             mv wrangler.pages.toml wrangler.deploy.toml
@@ -38,4 +38,3 @@ jobs:
       - run: npx wrangler d1 migrations apply luspace-db --remote --config wrangler.deploy.toml
       - run: npx wrangler pages project create luspace-app --production-branch main || true
       - run: cp wrangler.deploy.toml wrangler.toml && npx wrangler pages deploy dist --project-name luspace-app --branch main --commit-dirty=true
-
