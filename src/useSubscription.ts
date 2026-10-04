@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type Row } from './lib';
 export function useSubscription(initial?:Row|null,guest=false) {
   const [value,setValue]=useState<Row|null>(initial||null),[now,setNow]=useState(Date.now());
-  useEffect(()=>setValue(initial||null),[initial]);
+  useEffect(()=>{setValue(initial||null);setNow(Date.now());},[initial]);
   useEffect(()=>{
     if(!initial || guest) return;
     const refresh=()=>{setNow(Date.now());void api('subscription').then(setValue).catch(()=>{});};

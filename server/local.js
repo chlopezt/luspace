@@ -91,7 +91,7 @@ export function localEnv(directory = process.env.LUSPACE_DATA_DIR || ".local") {
       if (existsSync(p)) unlinkSync(p);
     },
   };
-  return { DB, FILES, LOCAL_DEV: true, close: () => sqlite.close() };
+  return { DB, FILES, LOCAL_DEV: true, LUSPACE_REGISTRATION_ENABLED: "true", close: () => sqlite.close() };
 }
 export function localApiPlugin() {
   let env;

@@ -79,17 +79,21 @@ function Theme() {
 function Auth({
   setup,
   local,
+  registration,
   onDone,
   guestToken,
 }: {
   setup: boolean;
   local: boolean;
+  registration: boolean;
   onDone: () => void;
   guestToken: string;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [showPassword, setShowPassword] = useState(false);
+  const register = !setup && !guestToken && registration && location.pathname === "/registro";
+  const createAccount = setup || register;
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -97,11 +101,11 @@ function Auth({
     try {
       const b = Object.fromEntries(new FormData(e.currentTarget));
       await api(
-        guestToken ? "guest/exchange" : setup ? "setup" : "login",
+        guestToken ? "guest/exchange" : register ? "register" : setup ? "setup" : "login",
         "POST",
         guestToken ? { ...b, token: guestToken } : b,
       );
-      if (guestToken) history.replaceState(null, "", "/");
+      if (guestToken || register) history.replaceState(null, "", "/");
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -120,20 +124,22 @@ function Auth({
         <h1>
           {guestToken
             ? "Acceso profesional"
-            : setup
+            : createAccount
               ? "Bienvenidos a LuSpace"
               : "Bienvenido de nuevo"}
         </h1>
         <p className="muted">
           {guestToken
             ? "Consulta segura de los módulos compartidos por la familia."
-            : setup
+            : register
+              ? "Crea tu espacio familiar. Incluye 14 días de prueba y 50 MB para documentos, sin tarjeta ni cobro automático."
+              : setup
               ? "Crea tu cuenta principal para comenzar. Después podrás invitar a otros cuidadores."
               : "Ingresa para continuar con el cuidado de tu familia."}
         </p>
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
-            {setup && !guestToken && (
+            {createAccount && !guestToken && (
               <>
                 <label className="field">
                   Tu nombre
@@ -143,7 +149,7 @@ function Auth({
                   Nombre de la familia
                   <input name="familia" required />
                 </label>
-                {!local && (
+                {setup && !local && (
                   <label className="field">
                     Clave de instalación
                     <input name="setup_key" type="password" required />
@@ -163,21 +169,28 @@ function Auth({
                   />
                 </label>
                 <label className="field">
-                  Contraseña{setup ? " (mínimo 12 caracteres)" : ""}
+                  Contraseña{createAccount ? " (mínimo 12 caracteres)" : ""}
                   <span className="password-field">
                     <input
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      minLength={setup ? 12 : undefined}
+                      minLength={createAccount ? 12 : undefined}
                       maxLength={128}
-                      autoComplete={setup ? "new-password" : "current-password"}
+                      autoComplete={createAccount ? "new-password" : "current-password"}
                     />
                     <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </span>
                 </label>
+                {register && <>
+                  <p className="muted">Usa letras y números. Guarda tu contraseña para volver a ingresar.</p>
+                  <label className="field">Confirmar contraseña
+                    <input name="password_confirmation" type={showPassword ? "text" : "password"} required minLength={12} maxLength={128} autoComplete="new-password" />
+                  </label>
+                  <p className="muted">Al terminar la prueba podrás consultar y descargar tus datos. Para seguir agregando información necesitarás activar una suscripción.</p>
+                </>}
               </>
             ) : (
               <label className="field">
@@ -197,17 +210,22 @@ function Auth({
                 ? "Ingresando…"
                 : guestToken
                   ? "Consultar información"
-                  : setup
-                    ? "Crear mi familia"
+                  : createAccount
+                    ? register ? "Comenzar prueba de 14 días" : "Crear mi familia"
                     : "Iniciar sesión"}
             </button>
           </fieldset>
         </form>
-        {!setup && !guestToken && (
+        {!createAccount && !guestToken && (
           <p className="muted">
             Si olvidaste tu contraseña, pide al administrador de tu familia que restablezca tu acceso.
           </p>
         )}
+        {!setup && !guestToken && (register
+          ? <p className="muted">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
+          : registration
+            ? <p className="muted">¿Tu familia aún no tiene cuenta? <a href="/registro">Probar LuSpace durante 14 días</a></p>
+            : location.pathname === "/registro" && <p className="muted">El registro de nuevas familias todavía no está habilitado. <a href="/login">Volver al inicio de sesión</a></p>)}
       </main>
     </div>
   );
@@ -538,6 +556,7 @@ function FamilyApp() {
           <Auth
             setup={status.setup}
             local={status.local}
+            registration={status.registration}
             guestToken={guestToken}
             onDone={() => void load(true)}
           />

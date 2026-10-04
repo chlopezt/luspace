@@ -312,7 +312,35 @@ export async function handle(req, env) {
     const audit = (db, a, action, detail, ip) => auditStatement(db, a, action, detail, ip, ipAddress);
     if (path === "status" && method === "GET") {
       const count = await first(db, "SELECT count(*) AS n FROM usuarios");
-      return json({ setup: count.n === 0, local: env.LOCAL_DEV === true });
+      return json({ setup: count.n === 0, local: env.LOCAL_DEV === true, registration: count.n > 0 && env.LUSPACE_REGISTRATION_ENABLED === "true" });
+    }
+    if (path === "register" && method === "POST") {
+      if (env.LUSPACE_REGISTRATION_ENABLED !== "true" || !(await first(db, "SELECT count(*) AS n FROM usuarios")).n)
+        fail(403, "El registro de nuevas familias todavía no está habilitado.");
+      await limit(db, "register:" + ip);
+      const b = await body(req);
+      const name = text(b.nombre, 120), familyName = text(b.familia, 120), mail = email(b.correo);
+      if (!name || !familyName) fail(400, "Completa tu nombre y el nombre de la familia.");
+      const secret = pass(b.password);
+      if (!/[A-Za-zÀ-ÿ]/.test(secret) || !/[0-9]/.test(secret))
+        fail(400, "Usa al menos 12 caracteres, incluyendo letras y números.");
+      if (secret !== b.password_confirmation) fail(400, "Las contraseñas no coinciden.");
+      const family = uid(), id = uid(), raw = token(), now = new Date().toISOString();
+      const pw = await password(secret), sessionHash = await hash(raw);
+      try {
+        await db.batch([
+          stmt(db, "INSERT INTO familias(id,nombre,created_at,subscription_status,storage_limit_bytes,commercial_exempt) VALUES(?,?,?,'trial',52428800,0)", family, familyName, now),
+          stmt(db, "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,'superadmin')", id, family, name, mail),
+          stmt(db, "INSERT INTO credenciales_usuario(usuario_id,password_hash) VALUES(?,?)", id, pw),
+          stmt(db, "INSERT INTO familia_configuracion(familia_id) VALUES(?)", family),
+          stmt(db, "INSERT INTO sesiones(id,usuario_id,expira_at) VALUES(?,?,?)", sessionHash, id, new Date(Date.now() + 28800000).toISOString()),
+          audit(db, { id, familia_id: family }, "CREATE", "Registro de familia con prueba de 14 días", ip),
+        ]);
+      } catch (e) {
+        if (String(e.message).includes("UNIQUE")) fail(409, "No se pudo crear la cuenta con ese correo. Si ya tienes una cuenta, inicia sesión.");
+        throw e;
+      }
+      return json({ ok: true }, 201, { "Set-Cookie": cookie(req, raw) });
     }
     if (path === "setup" && method === "POST") {
       await limit(db, "setup:" + ip);

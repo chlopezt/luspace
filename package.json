@@ -15,7 +15,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "node --test tests/api.test.mjs tests/consultation.test.mjs tests/platform.test.mjs tests/subscription.test.mjs tests/r2.test.mjs",
+    "test": "node --test tests/api.test.mjs tests/consultation.test.mjs tests/platform.test.mjs tests/subscription.test.mjs tests/r2.test.mjs tests/registration.test.mjs",
     "test:browser": "playwright test"
   },
   "dependencies": {
