@@ -1041,6 +1041,7 @@ li {
 html[data-theme="dark"] .admin-kpi,html[data-theme="dark"] .admin-panel,html[data-theme="dark"] .admin-backup{background:#153532;border-color:#29514c;box-shadow:none}html[data-theme="dark"] .admin-title h2,html[data-theme="dark"] .admin-backup h2{color:#e9f8f5}html[data-theme="dark"] .admin-kpi span,html[data-theme="dark"] .admin-backup p,html[data-theme="dark"] .admin-feed p{color:#b7cfca}html[data-theme="dark"] .admin-feed p{border-color:#29514c}html[data-theme="dark"] .permission-editor section{background:#183d39}html[data-theme="dark"] .permission-editor h3{color:#e9f8f5}
 @media(max-width:850px){.admin-kpis{grid-template-columns:repeat(2,1fr)}.admin-grid,.permission-editor{grid-template-columns:1fr}.admin-backup{align-items:flex-start;flex-direction:column}}@media(max-width:480px){.admin-kpis{grid-template-columns:1fr}}
 .consultation-prep { display:grid; gap:16px; }
+.consultation-prep button { display:inline-flex; align-items:center; gap:8px; }
 .consultation-prep label { display:grid; gap:8px; }
 .consultation-prep fieldset { display:flex; flex-wrap:wrap; gap:14px; border:1px solid var(--border, #cbd5e1); border-radius:14px; padding:14px; }
 .consultation-prep fieldset label, .consultation-prep label:has(input[type="checkbox"]) { display:flex; align-items:flex-start; gap:8px; }
