@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode, type FormEvent } from "react";
+import { useEffect, useState, createContext, useContext, type ReactNode, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
 import { api, dateLabel, today, type Row } from "./lib";
 import { models as definitions } from "../shared/models.js";
 import { compressUploadImage } from './imageCompression';
 export const models: Record<string, any> = definitions;
+export const FileUploadEnabled = createContext(true);
 export function Brand() {
   const [bad, setBad] = useState(false);
   return (
@@ -87,6 +88,7 @@ export function Field({
   disabled?: boolean;
   onBusy?: (busy: boolean) => void;
 }) {
+  const uploadEnabled=useContext(FileUploadEnabled);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const upload = async (file?: File) => {
@@ -158,7 +160,7 @@ export function Field({
         </select>
       ) : f.type === "file" ? (
         <div>
-          {!disabled && (
+          {!disabled && uploadEnabled && (
             <input
               type="file"
               accept="application/pdf,image/png,image/jpeg"
@@ -166,7 +168,7 @@ export function Field({
               disabled={busy}
             />
           )}
-          <small>{busy ? "Subiendo…" : "PDF, JPG o PNG · hasta 10 MB"}</small>
+          <small>{!uploadEnabled?'La carga de archivos está desactivada por la plataforma.':busy ? "Subiendo…" : "PDF, JPG o PNG · hasta 10 MB"}</small>
           {value && (
             <div className="actions">
               <a target="_blank" rel="noreferrer" href={"/api/files/" + value}>

@@ -21,6 +21,7 @@ import {
 import { api, type Row } from "./lib";
 import {
   Brand,
+  FileUploadEnabled,
   ErrorNote,
   Modal,
   RecordForm,
@@ -521,7 +522,7 @@ function FamilyApp() {
   const child = children.find((n) => n.id === childId),
     roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
     readonly = roleReadonly || !subscription.canWrite,
-    available = me?.guest ? me.modules : Object.keys(modules);
+    available = (me?.guest ? me.modules : Object.keys(modules)).filter((m:string)=>!me?.platform_controls?.blocked_modules?.includes(m));
   if (loading)
     return (
       <div className="loading" role="status">
@@ -562,7 +563,7 @@ function FamilyApp() {
       "examenes_medicos",
     ];
   return (
-    <div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
+    <FileUploadEnabled.Provider value={me.platform_controls?.uploads_enabled!==false}><div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
       <a className="skip-link" href="#main">
         Saltar al contenido
       </a>
@@ -577,6 +578,7 @@ function FamilyApp() {
         <Brand />
         <nav>
           {navigation
+            .filter(([k]) => !me.platform_controls?.blocked_modules?.includes(k))
             .filter(([k]) =>
               readonly
                 ? available.includes(k)
@@ -644,7 +646,7 @@ function FamilyApp() {
               <span>Credencial RND</span>
             </button>
           ) : null}
-          {view !== "plataforma" && child && (
+          {view !== "plataforma" && child && me.platform_controls?.reports_enabled!==false && (
             <button
               className="secondary header-pdf"
               aria-label="Descargar informe PDF"
@@ -749,7 +751,7 @@ function FamilyApp() {
                       </button>
                     ))}
                   </div>
-                  {view === "salud" && tab === 2 && !readonly && <ConsultationPrep key={child.id} child={child} allowed={available || []} />}
+                  {view === "salud" && tab === 2 && !readonly && me.platform_controls?.ai_enabled!==false && <ConsultationPrep key={child.id} child={child} allowed={available || []} />}
                   <Records
                     key={view + tab}
                     table={
@@ -843,13 +845,13 @@ function FamilyApp() {
           onChange={() => void refreshRnd()}
         />
       )}{" "}
-      {report && child && (
+      {report && child && me.platform_controls?.reports_enabled!==false && (
         <Export
           child={child}
           allowed={available}
           close={() => setReport(false)}
         />
       )}
-    </div>
+    </div></FileUploadEnabled.Provider>
   );
 }

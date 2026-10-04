@@ -1063,6 +1063,25 @@ html[data-theme="dark"] .admin-kpi,html[data-theme="dark"] .admin-panel,html[dat
 .admin-portal {display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;padding:24px;min-height:100vh;background:var(--bg);color:var(--text)}
 .admin-portal aside {display:flex;flex-direction:column;gap:20px;align-self:start}
 .admin-portal main {min-width:0}
+.platform-manager-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-top:16px}
+.platform-audit-detail{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:12px;padding:12px;background:var(--soft);border-radius:10px}
+.platform-manager-list button{display:grid;text-align:left;gap:8px;padding:16px;border-radius:14px;min-width:0;overflow-wrap:anywhere}
+.platform-manager-list span{color:var(--accent);font-size:13px}
+.platform-family-manager{display:grid;gap:16px;min-width:0}
+.platform-family-manager h3{display:flex;align-items:center;gap:8px;margin:20px 0 12px}
+.platform-family-manager fieldset{border:0;padding:0;min-width:0}
+.platform-manager-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.platform-family-manager label{display:grid;gap:7px;min-width:0}
+.platform-family-manager .platform-check{display:flex;align-items:center;gap:10px;margin:12px 0}
+.platform-check input{width:18px;height:18px;flex-shrink:0}
+.platform-manager-options{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.platform-manager-confirm{display:grid;gap:14px;margin-top:20px;padding-top:20px;border-top:1px solid var(--line)}
+.platform-managed-users{display:grid;gap:12px}
+.platform-managed-users article{padding:14px;border:1px solid var(--line);border-radius:14px;overflow-wrap:anywhere}
+.platform-managed-users small{display:block;margin-top:5px;color:var(--muted)}
+.platform-user-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.platform-user-actions button{display:inline-flex;align-items:center;gap:6px}
+@media(max-width:520px){.platform-manager-grid,.platform-manager-options{grid-template-columns:1fr}.platform-user-actions button{width:100%;justify-content:center}}
 /* Platform-only shell: no family sidebar or header styles are changed. */
 .platform-shell {--text:var(--ink);--bg:color-mix(in srgb,var(--surface) 45%,var(--soft));display:flex;min-height:100dvh;background:var(--bg);color:var(--text)}
 .platform-shell h1,.platform-shell h2 {color:var(--ink)}
