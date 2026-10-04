@@ -2,6 +2,9 @@ name = "luspace-app"
 compatibility_date = "2026-10-01"
 pages_build_output_dir = "dist"
 
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "luspace-db"
