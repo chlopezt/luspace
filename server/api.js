@@ -2,6 +2,7 @@ import { models, modules, anamnesisSections } from "../shared/models.js";
 import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
 import { subscription } from "./subscription.js";
+import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google-auth.js';
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 
 const fail = (status, message) => {
@@ -312,7 +313,49 @@ export async function handle(req, env) {
     const audit = (db, a, action, detail, ip) => auditStatement(db, a, action, detail, ip, ipAddress);
     if (path === "status" && method === "GET") {
       const count = await first(db, "SELECT count(*) AS n FROM usuarios");
-      return json({ setup: count.n === 0, local: env.LOCAL_DEV === true, registration: count.n > 0 && env.LUSPACE_REGISTRATION_ENABLED === "true" });
+      return json({ setup: count.n === 0, local: env.LOCAL_DEV === true, registration: count.n > 0 && env.LUSPACE_REGISTRATION_ENABLED === "true", google: googleEnabled(env) });
+    }
+    if (path === 'auth/google/start' && method === 'POST') {
+      await limit(db, 'google-start:' + ip);
+      const input = await body(req);
+      if (input.mode === 'register' && (env.LUSPACE_REGISTRATION_ENABLED !== 'true' || !(await first(db, 'SELECT count(*) AS n FROM usuarios')).n)) fail(403, 'El registro todavía no está habilitado.');
+      const result = await startGoogle(req, env, input);
+      return json({url:result.url}, 200, {'Set-Cookie':result.cookie});
+    }
+    if (path === 'auth/google/callback' && method === 'GET') {
+      try {
+        await limit(db, 'google-callback:' + ip);
+        const identity = await finishGoogle(req, env);
+        const mail = email(identity.email);
+        let user = await first(db, 'SELECT u.* FROM identidades_google g JOIN usuarios u ON u.id=g.usuario_id WHERE g.subject=?', identity.subject);
+        let raw;
+        if (user) {
+          if (!user.activo) fail(403, 'Tu acceso fue desactivado. Contacta a la administración familiar.');
+          raw = await session(db, {user:user.id});
+          await audit(db, user, 'LOGIN', 'Inicio de sesión con Google', ip).run();
+        } else {
+          if (await first(db, 'SELECT id FROM usuarios WHERE correo=?', mail)) fail(409, 'Ese correo ya tiene una cuenta. Ingresa con tu contraseña de LuSpace; no se vinculó automáticamente con Google.');
+          if (identity.flow.modo !== 'register') fail(403, 'Primero crea tu familia desde la página de registro con Google.');
+          if (env.LUSPACE_REGISTRATION_ENABLED !== 'true') fail(403, 'El registro todavía no está habilitado.');
+          const family = uid(), id = uid(); raw = token();
+          user = {id, familia_id:family};
+          await db.batch([
+            stmt(db, "INSERT INTO familias(id,nombre,created_at,subscription_status,storage_limit_bytes,commercial_exempt) VALUES(?,?,?,'trial',52428800,0)", family, identity.flow.familia, new Date().toISOString()),
+            stmt(db, "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,'superadmin')", id, family, identity.flow.nombre, mail),
+            stmt(db, 'INSERT INTO identidades_google(subject,usuario_id) VALUES(?,?)', identity.subject, id),
+            stmt(db, 'INSERT INTO familia_configuracion(familia_id) VALUES(?)', family),
+            stmt(db, 'INSERT INTO sesiones(id,usuario_id,expira_at) VALUES(?,?,?)', await hash(raw), id, new Date(Date.now()+28800000).toISOString()),
+            audit(db, user, 'CREATE', 'Registro de familia con Google y prueba de 14 días', ip),
+          ]);
+        }
+        const headers = new Headers({'Location':'/', 'Cache-Control':'no-store', 'Referrer-Policy':'no-referrer'});
+        headers.append('Set-Cookie', cookie(req, raw));
+        headers.append('Set-Cookie', googleCookie(req, '', 0));
+        return new Response(null, {status:303, headers});
+      } catch (e) {
+        const message = e.status ? e.message : 'No se pudo completar el acceso con Google. Vuelve a intentarlo.';
+        return new Response(null, {status:303, headers:{'Location':'/login?google_error='+encodeURIComponent(message), 'Cache-Control':'no-store', 'Referrer-Policy':'no-referrer', 'Set-Cookie':googleCookie(req, '', 0)}});
+      }
     }
     if (path === "register" && method === "POST") {
       if (env.LUSPACE_REGISTRATION_ENABLED !== "true" || !(await first(db, "SELECT count(*) AS n FROM usuarios")).n)
@@ -559,7 +602,7 @@ export async function handle(req, env) {
           if(await first(db,"SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1",userId)) fail(403,"Esta cuenta administra la plataforma. No se puede modificar desde soporte familiar.");
           const ops=[];
           if(operation==='reset-password') {
-            ops.push(stmt(db,"UPDATE credenciales_usuario SET password_hash=? WHERE usuario_id=?",await password(pass(b.new_password)),userId));
+            ops.push(stmt(db,"INSERT INTO credenciales_usuario(password_hash,usuario_id) VALUES(?,?) ON CONFLICT(usuario_id) DO UPDATE SET password_hash=excluded.password_hash",await password(pass(b.new_password)),userId));
           } else if(operation==='active') {
             if(typeof b.active!=='boolean') fail(400,"Estado inválido.");
             // Guard evaluated inside the write, not just a preflight, to avoid concurrent loss of all owners.
@@ -1086,7 +1129,7 @@ export async function handle(req, env) {
         ops.push(
           stmt(
             db,
-            "UPDATE credenciales_usuario SET password_hash=? WHERE usuario_id=?",
+            "INSERT INTO credenciales_usuario(password_hash,usuario_id) VALUES(?,?) ON CONFLICT(usuario_id) DO UPDATE SET password_hash=excluded.password_hash",
             await password(pass(b.password)),
             id,
           ),
@@ -1131,6 +1174,7 @@ export async function handle(req, env) {
           "SELECT password_hash FROM credenciales_usuario WHERE usuario_id=?",
           a.id,
         );
+      if (!c) fail(400, 'Tu cuenta usa Google. Pide al administrador que asigne una contraseña local si la necesitas.');
       if (!(await verify(text(b.actual, 128), c.password_hash)))
         fail(403, "La contraseña actual no es correcta.");
       await db.batch([

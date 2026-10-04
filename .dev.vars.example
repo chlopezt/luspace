@@ -2,3 +2,7 @@
 # Configura ambos como secretos de Pages en producción.
 SETUP_KEY=CAMBIAR_POR_UN_SECRETO_ALEATORIO
 IP_SALT=CAMBIAR_POR_OTRO_SECRETO_ALEATORIO
+# OAuth web: nunca subir el secreto real a GitHub.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://luspace-app.pages.dev/api/auth/google/callback

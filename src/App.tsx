@@ -34,6 +34,7 @@ import { modules } from "../shared/models.js";
 import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
 import AdminPortal from "./AdminPortal";
+import Landing from './Landing';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import { Audit, Guests, Users } from "./Administration";
@@ -80,20 +81,31 @@ function Auth({
   setup,
   local,
   registration,
+  google,
   onDone,
   guestToken,
 }: {
   setup: boolean;
   local: boolean;
   registration: boolean;
+  google: boolean;
   onDone: () => void;
   guestToken: string;
 }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useState(() => new URLSearchParams(location.search).get('google_error') || ""),
     [showPassword, setShowPassword] = useState(false);
   const register = !setup && !guestToken && registration && location.pathname === "/registro";
   const createAccount = setup || register;
+  async function continueGoogle(button: HTMLButtonElement) {
+    const form = button.closest('form');
+    const data = form ? Object.fromEntries(new FormData(form)) : {};
+    setBusy(true); setError('');
+    try {
+      const result = await api('auth/google/start', 'POST', {nombre:data.nombre, familia:data.familia, mode:register ? 'register' : 'login'});
+      location.assign(result.url);
+    } catch(e) {setError((e as Error).message); setBusy(false);}
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -139,6 +151,11 @@ function Auth({
         </p>
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
+            {!setup && !guestToken && <>
+              <button type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}>Continuar con Google</button>
+              {!google && <p className="muted">Google estará disponible al completar su configuración. Puedes usar correo y contraseña.</p>}
+              <p className="muted">O continúa con tu correo</p>
+            </>}
             {createAccount && !guestToken && (
               <>
                 <label className="field">
@@ -548,6 +565,7 @@ function FamilyApp() {
         <p>Abriendo tu espacio…</p>
       </div>
     );
+  if (!me && status && !status.setup && location.pathname === '/') return <Landing/>;
   if (!me)
     return (
       <>
@@ -557,6 +575,7 @@ function FamilyApp() {
             setup={status.setup}
             local={status.local}
             registration={status.registration}
+            google={status.google === true}
             guestToken={guestToken}
             onDone={() => void load(true)}
           />
