@@ -483,6 +483,7 @@ export async function handle(req, env) {
       return json({
         ...a,
         platform_admin: !a.guest && !!await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id),
+        platform_setup_available: !a.guest && !!await first(db, "SELECT a.usuario_id FROM administradores_plataforma a WHERE a.usuario_id=? AND a.activo=1 AND NOT EXISTS (SELECT 1 FROM credenciales_plataforma c WHERE c.usuario_id=a.usuario_id)", a.id),
         permisos_json: JSON.stringify(permissions(a)),
         familia: family.nombre,
       });
