@@ -1,7 +1,8 @@
-// Allowlist: never forward identifiers, contacts, file contents or storage URLs.
+import { models } from "../shared/models.js";
+// Field allowlist; free-text notes still require family review before transmission.
 export function consultationContext(child, sections, anamnesis) {
   const fields = {
-    ninos: ["fecha_nacimiento", "grupo_sanguineo", "alergias", "diagnostico"],
+    ninos: ["grupo_sanguineo", "alergias", "diagnostico"],
     medicamentos: ["nombre", "dosis", "frecuencia_horas", "fecha_inicio", "fecha_termino", "instrucciones", "instrucciones_especiales", "activo"],
     registros_crecimiento: ["fecha_medicion", "peso_kg", "talla_cm", "notas"],
     consultas_medicas: ["fecha", "especialidad", "motivo_consulta", "diagnostico", "plan_tratamiento"],
@@ -20,7 +21,16 @@ export function consultationContext(child, sections, anamnesis) {
   return result;
 }
 export function basicDraft(context, concern) {
+  const sections = Object.entries(context.registros).map(([table, rows]) => {
+    const definition = models[table];
+    const records = rows.map(row => Object.entries(row).map(([key, value]) => {
+      const label = definition?.fields.find(f => f.key === key)?.label || key.replaceAll("_", " ");
+      if (key === "activo") return value ? "Tratamiento activo" : "";
+      return label + ": " + String(value);
+    }).filter(Boolean).join("\n")).join("\n\n");
+    return (definition?.title || table) + "\n" + records;
+  });
   return "PREPARACIÓN DE CONSULTA · BORRADOR\n\n" + (concern ? "INQUIETUDES DE LA FAMILIA\n" + concern + "\n\n" : "") +
-    "REGISTROS SELECCIONADOS\n" + JSON.stringify(context, null, 2) +
+    "Edad aproximada: " + context.paciente.edad_meses + " meses\n\n" + sections.join("\n\n") +
     "\n\nPREGUNTAS PARA EL PROFESIONAL\n• ¿Qué cambios debemos revisar?\n• ¿Qué observaciones conviene registrar?\n• ¿Cuándo corresponde el próximo control?\n\nVerificar antecedentes. No sustituye la evaluación profesional. No se han leído los adjuntos.";
 }
