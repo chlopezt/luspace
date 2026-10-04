@@ -109,7 +109,7 @@ export default function Growth({ child, rows }: { child: Row; rows: Row[] }) {
       </div>
       {measured.length ? (
         <>
-          <div style={{ width: "100%", height: 280 }}>
+          <div className="growth-chart" style={{ width: "100%", height: 280 }}>
             <ResponsiveContainer>
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" />

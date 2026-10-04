@@ -1063,4 +1063,29 @@ html[data-theme="dark"] .admin-kpi,html[data-theme="dark"] .admin-panel,html[dat
 .admin-portal {display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;padding:24px;min-height:100vh;background:var(--bg);color:var(--text)}
 .admin-portal aside {display:flex;flex-direction:column;gap:20px;align-self:start}
 .admin-portal main {min-width:0}
+/* Mobile-only containment: desktop layout is deliberately unchanged. */
+@media (max-width: 760px) {
+  .app-shell, .app-shell .page { min-width: 0; width: 100%; max-width: 100%; }
+  .app-shell .content { min-width: 0; max-width: 100%; }
+  .app-shell .content > *, .home-grid > *, .grid > *, .card { min-width: 0; }
+  .app-shell .card { max-width: 100%; overflow-wrap: anywhere; }
+  .page > header, .page > header.home-topbar { padding: 0 8px; gap: 4px; flex-wrap: nowrap; width: 100%; min-width: 0; }
+  .page > header .menu-button { flex: 0 0 32px; width: 32px; padding: 4px; }
+  .page > header .child-selector, .page > header.home-topbar .child-selector { flex: 1 1 0; min-width: 0; max-width: none; margin: 0; gap: 0; }
+  .page > header .child-selector::before, .page > header.home-topbar .child-selector::before { width: 28px; height: 28px; flex: 0 0 28px; margin-right: 3px; }
+  .page > header .child-selector select, .page > header.home-topbar .child-selector select { width: 100%; min-width: 0; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding: 4px 18px 4px 2px; font-size: 13px; }
+  .page > header .header-pdf span, .page > header .theme-control span { display: none; }
+  .page > header .header-pdf, .page > header .rnd { flex: 0 0 32px; width: 32px; min-width: 32px; padding: 6px; justify-content: center; }
+  .page > header .theme-control { flex: 0 0 auto; margin-left: 0; gap: 0; padding: 2px; }
+  .page > header .theme-control button { width: 28px; min-width: 28px; padding: 5px; }
+  .growth .section-heading { flex-direction: column; align-items: stretch; gap: 12px; }
+  .growth .section-heading select { align-self: flex-start; max-width: 100%; }
+  .growth-chart { min-width: 0; max-width: 100%; }
+  .growth-chart .recharts-default-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; }
+  .growth-chart .recharts-legend-item { margin-right: 0 !important; }
+  .dashboard-list li { min-width: 0; flex-wrap: wrap; }
+  .home-allergy .allergy-items { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+  .home-allergy .allergy-items span { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .auth-page, .auth-card { min-width: 0; max-width: 100%; }
+}
 @media(max-width:800px){.admin-portal{grid-template-columns:1fr;padding:16px}}
