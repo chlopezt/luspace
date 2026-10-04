@@ -425,6 +425,23 @@ export async function handle(req, env) {
       });
     }
     const a = await actor(req, db);
+    if (path.startsWith("platform/")) {
+      if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
+        fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
+      if (path !== "platform/overview" || method !== "GET") fail(404, "Ruta no encontrada.");
+      // Explicit administrative projection, never a cross-family clinical permission.
+      const families = await all(db, `SELECT f.id,f.nombre,f.created_at,
+        (SELECT COUNT(*) FROM usuarios u WHERE u.familia_id=f.id AND u.activo=1) AS miembros_activos,
+        (SELECT COUNT(*) FROM archivos a WHERE a.familia_id=f.id) AS archivos,
+        (SELECT COALESCE(SUM(bytes),0) FROM archivos a WHERE a.familia_id=f.id) AS storage_used_bytes
+        FROM familias f ORDER BY f.created_at DESC LIMIT 200`);
+      const totals = await first(db, `SELECT (SELECT COUNT(*) FROM familias) AS familias,
+        (SELECT COUNT(*) FROM usuarios WHERE activo=1) AS miembros_activos,
+        (SELECT COUNT(*) FROM archivos) AS archivos,
+        (SELECT COALESCE(SUM(bytes),0) FROM archivos) AS storage_used_bytes`);
+      await stmt(db, "INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)", uid(), a.id, "VIEW_OVERVIEW", "Consulta de métricas administrativas sin contenido clínico").run();
+      return json({ totals, families, commercial_enabled: false });
+    }
     if (path === "me" && method === "GET") {
       const family = await first(
         db,
@@ -433,6 +450,7 @@ export async function handle(req, env) {
       );
       return json({
         ...a,
+        platform_admin: !a.guest && !!await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id),
         permisos_json: JSON.stringify(permissions(a)),
         familia: family.nombre,
       });
