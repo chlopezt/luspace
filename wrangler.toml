@@ -5,6 +5,9 @@ pages_build_output_dir = "dist"
 [ai]
 binding = "AI"
 
+[vars]
+LUSPACE_AI_ENABLED = "true"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "luspace-db"
