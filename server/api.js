@@ -466,8 +466,12 @@ export async function handle(req, env) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
       if (path !== "platform/overview" || method !== "GET") fail(404, "Ruta no encontrada.");
+      const days=Number(url.searchParams.get('days')||30);
+      if(![30,90,365].includes(days)) fail(400,'Período inválido.');
+      const since=new Date(Date.now()-days*86400000).toISOString();
+      const effectiveStatus="CASE WHEN commercial_exempt=0 AND subscription_status='trial' AND (trial_ends_at IS NULL OR julianday(trial_ends_at)<=julianday('now')) THEN 'expired' ELSE subscription_status END";
       // Explicit administrative projection, never a cross-family clinical permission.
-      const families = await all(db, `SELECT f.id,f.nombre,f.created_at,
+      const families = await all(db, `SELECT f.id,f.nombre,f.created_at,f.trial_ends_at,f.storage_limit_bytes,f.commercial_exempt,${effectiveStatus} AS subscription_status,
         (SELECT COUNT(*) FROM usuarios u WHERE u.familia_id=f.id AND u.activo=1) AS miembros_activos,
         (SELECT COUNT(*) FROM archivos a WHERE a.familia_id=f.id) AS archivos,
         (SELECT COALESCE(SUM(bytes),0) FROM archivos a WHERE a.familia_id=f.id) AS storage_used_bytes
@@ -475,9 +479,25 @@ export async function handle(req, env) {
       const totals = await first(db, `SELECT (SELECT COUNT(*) FROM familias) AS familias,
         (SELECT COUNT(*) FROM usuarios WHERE activo=1) AS miembros_activos,
         (SELECT COUNT(*) FROM archivos) AS archivos,
-        (SELECT COALESCE(SUM(bytes),0) FROM archivos) AS storage_used_bytes`);
+        (SELECT COALESCE(SUM(bytes),0) FROM archivos) AS storage_used_bytes,
+        (SELECT COALESCE(SUM(storage_limit_bytes),0) FROM familias) AS reference_quota_bytes,
+        (SELECT COALESCE(SUM(storage_limit_bytes),0) FROM familias WHERE commercial_exempt=0) AS enforced_quota_bytes,
+        (SELECT COALESCE(SUM(storage_used_bytes),0) FROM familias WHERE commercial_exempt=0) AS enforced_used_bytes,
+        (SELECT COUNT(*) FROM familias WHERE commercial_exempt=1) AS exempt_families,
+        (SELECT COUNT(*) FROM familias WHERE commercial_exempt=0 AND subscription_status='trial' AND julianday(trial_ends_at)>julianday('now') AND julianday(trial_ends_at)<=julianday('now','+3 days')) AS trials_ending_soon,
+        (SELECT COUNT(*) FROM sesiones s JOIN usuarios u ON u.id=s.usuario_id WHERE u.activo=1 AND s.expira_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS family_sessions,
+        (SELECT COUNT(*) FROM sesiones_plataforma s JOIN administradores_plataforma a ON a.usuario_id=s.usuario_id JOIN usuarios u ON u.id=a.usuario_id WHERE a.activo=1 AND u.activo=1 AND s.expira_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS platform_sessions`);
+      const [statuses,roles,fileTypes,monthlyFiles,registrations,logins,activity]=await Promise.all([
+        all(db,`SELECT ${effectiveStatus} AS name,COUNT(*) AS value FROM familias GROUP BY 1`),
+        all(db,"SELECT rol AS name,COUNT(*) AS value FROM usuarios WHERE activo=1 GROUP BY rol"),
+        all(db,"SELECT CASE WHEN mime='application/pdf' THEN 'PDF' WHEN mime='image/jpeg' THEN 'JPEG' WHEN mime='image/png' THEN 'PNG' ELSE 'Otros' END AS name,COUNT(*) AS count,COALESCE(SUM(bytes),0) AS bytes FROM archivos GROUP BY 1"),
+        all(db,"SELECT strftime('%Y-%m',created_at) AS month,COUNT(*) AS count,SUM(bytes) AS bytes FROM archivos GROUP BY 1 ORDER BY 1 DESC LIMIT 12"),
+        all(db,"SELECT date(created_at) AS day,COUNT(*) AS count FROM familias WHERE julianday(created_at)>=julianday(?) GROUP BY 1 ORDER BY 1",since),
+        all(db,"SELECT date(l.created_at) AS day,u.rol AS role,COUNT(*) AS count FROM audit_logs l JOIN usuarios u ON u.id=l.usuario_id WHERE l.accion='LOGIN' AND julianday(l.created_at)>=julianday(?) GROUP BY 1,2 ORDER BY 1",since),
+        all(db,"SELECT accion,descripcion,created_at FROM auditoria_plataforma ORDER BY created_at DESC LIMIT 12")
+      ]);
       await stmt(db, "INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)", uid(), a.id, "VIEW_OVERVIEW", "Consulta de métricas administrativas sin contenido clínico").run();
-      return json({ totals, families, commercial_enabled: false });
+      return json({ totals, families, statuses, roles, file_types:fileTypes, monthly_files:monthlyFiles.reverse(), registrations, logins, activity, period_days:days,generated_at:new Date().toISOString(), commercial_enabled: false });
     }
     if (path === "me" && method === "GET") {
       const family = await first(
