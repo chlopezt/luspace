@@ -30,6 +30,31 @@ html[data-theme="dark"] {
   }
 }
 
+/* Sidebar y cabecera universales: se eliminan diferencias entre Inicio y módulos. */
+.sidebar, .home-shell .sidebar { background: #fff; border-right: 1px solid #e8edf2; box-shadow: 7px 0 22px #1c365607; }
+.sidebar .brand, .home-shell .sidebar .brand { padding: 10px 12px 23px; font-size: 23px; }
+.sidebar nav button, .home-shell .sidebar nav button { margin: 2px 0; width: 100%; border-radius: 12px; color: #3d5472; }
+.sidebar nav button.selected, .sidebar nav .selected, .home-shell .sidebar nav button.selected { color: #079d91; background: #e6fbf8; }
+.page > header, .page > header.home-topbar { min-height: 74px; height: 74px; padding: 0 38px; background: #fff; border-bottom: 1px solid #e8edf2; }
+.page > header .child-selector, .page > header.home-topbar .child-selector { height: 100%; margin-left: auto; margin-right: 0; order: 1; display: flex !important; flex-direction: row !important; align-items: center !important; max-width: none; }
+.page > header .child-selector::before, .page > header.home-topbar .child-selector::before { content: "L"; display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #d9f7f3; color: #078d84; font-weight: 800; margin-right: 9px; }
+.page > header .child-selector select, .page > header.home-topbar .child-selector select { width: 128px; min-width: 128px; height: 44px; border: 0; background: transparent; color: #132949; font-size: 16px; font-weight: 700; }
+.page > header .rnd, .page > header.home-topbar .rnd { order: 2; border-left: 1px solid #edf1f5; padding-left: 17px; }
+.page > header .header-pdf, .page > header.home-topbar .header-pdf { order: 3; display: inline-flex; }
+.page > header .theme-control, .page > header.home-topbar .theme-control { order: 4; margin-left: 4px; }
+html[data-theme="dark"] .sidebar, html[data-theme="dark"] .home-shell .sidebar, html[data-theme="dark"] .page > header, html[data-theme="dark"] .page > header.home-topbar { background: #102928; border-color: #294947; box-shadow: none; }
+html[data-theme="dark"] .sidebar nav button, html[data-theme="dark"] .home-shell .sidebar nav button { color: #c1d7d4; }
+html[data-theme="dark"] .sidebar nav button.selected, html[data-theme="dark"] .home-shell .sidebar nav button.selected { color: #7de1d2; background: #1b4b47; }
+html[data-theme="dark"] .page > header .child-selector select, html[data-theme="dark"] .page > header.home-topbar .child-selector select { color: #edf9f7; }
+html[data-theme="dark"] .page > header .rnd, html[data-theme="dark"] .page > header.home-topbar .rnd { border-color: #294947; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .sidebar, html[data-theme="system"] .home-shell .sidebar, html[data-theme="system"] .page > header, html[data-theme="system"] .page > header.home-topbar { background: #102928; border-color: #294947; box-shadow: none; }
+  html[data-theme="system"] .sidebar nav button, html[data-theme="system"] .home-shell .sidebar nav button { color: #c1d7d4; }
+  html[data-theme="system"] .sidebar nav button.selected, html[data-theme="system"] .home-shell .sidebar nav button.selected { color: #7de1d2; background: #1b4b47; }
+  html[data-theme="system"] .page > header .child-selector select, html[data-theme="system"] .page > header.home-topbar .child-selector select { color: #edf9f7; }
+  html[data-theme="system"] .page > header .rnd, html[data-theme="system"] .page > header.home-topbar .rnd { border-color: #294947; }
+}
+
 /* Sistema visual compartido: Inicio, Perfil, Salud, Escolar y administración. */
 .app-shell { background: #f8fbfd; }
 .sidebar { border-right-color: #e8edf2; box-shadow: 7px 0 22px #1c365607; }
