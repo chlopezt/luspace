@@ -448,12 +448,45 @@ export async function handle(req, env) {
         "SELECT CASE WHEN modulo='rnd' THEN 'Credenciales RND' WHEN modulo='escolar' THEN 'Bitácoras y escolar' WHEN modulo='salud' THEN 'Exámenes y recetas' WHEN modulo IN ('perfil','ninos') THEN 'Fotos de perfil' ELSE 'Otros documentos' END AS tipo, count(*) AS archivos, coalesce(sum(bytes),0) AS bytes FROM archivos WHERE familia_id=? GROUP BY tipo ORDER BY bytes DESC",
         a.familia_id,
       );
+      const monthlyRows = await all(
+        db,
+        "SELECT substr(created_at,1,7) AS mes, coalesce(sum(bytes),0) AS bytes FROM archivos WHERE familia_id=? GROUP BY substr(created_at,1,7) ORDER BY mes ASC",
+        a.familia_id,
+      );
+      const categories = ["Fotos de perfil", "Bitácoras y escolar", "Exámenes y recetas", "Credenciales RND"];
+      const indexed = new Map(breakdown.map((item) => [item.tipo, item]));
+      const completeBreakdown = categories.map((tipo) => {
+        const item = indexed.get(tipo);
+        return { tipo, archivos: Number(item?.archivos || 0), bytes: Number(item?.bytes || 0) };
+      });
+      let accumulated = 0;
+      const history = monthlyRows.map((row) => {
+        accumulated += Number(row.bytes || 0);
+        return { mes: row.mes, mb: Number((accumulated / 1024 / 1024).toFixed(3)) };
+      });
+      const latest = await first(
+        db,
+        "SELECT nombre,created_at FROM archivos WHERE familia_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1",
+        a.familia_id,
+      );
+      const firstUpload = await first(
+        db,
+        "SELECT created_at FROM archivos WHERE familia_id=? ORDER BY created_at ASC,rowid ASC LIMIT 1",
+        a.familia_id,
+      );
+      const elapsedDays = firstUpload ? Math.max(1, (Date.now() - Date.parse(firstUpload.created_at)) / 86400000) : 0;
+      const bytesPerDay = elapsedDays ? Number(total.total_bytes || 0) / elapsedDays : 0;
+      const projectedDays = bytesPerDay ? Math.max(0, Math.floor((10 * 1024 * 1024 * 1024 - Number(total.total_bytes || 0)) / bytesPerDay)) : null;
       return json({
         limit_bytes: 10 * 1024 * 1024 * 1024,
         total_files: Number(total.total_files || 0),
         total_bytes: Number(total.total_bytes || 0),
         average_bytes: Number(total.average_bytes || 0),
-        breakdown,
+        breakdown: completeBreakdown,
+        history,
+        estimated_cost_usd: 0,
+        latest_file: latest?.nombre || null,
+        projected_days_to_limit: projectedDays,
       });
     }
     if (path === "logout" && method === "POST") {
