@@ -18,13 +18,17 @@ test("platform admin is separate, read-only and cannot bypass family isolation",
     await call("setup","POST",{nombre:"QA",familia:"Familia QA",correo:"platform@example.test",password:"QaPassword!2026"});
     const me=(await call("me")).body;
     assert.equal(me.platform_admin,false);
+    assert.equal(me.platform_setup_available,false);
     assert.equal((await call("platform/overview")).status,401);
     await env.DB.prepare("INSERT INTO familias(id,nombre) VALUES('other','Familia B')").run();
     await env.DB.prepare("INSERT INTO ninos(id,familia_id,primer_nombre,fecha_nacimiento) VALUES('secret-child','other','SECRET-CHILD','2020-01-01')").run();
     await env.DB.prepare("INSERT INTO administradores_plataforma(usuario_id) VALUES(?)").bind(me.id).run();
     assert.equal((await call("me")).body.platform_admin,true);
+    assert.equal((await call("me")).body.platform_setup_available,true);
     assert.equal((await call("platform/overview")).status,401);
     assert.equal((await call("platform/enroll","POST",{correo:"admin@example.test",current_password:"QaPassword!2026",password:"AdminPassword!2026"})).status,201);
+    assert.equal((await call("me")).body.platform_setup_available,false);
+    assert.equal((await call("platform/enroll","POST",{correo:"admin@example.test",current_password:"QaPassword!2026",password:"AdminPassword!2026"})).status,409);
     const familyCookie=cookie;
     assert.equal((await call("platform/login","POST",{correo:"admin@example.test",password:"wrong"})).status,401);
     assert.equal((await call("platform/login","POST",{correo:"admin@example.test",password:"AdminPassword!2026"})).status,200);
