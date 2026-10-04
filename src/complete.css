@@ -289,6 +289,59 @@ small {
 .calendar-block small { color: #079d91; }
 @media (max-width: 1000px) { .home-grid { grid-template-columns: 1fr; } .home-shell .content { padding: 28px 24px; } }
 @media (max-width: 760px) { .home-shell .content { padding: 24px 16px 42px; } .home-topbar { padding: 0 14px; } .home-topbar .child-selector::before { width: 36px; height: 36px; } .home-topbar .rnd { padding-left: 6px; } .home-allergy { align-items: flex-start; flex-wrap: wrap; } .allergy-detail { margin-left: 46px; } .home-kpis { grid-template-columns: 1fr; } .home-kpi { min-height: 100px; } .home-grid .growth { min-height: 0; } }
+
+/* Tema oscuro: el Inicio usa los mismos tokens que el resto de LuSpace. */
+.home-topbar .child-selector { height: 100%; display: flex !important; flex-direction: row !important; align-items: center !important; gap: 0; max-width: none; }
+.home-topbar .child-selector select { width: 128px; min-width: 128px; height: 44px; }
+html[data-theme="dark"] body { background: #0b1d1d; }
+html[data-theme="dark"] .home-shell { background: #0b1d1d; }
+html[data-theme="dark"] .home-shell .sidebar { background: #102928; border-color: #294947; box-shadow: none; }
+html[data-theme="dark"] .home-shell .sidebar nav button { color: #c1d7d4; }
+html[data-theme="dark"] .home-shell .sidebar nav button.selected { color: #7de1d2; background: #1b4b47; }
+html[data-theme="dark"] .home-topbar { background: #102928; border-color: #294947; }
+html[data-theme="dark"] .home-topbar .child-selector::before { background: #d6f7f1; color: #08796f; }
+html[data-theme="dark"] .home-topbar .child-selector select { color: #edf9f7; }
+html[data-theme="dark"] .home-topbar .rnd { border-color: #294947; }
+html[data-theme="dark"] .home-intro h1, html[data-theme="dark"] .home-grid .growth h2, html[data-theme="dark"] .home-panel .section-heading h2, html[data-theme="dark"] .appointment-list .link-button { color: #edf9f7; }
+html[data-theme="dark"] .home-intro .muted, html[data-theme="dark"] .home-kpi small { color: #abc6c1; }
+html[data-theme="dark"] .home-kpi { background: #123432; border-color: #28504d; box-shadow: none; }
+html[data-theme="dark"] .home-kpi p { color: #9dbbb6; }
+html[data-theme="dark"] .home-kpi .home-icon { background: #1b4b47; color: #7de1d2; }
+html[data-theme="dark"] .home-kpi .violet-icon { background: #30234b; color: #c6a8ff; }
+html[data-theme="dark"] .home-grid .card { background: #123432; border-color: #28504d; box-shadow: none; }
+html[data-theme="dark"] .home-allergy { background: #3c3117; border-color: #705622; color: #f7d690; }
+html[data-theme="dark"] .home-allergy strong { color: #ffdf98; }
+html[data-theme="dark"] .allergy-detail { background: #5a4518; color: #ffe3a6; }
+html[data-theme="dark"] .medication-list li { background: #17423e; border-color: #28504d; }
+html[data-theme="dark"] .school-cta { background: linear-gradient(145deg,#17423e,#123432); border-color: #28504d; }
+html[data-theme="dark"] .appointment-list li { border-color: #28504d; }
+html[data-theme="dark"] .growth select { background: #173c39; border-color: #38635e; color: #edf9f7; }
+html[data-theme="dark"] .growth-tooltip { background: #102928; border-color: #38635e; color: #edf9f7; }
+html[data-theme="dark"] .home-shell .profile { border-color: #294947; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] body { background: #0b1d1d; }
+  html[data-theme="system"] .home-shell { background: #0b1d1d; }
+  html[data-theme="system"] .home-shell .sidebar, html[data-theme="system"] .home-topbar { background: #102928; border-color: #294947; box-shadow: none; }
+  html[data-theme="system"] .home-shell .sidebar nav button { color: #c1d7d4; }
+  html[data-theme="system"] .home-shell .sidebar nav button.selected { color: #7de1d2; background: #1b4b47; }
+  html[data-theme="system"] .home-topbar .child-selector::before { background: #d6f7f1; color: #08796f; }
+  html[data-theme="system"] .home-topbar .child-selector select { color: #edf9f7; }
+  html[data-theme="system"] .home-topbar .rnd, html[data-theme="system"] .home-shell .profile { border-color: #294947; }
+  html[data-theme="system"] .home-intro h1, html[data-theme="system"] .home-grid .growth h2, html[data-theme="system"] .home-panel .section-heading h2, html[data-theme="system"] .appointment-list .link-button { color: #edf9f7; }
+  html[data-theme="system"] .home-intro .muted, html[data-theme="system"] .home-kpi small { color: #abc6c1; }
+  html[data-theme="system"] .home-kpi, html[data-theme="system"] .home-grid .card { background: #123432; border-color: #28504d; box-shadow: none; }
+  html[data-theme="system"] .home-kpi p { color: #9dbbb6; }
+  html[data-theme="system"] .home-kpi .home-icon { background: #1b4b47; color: #7de1d2; }
+  html[data-theme="system"] .home-kpi .violet-icon { background: #30234b; color: #c6a8ff; }
+  html[data-theme="system"] .home-allergy { background: #3c3117; border-color: #705622; color: #f7d690; }
+  html[data-theme="system"] .home-allergy strong { color: #ffdf98; }
+  html[data-theme="system"] .allergy-detail { background: #5a4518; color: #ffe3a6; }
+  html[data-theme="system"] .medication-list li { background: #17423e; border-color: #28504d; }
+  html[data-theme="system"] .school-cta { background: linear-gradient(145deg,#17423e,#123432); border-color: #28504d; }
+  html[data-theme="system"] .appointment-list li { border-color: #28504d; }
+  html[data-theme="system"] .growth select { background: #173c39; border-color: #38635e; color: #edf9f7; }
+  html[data-theme="system"] .growth-tooltip { background: #102928; border-color: #38635e; color: #edf9f7; }
+}
 .form-grid .field {
   margin: 0;
 }
