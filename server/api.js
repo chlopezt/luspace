@@ -489,6 +489,43 @@ export async function handle(req, env) {
         projected_days_to_limit: projectedDays,
       });
     }
+    if (path === "admin/dashboard" && method === "GET") {
+      admin(a);
+      const now = new Date().toISOString();
+      const [members, guests, sessions, files, recent, accessSeries, expiring, inactive] = await Promise.all([
+        first(db, "SELECT count(*) AS total, sum(CASE WHEN activo=1 THEN 1 ELSE 0 END) AS active FROM usuarios WHERE familia_id=?", a.familia_id),
+        first(db, "SELECT count(*) AS total FROM tokens_invitados t JOIN ninos n ON n.id=t.nino_id WHERE n.familia_id=? AND t.activo=1 AND t.expira_at>?", a.familia_id, now),
+        first(db, "SELECT count(*) AS total FROM sesiones s JOIN usuarios u ON u.id=s.usuario_id WHERE u.familia_id=? AND s.expira_at>?", a.familia_id, now),
+        first(db, "SELECT count(*) AS total,coalesce(sum(bytes),0) AS bytes FROM archivos WHERE familia_id=?", a.familia_id),
+        all(db, "SELECT l.created_at,l.accion,l.descripcion,coalesce(u.nombre,t.destino_nombre,'Cuenta eliminada') AS actor FROM audit_logs l LEFT JOIN usuarios u ON u.id=l.usuario_id LEFT JOIN tokens_invitados t ON t.id=l.token_invitado_id WHERE l.familia_id=? ORDER BY l.rowid DESC LIMIT 7", a.familia_id),
+        all(db, "SELECT substr(created_at,1,10) AS day, count(*) AS total FROM audit_logs WHERE familia_id=? AND created_at>=datetime('now','-6 days') GROUP BY substr(created_at,1,10) ORDER BY day", a.familia_id),
+        all(db, "SELECT t.id,t.destino_nombre,t.expira_at,t.contador_accesos,t.modulos_json FROM tokens_invitados t JOIN ninos n ON n.id=t.nino_id WHERE n.familia_id=? AND t.activo=1 AND t.expira_at>? ORDER BY t.expira_at ASC LIMIT 6", a.familia_id, now),
+        all(db, "SELECT nombre,correo,created_at FROM usuarios WHERE familia_id=? AND activo=1 AND id NOT IN (SELECT usuario_id FROM audit_logs WHERE usuario_id IS NOT NULL AND created_at>=datetime('now','-30 days'))", a.familia_id),
+      ]);
+      const rndExpiry = await all(db, "SELECT fecha_vencimiento FROM credenciales_discapacidad c JOIN ninos n ON n.id=c.nino_id WHERE n.familia_id=? AND c.activo=1 AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento<=date('now','+30 days')", a.familia_id);
+      return json({
+        summary: { members: Number(members.active || 0), guests: Number(guests.total || 0), sessions: Number(sessions.total || 0), files: Number(files.total || 0), bytes: Number(files.bytes || 0) },
+        recent, access_series: accessSeries, guests: expiring, alerts: { rnd_expiring: rndExpiry.length, inactive_users: inactive, files_without_category: 0 },
+      });
+    }
+    if (path === "family/settings") {
+      admin(a);
+      if (method === "GET") {
+        const config = await first(db, "SELECT * FROM familia_configuracion WHERE familia_id=?", a.familia_id);
+        const family = await first(db, "SELECT nombre FROM familias WHERE id=?", a.familia_id);
+        return json({ nombre: family?.nombre || "Mi familia", logo_archivo_id: config?.logo_archivo_id || "", nino_principal_id: config?.nino_principal_id || "", modulos_activos_json: config?.modulos_activos_json || JSON.stringify(Object.keys(modules)), rnd_visible: config?.rnd_visible ?? 1 });
+      }
+      if (method === "PUT") {
+        const b = await body(req);
+        const activeModules = Array.isArray(b.modulos_activos_json) ? b.modulos_activos_json.filter((m) => modules[m]) : Object.keys(modules);
+        await db.batch([
+          stmt(db, "UPDATE familias SET nombre=? WHERE id=?", text(b.nombre, 120), a.familia_id),
+          stmt(db, "INSERT INTO familia_configuracion(familia_id,logo_archivo_id,nino_principal_id,modulos_activos_json,rnd_visible,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(familia_id) DO UPDATE SET logo_archivo_id=excluded.logo_archivo_id,nino_principal_id=excluded.nino_principal_id,modulos_activos_json=excluded.modulos_activos_json,rnd_visible=excluded.rnd_visible,updated_at=CURRENT_TIMESTAMP", a.familia_id, text(b.logo_archivo_id || "", 128), text(b.nino_principal_id || "", 128), JSON.stringify(activeModules), b.rnd_visible ? 1 : 0),
+          audit(db, a, "UPDATE", "Configuración familiar actualizada", ip),
+        ]);
+        return json({ ok: true });
+      }
+    }
     if (path === "logout" && method === "POST") {
       const raw = req.headers
         .get("cookie")
@@ -873,9 +910,11 @@ export async function handle(req, env) {
       if (b.permisos_json !== undefined) {
         let p;
         try { p = typeof b.permisos_json === "string" ? JSON.parse(b.permisos_json) : b.permisos_json; } catch { fail(400, "Permisos inválidos."); }
-        if (!Array.isArray(p?.modules) || !Array.isArray(p?.acciones) || p.modules.some((m) => !modules[m]) || p.acciones.some((x) => !["ver", "crear", "editar", "eliminar"].includes(x)))
+        if (!Array.isArray(p?.modules) || !Array.isArray(p?.acciones) || p.modules.some((m) => !modules[m]) || p.acciones.some((x) => !["ver", "crear", "editar", "eliminar", "descargar", "adjuntar"].includes(x)))
           fail(400, "Permisos inválidos.");
-        ops.push(stmt(db, "UPDATE usuarios SET permisos_json=? WHERE id=?", JSON.stringify({ modules: [...new Set(p.modules)], acciones: [...new Set(p.acciones)] }), id));
+        const sensitive = Array.isArray(p.sensibles) ? p.sensibles.filter((x) => ["rnd", "anamnesis", "diagnosticos", "examenes", "recetas", "foto_perfil"].includes(x)) : [];
+        const privateFields = Array.isArray(p.privacidad) ? p.privacidad.filter((x) => ["rut", "telefono", "direccion", "diagnosticos", "archivos"].includes(x)) : [];
+        ops.push(stmt(db, "UPDATE usuarios SET permisos_json=? WHERE id=?", JSON.stringify({ modules: [...new Set(p.modules)], acciones: [...new Set(p.acciones)], sensibles: [...new Set(sensitive)], privacidad: [...new Set(privateFields)] }), id));
       }
       ops.push(
         stmt(db, "DELETE FROM sesiones WHERE usuario_id=?", id),
