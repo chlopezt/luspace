@@ -112,6 +112,7 @@ export default function Dashboard({
           <div className="allergy-items">
             {allergyItems.map((item) => <span key={item}>• {item}</span>)}
           </div>
+          <button className="allergy-detail" onClick={() => go("perfil")}>Ver detalles <ChevronRight size={16} /></button>
         </div>
       )}
       <section className="stats home-kpis">
@@ -144,6 +145,7 @@ export default function Dashboard({
         <article className="card medicine dashboard-panel home-panel">
           <div className="section-heading">
             <h2><Pill size={19} /> Medicamentos activos</h2>
+            <button className="home-add" onClick={() => go("salud")}>＋ Agregar</button>
           </div>
           {activeMeds.length ? (
             <ul className="dashboard-list medication-list">

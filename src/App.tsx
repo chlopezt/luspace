@@ -584,7 +584,7 @@ export default function App() {
       "examenes_medicos",
     ];
   return (
-    <div className="app-shell">
+    <div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
       <a className="skip-link" href="#main">
         Saltar al contenido
       </a>
@@ -634,7 +634,7 @@ export default function App() {
         </button>
       </aside>
       <div className="page">
-        <header>
+        <header className={view === "inicio" ? "home-topbar" : ""}>
           <button
             className="menu-button"
             aria-label="Abrir menú"
