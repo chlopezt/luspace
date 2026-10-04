@@ -33,6 +33,7 @@ import {
 } from "./components";
 import { modules } from "../shared/models.js";
 import Dashboard from "./Dashboard";
+import ConsultationPrep from "./ConsultationPrep";
 import Anamnesis from "./Anamnesis";
 import { Audit, Guests, Users } from "./Administration";
 
@@ -773,6 +774,7 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                  {view === "salud" && tab === 2 && !readonly && <ConsultationPrep key={child.id} child={child} allowed={available || []} />}
                   <Records
                     key={view + tab}
                     table={
