@@ -8,13 +8,13 @@ export default function AdminPortal() {
   const [me,setMe]=useState<Row|null>(null),[owner,setOwner]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[enroll,setEnroll]=useState(false),[show,setShow]=useState(false),[notice,setNotice]=useState('');
   async function load() {
     try {setMe(await api('platform/me'));history.replaceState(null,'','/admin');}
-    catch {setMe(null);history.replaceState(null,'','/admin/login');try{setOwner(!!(await api('me')).platform_admin);}catch{setOwner(false);}}
+    catch {setMe(null);history.replaceState(null,'','/admin/login');try{setOwner(!!(await api('me')).platform_setup_available);}catch{setOwner(false);}}
     finally{setLoading(false);}
   }
   useEffect(()=>{void load();},[]);
   async function submit(e:FormEvent<HTMLFormElement>) {
     e.preventDefault();setBusy(true);setError('');
-    try {const data=Object.fromEntries(new FormData(e.currentTarget));await api(enroll?'platform/enroll':'platform/login','POST',data);if(enroll){setEnroll(false);setNotice('Acceso creado. Ingresa con tu correo y contraseña administrativos.');}else await load();}
+    try {const data=Object.fromEntries(new FormData(e.currentTarget));await api(enroll?'platform/enroll':'platform/login','POST',data);if(enroll){setEnroll(false);setOwner(false);setNotice('Acceso creado. Ingresa con tu correo y contraseña administrativos.');}else await load();}
     catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
   if(loading) return <main className="auth-page"><p role="status">Comprobando acceso administrativo…</p></main>;
