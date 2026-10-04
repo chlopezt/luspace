@@ -11,7 +11,7 @@ Ambas alternativas conservan D1, el aislamiento familiar y la prueba de 14 días
 5. Publicar de nuevo para aplicar las variables. En modo de prueba de Google, agregar los correos de prueba en la audiencia; publicar la audiencia para abrirlo a otras familias siguiendo las instrucciones de Google.
 6. Probar registro, retorno, sesión y nuevo inicio de sesión en Chrome normal. No usar navegador embebido para autorización de Google.
 
-En `/registro`, completar nombre y familia y pulsar **Continuar con Google**, sin introducir contraseña. En `/login`, ese botón inicia sesión en una cuenta creada mediante Google. Correo/contraseña sigue funcionando independientemente.
+En `/registro`, pulsar **Continuar con Google**, sin introducir contraseña. Nombre y familia son opcionales en ese flujo; si se completan, se conservan. En `/login`, el botón inicia sesión en una cuenta creada mediante Google o crea una nueva familia con 14 días y 50 MB si esa identidad no está registrada, el correo no pertenece a otra cuenta y el registro está habilitado. En ausencia de datos del formulario se toma el nombre de Google y `Familia de [nombre]`; puede editarse después. Correo/contraseña sigue funcionando independientemente.
 
 ## Seguridad y límites
 

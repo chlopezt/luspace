@@ -35,6 +35,7 @@ import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
+import './auth-access.css';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import { Audit, Guests, Users } from "./Administration";
@@ -131,7 +132,8 @@ function Auth({
         <Theme />
       </div>
       <main className="auth-card">
-        <Brand />
+        <a className="auth-home-logo" href="/presentacion" aria-label="LuSpace, volver al inicio"><Brand /></a>
+        <a className="auth-back" href="/presentacion" aria-label="Volver al inicio">← Volver al inicio</a>
         <p className="eyebrow">UN ESPACIO PARA ACOMPAÑAR</p>
         <h1>
           {guestToken
@@ -152,8 +154,9 @@ function Auth({
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
             {!setup && !guestToken && <>
-              <button type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}>Continuar con Google</button>
+              <button className="google-signin" type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/> <span>Continuar con Google</span></button>
               {!google && <p className="muted">Google estará disponible al completar su configuración. Puedes usar correo y contraseña.</p>}
+              {google && <p className="muted">Si es tu primera vez, crearemos tu familia con 14 días gratis a $0, sin tarjeta ni cobro automático.</p>}
               <p className="muted">O continúa con tu correo</p>
             </>}
             {createAccount && !guestToken && (
@@ -241,7 +244,7 @@ function Auth({
         {!setup && !guestToken && (register
           ? <p className="muted">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
           : registration
-            ? <p className="muted">¿Tu familia aún no tiene cuenta? <a href="/registro">Probar LuSpace durante 14 días</a></p>
+            ? <div className="auth-trial"><p>¿Tu familia aún no tiene cuenta?</p><a href="/registro">Probar LuSpace durante 14 días</a><span>$0 durante la prueba · Sin tarjeta</span></div>
             : location.pathname === "/registro" && <p className="muted">El registro de nuevas familias todavía no está habilitado. <a href="/login">Volver al inicio de sesión</a></p>)}
       </main>
     </div>

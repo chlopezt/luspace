@@ -16,7 +16,7 @@ test('registration form starts an empty family with a trial and stays contained 
   await expect(page.getByText('Clave de instalación', { exact: true })).toHaveCount(0);
   await page.getByLabel('Tu nombre').fill('QA registro');
   await page.getByLabel('Nombre de la familia').fill('Familia nueva QA');
-  await page.getByLabel('Correo', { exact: true }).fill('signup-ui@example.test');
+  await page.getByLabel('Correo', { exact: true }).fill('signup-ui-' + Date.now() + '@example.test');
   await page.getByLabel('Contraseña (mínimo 12 caracteres)', { exact: true }).fill('FamiliaSegura2026!');
   await page.getByLabel('Confirmar contraseña').fill('DifferentPassword2026!');
   await page.getByRole('button', { name: 'Mostrar contraseña' }).click();

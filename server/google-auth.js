@@ -9,7 +9,7 @@ export async function startGoogle(req, env, input) {
   const mode = input.mode === 'register' ? 'register' : 'login';
   const name = typeof input.nombre === 'string' ? input.nombre.trim() : '';
   const family = typeof input.familia === 'string' ? input.familia.trim() : '';
-  if (mode === 'register' && (!name || !family || name.length > 120 || family.length > 120)) reject('Completa tu nombre y el nombre de la familia antes de continuar con Google.');
+  if (name.length > 120 || family.length > 120) reject('El nombre y la familia pueden tener hasta 120 caracteres.');
   const state = token(), browser = token(), verifier = token();
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
   const challenge = btoa(String.fromCharCode(...digest)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -39,5 +39,5 @@ export async function finishGoogle(req, env) {
   const infoResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {headers:{Authorization:'Bearer ' + tokens.access_token}, signal:AbortSignal.timeout(15000)});
   const info = await infoResponse.json();
   if (!infoResponse.ok || info.email_verified !== true || typeof info.sub !== 'string' || !info.sub || info.sub.length > 255 || typeof info.email !== 'string') reject('Google no confirmó un correo verificado.');
-  return {flow, subject:info.sub, email:info.email.trim().toLowerCase()};
+  return {flow, subject:info.sub, email:info.email.trim().toLowerCase(), name:typeof info.name === 'string' ? info.name.trim().slice(0, 100) : ''};
 }

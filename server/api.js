@@ -335,13 +335,14 @@ export async function handle(req, env) {
           await audit(db, user, 'LOGIN', 'Inicio de sesión con Google', ip).run();
         } else {
           if (await first(db, 'SELECT id FROM usuarios WHERE correo=?', mail)) fail(409, 'Ese correo ya tiene una cuenta. Ingresa con tu contraseña de LuSpace; no se vinculó automáticamente con Google.');
-          if (identity.flow.modo !== 'register') fail(403, 'Primero crea tu familia desde la página de registro con Google.');
-          if (env.LUSPACE_REGISTRATION_ENABLED !== 'true') fail(403, 'El registro todavía no está habilitado.');
+          if (env.LUSPACE_REGISTRATION_ENABLED !== 'true' || !(await first(db, 'SELECT count(*) AS n FROM usuarios')).n) fail(403, 'El registro todavía no está habilitado.');
           const family = uid(), id = uid(); raw = token();
+          const name = identity.flow.nombre || identity.name || 'Administrador familiar';
+          const familyName = identity.flow.familia || ('Familia de ' + name).slice(0,120);
           user = {id, familia_id:family};
           await db.batch([
-            stmt(db, "INSERT INTO familias(id,nombre,created_at,subscription_status,storage_limit_bytes,commercial_exempt) VALUES(?,?,?,'trial',52428800,0)", family, identity.flow.familia, new Date().toISOString()),
-            stmt(db, "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,'superadmin')", id, family, identity.flow.nombre, mail),
+            stmt(db, "INSERT INTO familias(id,nombre,created_at,subscription_status,storage_limit_bytes,commercial_exempt) VALUES(?,?,?,'trial',52428800,0)", family, familyName, new Date().toISOString()),
+            stmt(db, "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,'superadmin')", id, family, name, mail),
             stmt(db, 'INSERT INTO identidades_google(subject,usuario_id) VALUES(?,?)', identity.subject, id),
             stmt(db, 'INSERT INTO familia_configuracion(familia_id) VALUES(?)', family),
             stmt(db, 'INSERT INTO sesiones(id,usuario_id,expira_at) VALUES(?,?,?)', await hash(raw), id, new Date(Date.now()+28800000).toISOString()),
