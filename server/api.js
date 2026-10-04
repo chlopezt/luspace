@@ -1,6 +1,7 @@
 import { models, modules, anamnesisSections } from "../shared/models.js";
 import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
+import { subscription } from "./subscription.js";
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -457,6 +458,10 @@ export async function handle(req, env) {
       if(path==='platform/me' && method==='GET') return json(a);
       if(path==='platform/logout' && method==='POST') {await stmt(db,"DELETE FROM sesiones_plataforma WHERE id=?",await hash(raw)).run();return json({ok:true},200,{"Set-Cookie":platformCookie('',0)});}
     } else a=await actor(req, db);
+    const familySubscription = a.familia_id ? await subscription(db,a.familia_id) : null;
+    if (familySubscription && !familySubscription.can_write && ['POST','PUT','PATCH'].includes(method) && /^(children|records|anamnesis|files|consultation|family|guests)(\/|$)/.test(path))
+      fail(403,'Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.');
+    if(path==='subscription' && method==='GET') return json(familySubscription);
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
@@ -482,6 +487,7 @@ export async function handle(req, env) {
       );
       return json({
         ...a,
+        subscription: familySubscription,
         platform_admin: !a.guest && !!await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id),
         platform_setup_available: !a.guest && !!await first(db, "SELECT a.usuario_id FROM administradores_plataforma a WHERE a.usuario_id=? AND a.activo=1 AND NOT EXISTS (SELECT 1 FROM credenciales_plataforma c WHERE c.usuario_id=a.usuario_id)", a.id),
         permisos_json: JSON.stringify(permissions(a)),
@@ -1203,6 +1209,7 @@ export async function handle(req, env) {
       )
         fail(400, "Adjunta un archivo de hasta 10 MB.");
       const bytes = new Uint8Array(await file.arrayBuffer());
+      if(familySubscription && !familySubscription.commercial_exempt && file.size+Number(familySubscription.storage_used_bytes)>Number(familySubscription.storage_limit_bytes)) fail(413,'Tu familia alcanzó su cuota de almacenamiento. Elimina adjuntos sin uso para liberar espacio.');
       let mime = "";
       if (
         bytes[0] === 0x25 &&
@@ -1221,6 +1228,7 @@ export async function handle(req, env) {
       else if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
         mime = "image/jpeg";
       if (!mime) fail(400, "Solo se permiten PDF, PNG y JPG.");
+      if(mime.startsWith('image/') && !familySubscription?.commercial_exempt && file.size>300000) fail(413,'La imagen supera 300 KB. Comprímela antes de adjuntarla.');
       const id = uid(), key = `d1:${id}`, chunkSize = 1000000;
       const chunks = [];
       for (let offset = 0; offset < bytes.length; offset += chunkSize)
@@ -1311,6 +1319,7 @@ export async function handle(req, env) {
     }
     fail(404, "Ruta no encontrada.");
   } catch (e) {
+    if(String(e.message).includes('STORAGE_QUOTA_EXCEEDED')) return json({error:'La cuota de almacenamiento está completa. No se guardó el archivo.'},413);
     if (e.status) return json({ error: e.message }, e.status);
     if (String(e.message).includes("UNIQUE"))
       return json(
