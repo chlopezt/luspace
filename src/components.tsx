@@ -3,6 +3,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X, Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
 import { api, dateLabel, today, type Row } from "./lib";
 import { models as definitions } from "../shared/models.js";
+import { compressUploadImage } from './imageCompression';
 export const models: Record<string, any> = definitions;
 export function Brand() {
   const [bad, setBad] = useState(false);
@@ -99,7 +100,7 @@ export function Field({
     setError("");
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", await compressUploadImage(file));
       const r = await api(`files?child=${child}&module=${module}`, "POST", fd);
       onChange(r.id);
     } catch (e) {

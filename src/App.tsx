@@ -34,6 +34,7 @@ import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
 import PlatformAdmin from "./PlatformAdmin";
 import AdminPortal from "./AdminPortal";
+import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import { Audit, Guests, Users } from "./Administration";
 
@@ -403,6 +404,7 @@ export default function App() {
   return location.pathname === "/admin" || location.pathname.startsWith("/admin/") ? <AdminPortal /> : <FamilyApp />;
 }
 function FamilyApp() {
+  const [subscriptionInfo,setSubscriptionInfo]=useState(false);
   const [me, setMe] = useState<Row | null>(null),
     [status, setStatus] = useState<Row | null>(null),
     [loading, setLoading] = useState(true),
@@ -516,9 +518,11 @@ function FamilyApp() {
       setError((e as Error).message);
     }
   }
+  const subscription = useSubscription(me?.subscription,!!me?.guest);
   const child = children.find((n) => n.id === childId),
-    readonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
-    available = readonly ? me?.modules : Object.keys(modules);
+    roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
+    readonly = roleReadonly || !subscription.canWrite,
+    available = me?.guest ? me.modules : Object.keys(modules);
   if (loading)
     return (
       <div className="loading" role="status">
@@ -591,6 +595,7 @@ function FamilyApp() {
               </button>
             ))}
         </nav>
+        {!me.guest && subscription.trial && <div className="subscription-badge"><span>Prueba gratis: Te quedan {subscription.daysLeft} días</span><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
         <div className="profile">
           <span>{me.nombre.slice(0, 1)}</span>
           <div>
@@ -655,6 +660,7 @@ function FamilyApp() {
           <Theme />
         </header>
         <main id="main" className="content" key={childId}>
+          {!me.guest && !subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.</p><p>Puedes consultar y descargar tu información. No se han eliminado tus datos.</p><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
           <ErrorNote error={error} />
           {view === "plataforma" && me.platform_admin ? <PlatformAdmin back={() => go("inicio")} /> : !child ? (
             <section className="card welcome">
@@ -673,10 +679,10 @@ function FamilyApp() {
             <>
               {readonly && (
                 <div className="page-tools">
-                  <span className="badge">Consulta profesional · solo lectura</span>
+                  <span className="badge">Solo lectura</span>
                 </div>
               )}
-              {view === "inicio" && <Dashboard child={child} go={go} />}{" "}
+              {view === "inicio" && <Dashboard child={child} go={go} readonly={readonly} />}{" "}
               {view === "perfil" && (
                 <>
                   <div className="section-heading">
@@ -793,7 +799,7 @@ function FamilyApp() {
                 </>
               )}
               {view === "invitados" && !readonly && <Guests child={child} />}{" "}
-              {view === "usuarios" && !readonly && (
+              {view === "usuarios" && !roleReadonly && (
                 <Users
                   me={me}
                   onLogout={() => {
@@ -807,6 +813,7 @@ function FamilyApp() {
           )}
         </main>
       </div>
+      {subscriptionInfo && <Modal title="Activar suscripción" close={()=>setSubscriptionInfo(false)}><p>La contratación y los pagos aún no están habilitados. No se realizará ningún cobro desde esta ventana.</p><p>Tu información seguirá disponible para consulta y descarga.</p>{subscription.value && <p>Almacenamiento: {(subscription.value.storage_used_bytes/1048576).toFixed(1)} MB de {(subscription.value.storage_limit_bytes/1048576).toFixed(0)} MB.</p>}</Modal>}
       {profile && (
         <Modal
           title={profile.id ? "Editar perfil" : "Nuevo perfil"}

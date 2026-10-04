@@ -23,9 +23,11 @@ export function nextDose(m: Row, now: number) {
 export default function Dashboard({
   child,
   go,
+  readonly=false,
 }: {
   child: Row;
   go: (v: string) => void;
+  readonly?: boolean;
 }) {
   const [growth, setGrowth] = useState<Row[]>([]),
     [meds, setMeds] = useState<Row[]>([]),
@@ -145,7 +147,7 @@ export default function Dashboard({
         <article className="card medicine dashboard-panel home-panel">
           <div className="section-heading">
             <h2><Pill size={19} /> Medicamentos activos</h2>
-            <button className="home-add" onClick={() => go("salud")}>＋ Agregar</button>
+            <button className="home-add" disabled={readonly} onClick={() => go("salud")}>＋ Agregar</button>
           </div>
           {activeMeds.length ? (
             <ul className="dashboard-list medication-list">
@@ -180,7 +182,7 @@ export default function Dashboard({
                 : "Sin sobrecarga registrada."
               : "Registra cómo estuvo su día y qué apoyos ayudaron."}
             </p>
-            <button className="primary" onClick={() => go("escolar")}>
+            <button className="primary" disabled={readonly} onClick={() => go("escolar")}>
               <PencilLine size={16} /> Registrar bitácora
             </button>
           </div>
