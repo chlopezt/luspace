@@ -149,6 +149,7 @@ function permissions(a) {
   return p;
 }
 function member(a, module, action = "editar") {
+  if (module) featureModule(a, module);
   if (a.guest) fail(403, "El acceso de invitado es de solo lectura.");
   const p = permissions(a);
   if (!module && !p.acciones?.some((x) => ["crear", "editar", "eliminar"].includes(x)))
@@ -157,10 +158,19 @@ function member(a, module, action = "editar") {
     fail(403, "Tu cuenta no tiene permiso para realizar esta acción.");
 }
 function allowed(a, module) {
+  featureModule(a, module);
   if (a.guest && !a.modules.includes(module))
     fail(403, "El enlace no incluye este módulo.");
   if (!a.guest && a.rol !== "superadmin" && !permissions(a).modules?.includes(module))
     fail(403, "Tu cuenta no tiene acceso a este módulo.");
+}
+function featureModule(a, module) {
+  if (a.platform_controls?.blocked_modules.includes(module))
+    fail(403, "Este módulo está desactivado por la administración de plataforma.");
+}
+function feature(a, name) {
+  if (a.platform_controls?.[name] === false)
+    fail(403, "Esta función está desactivada por la administración de plataforma.");
 }
 async function child(db, a, id) {
   const n = await first(
@@ -457,7 +467,11 @@ export async function handle(req, env) {
       if(!a) fail(401,"Sesión administrativa vencida o revocada.");
       if(path==='platform/me' && method==='GET') return json(a);
       if(path==='platform/logout' && method==='POST') {await stmt(db,"DELETE FROM sesiones_plataforma WHERE id=?",await hash(raw)).run();return json({ok:true},200,{"Set-Cookie":platformCookie('',0)});}
-    } else a=await actor(req, db);
+    } else {
+      a=await actor(req, db);
+      const controls=await first(db,"SELECT modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled FROM plataforma_controles_familia WHERE familia_id=?",a.familia_id);
+      a.platform_controls={blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0};
+    }
     const familySubscription = a.familia_id ? await subscription(db,a.familia_id) : null;
     if (familySubscription && !familySubscription.can_write && ['POST','PUT','PATCH'].includes(method) && /^(children|records|anamnesis|files|consultation|family|guests)(\/|$)/.test(path))
       fail(403,'Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.');
@@ -465,6 +479,64 @@ export async function handle(req, env) {
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
+      const familyRoute=path.match(/^platform\/families\/([^/]+)(?:\/users\/([^/]+)\/(reset-password|active|close-sessions))?$/);
+      if(familyRoute) {
+        const [,familyId,userId,operation]=familyRoute;
+        const family=await first(db,"SELECT id,nombre,created_at,trial_ends_at,subscription_status,storage_limit_bytes,commercial_exempt FROM familias WHERE id=?",familyId);
+        if(!family) fail(404,"Familia no encontrada.");
+        const controls=await first(db,"SELECT modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled,updated_at FROM plataforma_controles_familia WHERE familia_id=?",familyId);
+        const platformAudit=(action,reason,detail)=>stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)",uid(),a.id,action,JSON.stringify({familia_id:familyId,usuario_id:userId||null,motivo:reason,...detail}));
+        if(method==='GET'&&!userId) {
+          const members=await all(db,"SELECT u.id,u.nombre,u.correo,u.rol,u.activo,EXISTS(SELECT 1 FROM administradores_plataforma p WHERE p.usuario_id=u.id AND p.activo=1) AS platform_protected,(SELECT COUNT(*) FROM sesiones s WHERE s.usuario_id=u.id AND s.expira_at>?) AS sesiones FROM usuarios u WHERE u.familia_id=? ORDER BY u.created_at",new Date().toISOString(),familyId);
+          await platformAudit('VIEW_FAMILY_PARAMETERS','Consulta de soporte administrativo',{}).run();
+          return json({family,controls:{blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0},members});
+        }
+        if(method!=='PUT'&&method!=='POST') fail(405,"Método no permitido.");
+        const b=await body(req),reason=text(b.reason||'',500);
+        if(reason.length<5) fail(400,"Indica un motivo de al menos 5 caracteres.");
+        await limit(db,'platform-change:'+a.id);
+        const credential=await first(db,"SELECT password_hash FROM credenciales_plataforma WHERE usuario_id=?",a.id);
+        if(!await verify(text(b.admin_password||'',128),credential.password_hash)) fail(401,"Contraseña administrativa incorrecta.");
+        if(!userId&&method==='PUT') {
+          if(!Array.isArray(b.blocked_modules)||b.blocked_modules.some(m=>!Object.hasOwn(modules,m))) fail(400,"Módulos inválidos.");
+          for(const key of ['ai_enabled','uploads_enabled','reports_enabled','commercial_exempt']) if(typeof b[key]!=='boolean') fail(400,"Configuración inválida.");
+          if(!['trial','active','past_due','canceled','expired'].includes(b.subscription_status)) fail(400,"Estado inválido.");
+          const quota=Number(b.storage_limit_bytes);
+          if(!Number.isSafeInteger(quota)||quota<1048576||quota>10737418240) fail(400,"La cuota debe ser entre 1 MiB y 10 GiB.");
+          const end=b.trial_ends_at?new Date(b.trial_ends_at):null;
+          if((end&&!Number.isFinite(end.getTime()))||(b.subscription_status==='trial'&&!end)) fail(400,"Indica una fecha de vencimiento válida.");
+          const name=text(b.nombre,120);if(!name) fail(400,"Indica el nombre de la familia.");
+          const blocked=[...new Set(b.blocked_modules)];
+          await db.batch([
+            stmt(db,"UPDATE familias SET nombre=?,subscription_status=?,trial_ends_at=?,storage_limit_bytes=?,commercial_exempt=? WHERE id=?",name,b.subscription_status,end?.toISOString()||null,quota,b.commercial_exempt?1:0,familyId),
+            stmt(db,"INSERT INTO plataforma_controles_familia(familia_id,modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled) VALUES(?,?,?,?,?) ON CONFLICT(familia_id) DO UPDATE SET modulos_bloqueados_json=excluded.modulos_bloqueados_json,ai_enabled=excluded.ai_enabled,uploads_enabled=excluded.uploads_enabled,reports_enabled=excluded.reports_enabled,updated_at=CURRENT_TIMESTAMP",familyId,JSON.stringify(blocked),b.ai_enabled?1:0,b.uploads_enabled?1:0,b.reports_enabled?1:0),
+            platformAudit('UPDATE_FAMILY_CONTROLS',reason,{antes:{family,controls},despues:{nombre:name,subscription_status:b.subscription_status,trial_ends_at:end?.toISOString()||null,storage_limit_bytes:quota,commercial_exempt:b.commercial_exempt,blocked_modules:blocked,ai_enabled:b.ai_enabled,uploads_enabled:b.uploads_enabled,reports_enabled:b.reports_enabled}})
+          ]);
+          return json({ok:true});
+        }
+        if(userId&&method==='POST') {
+          const target=await first(db,"SELECT id,rol,activo FROM usuarios WHERE id=? AND familia_id=?",userId,familyId);
+          if(!target) fail(404,"Usuario no encontrado en esta familia.");
+          if(await first(db,"SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1",userId)) fail(403,"Esta cuenta administra la plataforma. No se puede modificar desde soporte familiar.");
+          const ops=[];
+          if(operation==='reset-password') {
+            ops.push(stmt(db,"UPDATE credenciales_usuario SET password_hash=? WHERE usuario_id=?",await password(pass(b.new_password)),userId));
+          } else if(operation==='active') {
+            if(typeof b.active!=='boolean') fail(400,"Estado inválido.");
+            // Guard evaluated inside the write, not just a preflight, to avoid concurrent loss of all owners.
+            ops.push(stmt(db,"UPDATE usuarios SET activo=? WHERE id=? AND familia_id=? AND (?=1 OR rol<>'superadmin' OR EXISTS(SELECT 1 FROM usuarios u WHERE u.familia_id=? AND u.rol='superadmin' AND u.activo=1 AND u.id<>?))",b.active?1:0,userId,familyId,b.active?1:0,familyId,userId));
+          }
+          if(operation!=='active') ops.push(stmt(db,"DELETE FROM sesiones WHERE usuario_id=?",userId));
+          else if(b.active===false) ops.push(stmt(db,"DELETE FROM sesiones WHERE usuario_id=? AND EXISTS(SELECT 1 FROM usuarios WHERE id=? AND activo=0)",userId,userId));
+          const action=operation==='reset-password'?'RESET_FAMILY_PASSWORD':operation==='active'?'SET_FAMILY_USER_ACTIVE':'CLOSE_FAMILY_SESSIONS';
+          if(operation==='active') ops.push(stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM usuarios WHERE id=? AND familia_id=? AND activo=?)",uid(),a.id,action,JSON.stringify({familia_id:familyId,usuario_id:userId,motivo:reason,activo:b.active}),userId,familyId,b.active?1:0));
+          else ops.push(platformAudit(action,reason,{}));
+          const result=await db.batch(ops);
+          if(operation==='active'&&!result[0].meta.changes) fail(409,"No se puede desactivar el último SuperAdmin activo de la familia.");
+          return json({ok:true});
+        }
+        fail(405,"Método no permitido.");
+      }
       if (path !== "platform/overview" || method !== "GET") fail(404, "Ruta no encontrada.");
       const days=Number(url.searchParams.get('days')||30);
       if(![30,90,365].includes(days)) fail(400,'Período inválido.');
@@ -623,7 +695,9 @@ export async function handle(req, env) {
         a.familia_id,
       );
       return json(
-        a.guest
+        a.platform_controls?.blocked_modules.includes('perfil')
+          ? rows.map(n=>({id:n.id,primer_nombre:n.primer_nombre,rnd_habilitado:!a.platform_controls.blocked_modules.includes('rnd')&&n.rnd_habilitado}))
+          : a.guest
           ? rows
               .filter((n) => n.id === a.nino_id)
               .map((n) => ({
@@ -1054,6 +1128,7 @@ export async function handle(req, env) {
       );
     }
     if (path === "backup" && method === "GET") {
+      for(const module of Object.keys(modules)) featureModule(a,module);
       admin(a);
       await audit(
         db,
@@ -1106,6 +1181,7 @@ export async function handle(req, env) {
       });
     }
     if (["consultation/preview", "consultation/generate"].includes(path) && method === "POST") {
+      feature(a,'ai_enabled');
       member(a, "salud", "crear");
       const b = await body(req), n = await child(db, a, b.child);
       if (!Array.isArray(b.modules) || !b.modules.length || b.modules.some(m => !["perfil", "salud", "escolar", "rnd"].includes(m))) fail(400, "Selecciona módulos válidos.");
@@ -1154,6 +1230,7 @@ export async function handle(req, env) {
       }
     }
     if (path === "export" && method === "POST") {
+      feature(a,'reports_enabled');
       const b = await body(req),
         n = await child(db, a, b.child);
       if (
@@ -1213,6 +1290,7 @@ export async function handle(req, env) {
       );
     }
     if (path === "files" && method === "POST") {
+      feature(a,'uploads_enabled');
       if (Number(req.headers.get("content-length")) > 10500000)
         fail(413, "El archivo supera 10 MB.");
       const n = url.searchParams.get("child"),
