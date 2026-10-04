@@ -1060,3 +1060,7 @@ html[data-theme="dark"] .admin-kpi,html[data-theme="dark"] .admin-panel,html[dat
 .platform-table th, .platform-table td { text-align:left; padding:14px 10px; border-bottom:1px solid var(--border, #cbd5e1); }
 @media(max-width:800px) { .platform-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:420px) { .platform-kpis { grid-template-columns:1fr; } }
+.admin-portal {display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;padding:24px;min-height:100vh;background:var(--bg);color:var(--text)}
+.admin-portal aside {display:flex;flex-direction:column;gap:20px;align-self:start}
+.admin-portal main {min-width:0}
+@media(max-width:800px){.admin-portal{grid-template-columns:1fr;padding:16px}}

@@ -35,6 +35,7 @@ import { modules } from "../shared/models.js";
 import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
 import PlatformAdmin from "./PlatformAdmin";
+import AdminPortal from "./AdminPortal";
 import Anamnesis from "./Anamnesis";
 import { Audit, Guests, Users } from "./Administration";
 
@@ -429,6 +430,9 @@ const navigation = [
   ["auditoria", "Auditoría", ShieldCheck],
 ] as const;
 export default function App() {
+  return location.pathname === "/admin" || location.pathname.startsWith("/admin/") ? <AdminPortal /> : <FamilyApp />;
+}
+function FamilyApp() {
   const [me, setMe] = useState<Row | null>(null),
     [status, setStatus] = useState<Row | null>(null),
     [loading, setLoading] = useState(true),
@@ -618,7 +622,6 @@ export default function App() {
               </button>
             ))}
         </nav>
-        {me.platform_admin && <button className="storage-button" onClick={() => go("plataforma")} aria-current={view === "plataforma" ? "page" : undefined}><ShieldCheck size={18}/> Administrar LuSpace</button>}
         {me.rol === "superadmin" && (
           <button className="storage-button" onClick={() => setStorage(true)}>
             <HardDrive size={17} /> Estado almacenamiento
