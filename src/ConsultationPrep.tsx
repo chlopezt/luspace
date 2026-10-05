@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Sparkles, Download, ShieldCheck } from "lucide-react";
 import { Modal, ErrorNote } from "./components";
 import { api, download, dateLabel, type Row } from "./lib";
+import { loadPdfModule, PdfModuleError } from './pdfRecovery';
 
 const examples = [
   "Prepara un resumen para neurología. Incluye medicamentos activos y observaciones escolares. Quiero conversar sobre el sueño y la sobrecarga sensorial.",
@@ -44,12 +45,12 @@ export default function ConsultationPrep({ child, allowed }: { child: Row; allow
   async function savePdf() {
     setBusy(true); setError("");
     try {
-      const { Document, Page, Text, pdf } = await import("@react-pdf/renderer");
+      const { Document, Page, Text, pdf } = await loadPdfModule(() => import("@react-pdf/renderer"));
       const blob = await pdf(<Document><Page size="A4" style={{padding:40,fontSize:11,fontFamily:"Helvetica",lineHeight:1.5}}><Text style={{fontSize:18,marginBottom:15}}>LuSpace · Preparación de consulta</Text><Text>{draft}</Text><Text style={{marginTop:20,fontSize:9}}>Borrador revisable · No sustituye evaluación profesional · {new Date().toLocaleDateString("es-CL")}</Text></Page></Document>).toBlob();
       download(blob, "LuSpace-preparar-consulta.pdf");
       setPdfUrl(URL.createObjectURL(blob));
       setNotice("PDF preparado. Si la descarga no comienza, utiliza el enlace Descargar archivo PDF.");
-    } catch { setError("No se pudo generar el PDF. Puedes copiar el borrador; no se ha perdido."); } finally {setBusy(false);}
+    } catch(e) { setError(e instanceof PdfModuleError ? 'No se pudo cargar el generador PDF. Copia o guarda tu borrador antes de recargar la página; no se ha borrado.' : "No se pudo generar el PDF. Puedes copiar el borrador; no se ha perdido."); } finally {setBusy(false);}
   }
   return <><button className="primary" onClick={start}><Sparkles size={18}/> Preparar próxima consulta</button>{open && <Modal title="Preparar próxima consulta" description="Selecciona tus registros, revisa lo que se enviará y edita el borrador antes de compartirlo." close={() => setOpen(false)}>
     <div className="consultation-prep">

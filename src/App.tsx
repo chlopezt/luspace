@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Activity,
   HeartPulse,
@@ -40,6 +40,7 @@ import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import {useStartupLoading} from './StartupScreen';
 import { Audit, Guests, Users } from "./Administration";
+import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, type PdfResume } from './pdfRecovery';
 
 function Theme() {
   const [value, setValue] = useState(() => {
@@ -335,23 +336,32 @@ function Export({
   child,
   allowed,
   close,
+  actor,
+  canReload,
+  resume,
 }: {
   child: Row;
   allowed: string[];
   close: () => void;
+  actor: string;
+  canReload: boolean;
+  resume: PdfResume | null;
 }) {
   const [selected, setSelected] = useState(
-      allowed.includes("anamnesis") ? ["anamnesis"] : allowed.slice(0, 1),
+      resume ? resume.selected.filter(m => allowed.includes(m)) : allowed.includes("anamnesis") ? ["anamnesis"] : allowed.slice(0, 1),
     ),
-    [includePhoto, setIncludePhoto] = useState(false),
+    [includePhoto, setIncludePhoto] = useState(!!resume?.photo),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
   return (
     <Modal
       title="Descargar informe PDF"
       description="Selecciona la información que incluirá el documento."
       close={close}
     >
+      {resume && <p role="status" className="muted">LuSpace se actualizó. Conservamos tu selección; pulsa Descargar PDF para continuar.</p>}
       <div className="check-grid">
         {Object.entries(modules)
           .filter(([k]) => allowed.includes(k))
@@ -359,6 +369,7 @@ function Export({
             <label className="check" key={k}>
               <input
                 type="checkbox"
+                disabled={busy}
                 checked={selected.includes(k)}
                 onChange={(e) =>
                   setSelected(
@@ -374,11 +385,12 @@ function Export({
       </div>
       {child.foto_perfil_id && (
         <label className="check">
-          <input type="checkbox" checked={includePhoto} onChange={(e) => setIncludePhoto(e.target.checked)} />
+          <input type="checkbox" disabled={busy} checked={includePhoto} onChange={(e) => setIncludePhoto(e.target.checked)} />
           Incluir foto de perfil
         </label>
       )}
       <ErrorNote error={error} />
+      {busy && <p role="status" aria-live="polite">Generando informe…</p>}
       <button
         className="primary"
         disabled={busy || !selected.length}
@@ -403,17 +415,20 @@ function Export({
                 });
               }
             }
-            const { exportPdf } = await import("./report");
+            const { exportPdf } = await loadPdfModule(() => import("./report"));
             await exportPdf(data);
             close();
           } catch (e) {
-            setError((e as Error).message);
+            if (e instanceof PdfModuleError) {
+              if (await recoverPdfDeployment({ actor, child: child.id, selected, photo: includePhoto }, () => canReload && alive.current)) return;
+              if (alive.current) setError(e.message);
+            } else if (alive.current) setError((e as Error).message || 'No se pudo generar el informe. Inténtalo nuevamente.');
           } finally {
             setBusy(false);
           }
         }}
       >
-        {busy ? "Preparando PDF…" : "Descargar PDF"}
+        {busy ? "Generando informe…" : "Descargar PDF"}
       </button>
     </Modal>
   );
@@ -434,6 +449,7 @@ export default function App() {
 }
 function FamilyApp() {
   const [subscriptionInfo,setSubscriptionInfo]=useState(false);
+  const [pdfResume, setPdfResume] = useState<PdfResume | null>(() => takePdfResume());
   const [me, setMe] = useState<Row | null>(null),
     [status, setStatus] = useState<Row | null>(null),
     [loading, setLoading] = useState(true),
@@ -553,6 +569,12 @@ function FamilyApp() {
     roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
     readonly = roleReadonly || !subscription.canWrite,
     available = (me?.guest ? me.modules : Object.keys(modules)).filter((m:string)=>!me?.platform_controls?.blocked_modules?.includes(m));
+  useEffect(() => {
+    if (loading || !me || !pdfResume) return;
+    if (pdfResume.actor === me.id && children.some(n => n.id === pdfResume.child) && me.platform_controls?.reports_enabled !== false) {
+      setChildId(pdfResume.child); setReport(true);
+    } else setPdfResume(null);
+  }, [loading, me?.id, children, pdfResume]);
   if (loading) return null;
   if (!me && status && !status.setup && location.pathname === '/') return <Landing/>;
   if (!me)
@@ -876,7 +898,10 @@ function FamilyApp() {
         <Export
           child={child}
           allowed={available}
-          close={() => setReport(false)}
+          actor={me.id}
+          canReload={!dirty && !profile}
+          resume={pdfResume}
+          close={() => { setReport(false); setPdfResume(null); }}
         />
       )}
     </div></FileUploadEnabled.Provider>

@@ -9,6 +9,7 @@ import {
 } from "@react-pdf/renderer";
 import { models, anamnesisSections, fieldVisible } from "../shared/models.js";
 import { download, type Row } from "./lib";
+import { loadPdfModule } from './pdfRecovery';
 const styles = StyleSheet.create({
   page: {
     paddingTop: 36,
@@ -152,7 +153,7 @@ export async function exportPdf(data: Row) {
     }
   } catch {}
   const blob = await pdf(<Report data={{ ...data, logo }} />).toBlob();
-  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const { PDFDocument, StandardFonts, rgb } = await loadPdfModule(() => import("pdf-lib"));
   const document = await PDFDocument.load(await blob.arrayBuffer()),
     font = await document.embedFont(StandardFonts.Helvetica),
     pages = document.getPages();
