@@ -40,6 +40,7 @@ html[data-theme="dark"] {
 .page > header .child-selector::before, .page > header.home-topbar .child-selector::before { content: "L"; display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #d9f7f3; color: #078d84; font-weight: 800; margin-right: 9px; }
 .page > header .child-selector select, .page > header.home-topbar .child-selector select { width: 128px; min-width: 128px; height: 44px; border: 0; background: transparent; color: #132949; font-size: 16px; font-weight: 700; }
 .page > header .rnd, .page > header.home-topbar .rnd { order: 2; border-left: 1px solid #edf1f5; padding-left: 17px; }
+.page > header .rnd > svg { display: block; flex: 0 0 20px; width: 20px; height: 20px; }
 .page > header .header-pdf, .page > header.home-topbar .header-pdf { order: 3; display: inline-flex; }
 .page > header .theme-control, .page > header.home-topbar .theme-control { order: 4; margin-left: 4px; }
 html[data-theme="dark"] .sidebar, html[data-theme="dark"] .home-shell .sidebar, html[data-theme="dark"] .page > header, html[data-theme="dark"] .page > header.home-topbar { background: #102928; border-color: #294947; box-shadow: none; }

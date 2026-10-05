@@ -668,8 +668,8 @@ function FamilyApp() {
             </select>
           </label>}
           {view !== "plataforma" && child?.rnd_habilitado && rndAvailable && available.includes("rnd") ? (
-            <button className="rnd" onClick={() => setRnd(true)}>
-              <ShieldCheck size={17} />
+            <button className="rnd" aria-label="Ver credencial RND" title="Ver credencial RND" onClick={() => setRnd(true)}>
+              <ShieldCheck size={20} />
               <span>Credencial RND</span>
             </button>
           ) : null}
