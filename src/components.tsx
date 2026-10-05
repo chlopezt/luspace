@@ -2,7 +2,7 @@ import { useEffect, useState, createContext, useContext, type ReactNode, type Fo
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
 import { api, dateLabel, today, type Row } from "./lib";
-import { models as definitions } from "../shared/models.js";
+import { models as definitions, fieldVisible } from "../shared/models.js";
 import { compressUploadImage } from './imageCompression';
 import { fetchAttachment, downloadAttachment } from './fileAccess';
 export const models: Record<string, any> = definitions;
@@ -72,6 +72,30 @@ export function Empty({ children }: { children: ReactNode }) {
     </div>
   );
 }
+function SelectWithOther({ field, value, disabled, onChange }: {
+  field: any; value: string; disabled: boolean; onChange: (value: string) => void;
+}) {
+  const [other, setOther] = useState(!!value && !field.options.includes(value));
+  const custom = other || (!!value && !field.options.includes(value));
+  return <>
+    <select aria-label={field.label} required={field.required} disabled={disabled}
+      value={custom ? '__other' : value || ''}
+      onChange={e => {
+        const isOther = e.target.value === '__other'; setOther(isOther);
+        onChange(isOther ? '' : e.target.value);
+      }}>
+      <option value="">Sin registrar</option>
+      {field.options.map((option: string) => <option key={option} value={option}>{option}</option>)}
+      <option value="__other">{field.otherLabel || 'Otro'}</option>
+    </select>
+    {custom && <label className="field">
+      <span>{field.customLabel}</span>
+      <input type="text" aria-label={field.customLabel} value={value || ''}
+        required disabled={disabled} maxLength={field.maxLength || 180}
+        onChange={e => onChange(e.target.value)} />
+    </label>}
+  </>;
+}
 export function Field({
   field: f,
   value,
@@ -124,8 +148,9 @@ export function Field({
     const body = clean.slice(0, -1).replace(/^0+/, "") || "0";
     return body.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "-" + clean.slice(-1);
   };
+  const Container = f.type === 'select-other' ? 'div' : 'label';
   return (
-    <label
+    <Container
       className={
         "field " +
         (["textarea", "lines", "file"].includes(f.type) ? "wide" : "")
@@ -147,15 +172,17 @@ export function Field({
           />
           {f.label}
         </span>
+      ) : f.type === 'select-other' ? (
+        <SelectWithOther field={f} value={value || ''} disabled={disabled || busy} onChange={onChange} />
       ) : f.type === "select" ? (
         <select
           {...common}
-          value={value || f.options[0]}
+          value={value ?? f.options[0]}
           onChange={(e) => onChange(e.target.value)}
         >
           {f.options.map((v: string) => (
             <option key={v} value={v}>
-              {v.replaceAll("_", " ")}
+              {v ? v.replaceAll("_", " ") : 'Sin registrar'}
             </option>
           ))}
         </select>
@@ -193,7 +220,7 @@ export function Field({
           {...common}
           rows={4}
           value={value ?? ""}
-          maxLength={12000}
+          maxLength={f.maxLength || 12000}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
@@ -205,11 +232,11 @@ export function Field({
           min={f.min}
           max={f.max}
           step={f.type === "number" ? "any" : undefined}
-          maxLength={12000}
+          maxLength={f.maxLength || 12000}
           onChange={(e) => onChange(f.type === "rut" ? formatRut(e.target.value) : e.target.value)}
         />
       )}
-    </label>
+    </Container>
   );
 }
 export function RecordForm({
@@ -294,6 +321,7 @@ export function RecordForm({
     const details = [
       ["Profesional", values.medico_nombre],
       ["Especialidad", values.especialidad],
+      ["Acompañante", values.acompanante],
       ["Motivo", values.motivo_consulta],
       ["Diagnóstico informado", values.diagnostico],
       ["Plan de tratamiento", values.plan_tratamiento],
@@ -305,7 +333,7 @@ export function RecordForm({
   return (
     <form onSubmit={submit}>
       <fieldset disabled={busy} className="form-grid">
-        {config.fields.map((f: any) => (
+        {config.fields.filter((f: any) => fieldVisible(f, values)).map((f: any) => (
           <Field
             key={f.key}
             field={f}
@@ -348,7 +376,7 @@ export function RecordForm({
 export function RecordDetails({ table, row, onlyFields }: { table: string; row: Row; onlyFields?: string[] }) {
   return (
     <dl className="details">
-      {models[table].fields.filter((f: any) => !onlyFields || onlyFields.includes(f.key)).map((f: any) => {
+      {models[table].fields.filter((f: any) => fieldVisible(f, row) && (!onlyFields || onlyFields.includes(f.key))).map((f: any) => {
         let v = row[f.key];
         if (v === null || v === undefined || v === "") return null;
         if (f.type === "checkbox") v = v ? "Sí" : "No";

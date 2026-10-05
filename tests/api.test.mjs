@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
+import { DatabaseSync } from 'node:sqlite';
+import { models, fieldVisible } from '../shared/models.js';
 import { resolve } from "node:path";
 import { localEnv } from "../server/local.js";
 import { handle } from "../server/api.js";
@@ -300,4 +302,47 @@ test("calendar age handles end-of-month and leap days", () => {
   assert.deepEqual(calendarAge("2020-01-31", "2020-03-01"), {years:0,months:1,days:1});
   assert.deepEqual(calendarAge("2020-02-29", "2021-02-28"), {years:1,months:0,days:0});
   assert.equal(calendarAge("2027-01-01", "2026-01-01"), null);
+});
+test('household, hospital history and consultation companion persist without erasing legacy fields',async()=>{
+ const env=localEnv(mkdtempSync(resolve('../work','profile-fields-')));let cookie='';
+ const call=async(path,method='GET',data)=>{
+  const res=await handle(new Request('http://localhost:5173/api/'+path,{method,headers:{origin:'http://localhost:5173',cookie,'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)}),env);
+  if(res.headers.get('set-cookie'))cookie=res.headers.get('set-cookie').split(';')[0];return {status:res.status,body:await res.json()};
+ };
+ try{
+  await call('setup','POST',{nombre:'QA',familia:'QA',correo:'fields@example.test',password:'FamilyPassword!2026'});
+  const base={primer_nombre:'QA',fecha_nacimiento:'2020-01-01',convivientes:'Tía y abuela',hospitalizado:'Sí',hospitalizacion_motivo:'Antecedente registrado',hospitalizacion_estadia:'3 días'};
+  const created=await call('children','POST',base);assert.equal(created.status,201);const id=created.body.id;
+  let row=(await call('children')).body[0];assert.equal(row.convivientes,'Tía y abuela');assert.equal(row.hospitalizacion_estadia,'3 días');
+  const hospitalField=models.ninos.fields.find(f=>f.key==='hospitalizacion_motivo');assert.equal(fieldVisible(hospitalField,row),true);
+  assert.equal((await call('children/'+id,'PUT',{...base,hospitalizado:'No'})).status,200);
+  row=(await call('children')).body[0];assert.equal(row.hospitalizacion_motivo,base.hospitalizacion_motivo);assert.equal(fieldVisible(hospitalField,row),false);
+  assert.equal((await call('children/'+id,'PUT',{primer_nombre:'QA editado',fecha_nacimiento:base.fecha_nacimiento})).status,200);
+  row=(await call('children')).body[0];assert.equal(row.convivientes,base.convivientes);assert.equal(row.hospitalizado,'No');assert.equal(row.hospitalizacion_estadia,'3 días');
+  assert.equal((await call('children/'+id,'PUT',{...base,hospitalizado:'quizás'})).status,400);
+  assert.equal((await call('children/'+id,'PUT',{...base,convivientes:'x'.repeat(181)})).status,400);
+  const visit={fecha:'2026-11-01T15:00:00Z',medico_nombre:'Profesional QA',especialidad:'Neurología',acompanante:'Madre'};
+  const consultation=await call('records/consultas_medicas?child='+id,'POST',visit);assert.equal(consultation.status,201);
+  const endpoint='records/consultas_medicas/'+consultation.body.id+'?child='+id;
+  assert.equal((await call(endpoint,'PUT',{fecha:visit.fecha,medico_nombre:visit.medico_nombre,especialidad:'Especialidad personalizada antigua'})).status,200);
+  let visits=(await call('records/consultas_medicas?child='+id)).body;assert.equal(visits[0].especialidad,'Especialidad personalizada antigua');assert.equal(visits[0].acompanante,'Madre');
+  assert.equal((await call(endpoint,'PUT',{...visit,especialidad:'Enfermería',acompanante:'Tía'})).status,200);
+  visits=(await call('records/consultas_medicas?child='+id)).body;assert.equal(visits[0].especialidad,'Enfermería');assert.equal(visits[0].acompanante,'Tía');
+  assert.equal((await call(endpoint,'PUT',{...visit,acompanante:'x'.repeat(181)})).status,400);
+  assert.equal((await call('users','POST',{nombre:'Reader',correo:'fields-reader@example.test',rol:'lector',password:'ReaderPassword!2026'})).status,201);
+  const owner=cookie;assert.equal((await call('login','POST',{correo:'fields-reader@example.test',password:'ReaderPassword!2026'})).status,200);
+  assert.equal((await call('children/'+id,'PUT',base)).status,403);assert.equal((await call(endpoint,'PUT',visit)).status,403);
+  cookie=owner;
+  assert.equal((await call('register','POST',{nombre:'Other',familia:'Other',correo:'fields-other@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'})).status,201);
+  assert.deepEqual((await call('children')).body,[]);assert.equal((await call(endpoint)).status,404);
+ }finally{env.close();}
+});
+test('additive profile migration preserves existing data and does not assume hospital history',()=>{
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec("CREATE TABLE ninos(id TEXT,primer_nombre TEXT); CREATE TABLE consultas_medicas(id TEXT,especialidad TEXT); INSERT INTO ninos VALUES('old','QA'); INSERT INTO consultas_medicas VALUES('visit','Especialidad antigua');");
+  db.exec(readFileSync(new URL('../db/migrations/0018_profile_household_hospitalization.sql',import.meta.url),'utf8'));
+  const profile=db.prepare('SELECT * FROM ninos').get();assert.equal(profile.primer_nombre,'QA');assert.equal(profile.hospitalizado,'');assert.equal(profile.convivientes,'');
+  const visit=db.prepare('SELECT * FROM consultas_medicas').get();assert.equal(visit.especialidad,'Especialidad antigua');assert.equal(visit.acompanante,'');
+ }finally{db.close();}
 });

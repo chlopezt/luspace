@@ -7,7 +7,7 @@ import {
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
-import { models, anamnesisSections } from "../shared/models.js";
+import { models, anamnesisSections, fieldVisible } from "../shared/models.js";
 import { download, type Row } from "./lib";
 const styles = StyleSheet.create({
   page: {
@@ -113,7 +113,7 @@ export function Report({ data }: { data: Row }) {
             {(rows as Row[]).map((r: Row) => (
               <View style={styles.record} key={r.id}>
                 {(models as Row)[table].fields
-                  .filter((f: Row) => f.type !== "file" && r[f.key] !== null && r[f.key] !== undefined && r[f.key] !== "" && !(f.type === "lines" && !JSON.parse(r[f.key] || "[]").length))
+                  .filter((f: Row) => fieldVisible(f, r) && f.type !== "file" && r[f.key] !== null && r[f.key] !== undefined && r[f.key] !== "" && !(f.type === "lines" && !JSON.parse(r[f.key] || "[]").length))
                   .map((f: Row) => (
                     <Pair
                       key={f.key}

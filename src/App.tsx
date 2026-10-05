@@ -738,11 +738,11 @@ function FamilyApp() {
                       ) : (
                         <div className="patient-avatar" aria-label="Sin foto de perfil"><UserRound size={48} /></div>
                       )}
-                      <RecordDetails table="ninos" row={child} onlyFields={["primer_nombre", "apellidos", "rut", "fecha_nacimiento", "sexo_referencia", "foto_perfil_id", "carnet_identidad_id"]} />
+                      <RecordDetails table="ninos" row={child} onlyFields={["primer_nombre", "apellidos", "rut", "fecha_nacimiento", "convivientes", "sexo_referencia", "foto_perfil_id", "carnet_identidad_id"]} />
                     </article>
                     <article className="card profile-card">
                       <h2>Información médica y previsión</h2>
-                      <RecordDetails table="ninos" row={child} onlyFields={["grupo_sanguineo", "prevision_salud", "alergias", "diagnostico", "especialistas_json", "rnd_habilitado"]} />
+                      <RecordDetails table="ninos" row={child} onlyFields={["grupo_sanguineo", "prevision_salud", "alergias", "diagnostico", "hospitalizado", "hospitalizacion_motivo", "hospitalizacion_estadia", "especialistas_json", "rnd_habilitado"]} />
                     </article>
                     <article className="card profile-card">
                       <h2>Contactos de emergencia y datos escolares</h2>

@@ -197,9 +197,12 @@ async function session(db, who, expiry) {
   ).run();
   return raw;
 }
-async function validate(db, a, table, input, nino) {
+async function validate(db, a, table, input, nino, preserveMissing = false) {
   const values = {};
   for (const f of models[table].fields) {
+    // Older open forms do not know these new fields. Omission must not erase
+    // values saved by a newer client; an explicit empty value still clears.
+    if (preserveMissing && f.preserveIfMissing && input[f.key] === undefined) continue;
     let v = input[f.key];
     if (f.type === "select" && (v === undefined || v === null || v === ""))
       v = f.options?.[0] || "";
@@ -230,7 +233,9 @@ async function validate(db, a, table, input, nino) {
     }
     if (f.required && (v === "" || v == null))
       fail(400, `Completa ${f.label}.`);
-    if (f.options && !f.options.includes(v))
+    if (f.maxLength && typeof v === 'string' && v.length > f.maxLength)
+      fail(400, `Revisa ${f.label}: máximo ${f.maxLength} caracteres.`);
+    if (f.options && f.type !== 'select-other' && !f.options.includes(v))
       fail(400, `Selecciona ${f.label}.`);
     if (v && (f.type === "date" || f.type === "datetime-local")) {
       if (!Number.isFinite(Date.parse(v)))
@@ -826,7 +831,7 @@ export async function handle(req, env) {
       member(a, "perfil", "editar");
       const id = path.split("/")[1];
       await child(db, a, id);
-      const v = await validate(db, a, "ninos", await body(req), id);
+      const v = await validate(db, a, "ninos", await body(req), id, true);
       await db.batch([
         stmt(
           db,
@@ -887,7 +892,7 @@ export async function handle(req, env) {
         return json({ ok: true });
       }
       if (method === "POST" || method === "PUT") {
-        const v = await validate(db, a, table, await body(req), nino);
+        const v = await validate(db, a, table, await body(req), nino, !!id);
         let rid = id;
         if (models[table].single && !rid)
           rid = (

@@ -11,6 +11,21 @@ export const modules = {
   anamnesis: "Anamnesis",
   rnd: "Credencial RND",
 };
+export const fieldVisible = (field, row) =>
+  !field.showWhen || row[field.showWhen.key] === field.showWhen.value;
+export const medicalSpecialties = [
+  "Pediatría General / Infantil", "Medicina General / Familiar",
+  "Broncopulmonar / Neumología", "Cardiología Pediátrica", "Dermatología",
+  "Endocrinología Pediátrica", "Gastroenterología", "Inmunología / Alergias",
+  "Kinesiología / Fisioterapia", "Neurología Pediátrica", "Nutrición / Dietética",
+  "Nutriología", "Odontopediatría", "Oftalmología", "Otorrinolaringología",
+  "Psiquiatría Infantil", "Psicología Infantil", "Terapia Ocupacional",
+  "Fonoaudiología", "Traumatología / Ortopedia", "Laboratorio / Toma de Muestras",
+  "Enfermería", "Nefrología Pediátrica", "Urología Pediátrica",
+  "Hematología Pediátrica", "Oncología Pediátrica", "Infectología Pediátrica",
+  "Cirugía Pediátrica", "Reumatología Pediátrica", "Genética Clínica",
+  "Neonatología", "Medicina Física y Rehabilitación", "Psicopedagogía",
+];
 export const models = {
   ninos: {
     title: "Perfil del niño/a",
@@ -20,6 +35,10 @@ export const models = {
       f("apellidos", "Apellidos"),
       f("rut", "RUT", "rut"),
       f("fecha_nacimiento", "Fecha de nacimiento", "date", { required: true }),
+      f("convivientes", "¿Con quién vive?", "select-other", {
+        options: ["Ambos padres", "Madre", "Padre", "Abuelos", "Tutores"],
+        otherLabel: "Otro", customLabel: "Especifica con quién vive", maxLength: 180, preserveIfMissing: true,
+      }),
       f("sexo_referencia", "Sexo de referencia OMS", "select", {
         options: ["sin_registrar", "masculino", "femenino"],
       }),
@@ -33,6 +52,15 @@ export const models = {
       }),
       f("alergias", "Alergias y reacciones", "textarea"),
       f("diagnostico", "Diagnóstico", "textarea"),
+      f("hospitalizado", "¿Ha estado hospitalizado/a?", "select", {
+        options: ["", "Sí", "No"], preserveIfMissing: true,
+      }),
+      f("hospitalizacion_motivo", "Motivo de hospitalización", "textarea", {
+        showWhen: { key: "hospitalizado", value: "Sí" }, preserveIfMissing: true,
+      }),
+      f("hospitalizacion_estadia", "Tiempo de estadía", "text", {
+        showWhen: { key: "hospitalizado", value: "Sí" }, maxLength: 180, preserveIfMissing: true,
+      }),
       f("especialistas_json", "Profesionales y especialistas (uno por línea)", "lines"),
       f("contacto_emergencia_principal_nombre", "Contacto de emergencia principal: nombre"),
       f("contacto_emergencia_principal_parentesco", "Contacto principal: parentesco"),
@@ -85,7 +113,14 @@ export const models = {
     fields: [
       f("fecha", "Fecha y hora", "datetime-local", { required: true }),
       f("medico_nombre", "Profesional", "text", { required: true }),
-      f("especialidad", "Especialidad"),
+      f("especialidad", "Especialidad", "select-other", {
+        options: medicalSpecialties, otherLabel: "Otra especialidad",
+        customLabel: "Especifica la especialidad", maxLength: 180,
+      }),
+      f("acompanante", "Acompañante", "select-other", {
+        options: ["Madre", "Padre", "Ambos padres", "Abuelo/a", "Tutor/a", "Otro familiar", "Cuidador/a"],
+        otherLabel: "Otro", customLabel: "Especifica el acompañante", maxLength: 180, preserveIfMissing: true,
+      }),
       f("motivo_consulta", "Motivo", "textarea"),
       f("diagnostico", "Diagnóstico informado", "textarea"),
       f("plan_tratamiento", "Plan de tratamiento", "textarea"),
