@@ -2,9 +2,9 @@
 
 ## Prioridad crítica: protección de datos, respaldo y recuperación
 
-Estado: motor cifrado, automatización diaria y panel operativo implementados; pruebas locales de integridad y aislamiento aprobadas. Falta confirmar la primera ejecución real en GitHub/Cloudflare antes de declarar el respaldo activo. No confundir la exportación JSON con este proceso.
+Estado: motor cifrado, automatización diaria y panel operativo publicados. Primera copia real verificada el 05/10/2026 a las 05:20 UTC: 7 adjuntos comprobados, ensayo aislado aprobado y copia cifrada independiente en GitHub (2.23 MB). Ejecución: https://github.com/chlopezt/luspace/actions/runs/37267263726. No confundir la exportación JSON con este proceso.
 
-- [ ] Respaldos automáticos de D1 y de todos los adjuntos R2, con manifiesto de referencias y una copia privada independiente.
+- [x] Respaldos automáticos cifrados de D1 y adjuntos R2/D1, con manifiesto y copia independiente cifrada; primera ejecución real verificada.
 - [x] Definir frecuencia diaria, retención de siete días y objetivo de pérdida máxima aproximada de 24 horas entre copias exitosas. El tiempo de recuperación remota debe medirse, no está garantizado.
 - [ ] Restauración controlada y ensayos documentados que comprueben registros, archivos y aislamiento entre familias.
 - [ ] Migraciones con validación previa, conservación de originales y procedimiento de reversión probado.
