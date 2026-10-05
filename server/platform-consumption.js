@@ -27,6 +27,12 @@ export async function notifications(env,actorId,metrics=null) {
   const db=env.DB,report=metrics||await consumption(env),items=[];
   const add=(key,title,detail,severity='info',target='consumption',created_at=null)=>items.push({key,title,detail,severity,target,created_at});
   const {storage,d1,ai}=report;
+  const backupRows=await rows(db,"SELECT id,status,completed_at,error_code,independent_copy FROM respaldos_plataforma ORDER BY started_at DESC LIMIT 20");
+  const backup=backupRows.find(r=>r.status==='verified'),latestBackup=backupRows[0];
+  if(!backup||Date.now()-Date.parse(backup.completed_at)>36*3600000)add('backup-stale','Respaldo pendiente o desactualizado','No hay una copia verificada reciente. Revisar protección y recuperación de datos.','critical','backups');
+  if(latestBackup?.status==='failed')add('backup-failed:'+latestBackup.id,'Falló la copia de seguridad','Código operativo: '+latestBackup.error_code+'. Los originales no fueron modificados.','critical','backups',latestBackup.completed_at);
+  if(backup?.independent_copy==='failed')add('backup-independent:'+backup.id,'Copia independiente pendiente','La copia R2 está verificada, pero no se completó la copia cifrada fuera de Cloudflare.','warning','backups',backup.completed_at);
+  if(backup?.error_code==='RETENTION')add('backup-retention:'+backup.id,'Revisar retención de respaldos','Se conservó la nueva copia verificada; la limpieza de copias vencidas requiere revisión.','warning','backups',backup.completed_at);
   if(storage.level!=='normal')add('global-storage:'+storage.level,'Almacenamiento global '+(storage.level==='blocked'?'completo':'por revisar'),'Uso y reservas al '+(storage.committed_bytes/storage.limit_bytes*100).toFixed(2)+' % del límite interno. No se borran archivos.',storage.level==='blocked'||storage.level==='critical'?'critical':'warning');
   if(d1.level!=='normal')add('d1-attachments:'+d1.level,'Adjuntos conservados en D1','Revisar el espacio de los originales y el uso real de D1 en Cloudflare.','warning');
   if(storage.reservation_count)add('pending-reservations','Subidas con espacio reservado',storage.reservation_count+' reservas pendientes. No se liberan automáticamente para evitar exceder el límite.','warning');

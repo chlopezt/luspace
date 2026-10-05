@@ -42,7 +42,9 @@ html[data-theme="dark"] {
 .page > header .rnd, .page > header.home-topbar .rnd { order: 2; border-left: 1px solid #edf1f5; padding-left: 17px; }
 .page > header .rnd > svg { display: block; flex: 0 0 20px; width: 20px; height: 20px; }
 .page > header .header-pdf, .page > header.home-topbar .header-pdf { order: 3; display: inline-flex; }
-.page > header .theme-control, .page > header.home-topbar .theme-control { order: 4; margin-left: 4px; }
+.page > header .theme-control, .page > header.home-topbar .theme-control { order: 4; margin-left: 4px; display: inline-flex; flex: 0 0 auto; visibility: visible; }
+.page > header .theme-control button { display: inline-flex; align-items: center; justify-content: center; }
+.page > header .theme-control svg { display: block; width: 16px; height: 16px; flex: 0 0 16px; }
 html[data-theme="dark"] .sidebar, html[data-theme="dark"] .home-shell .sidebar, html[data-theme="dark"] .page > header, html[data-theme="dark"] .page > header.home-topbar { background: #102928; border-color: #294947; box-shadow: none; }
 html[data-theme="dark"] .sidebar nav button, html[data-theme="dark"] .home-shell .sidebar nav button { color: #c1d7d4; }
 html[data-theme="dark"] .sidebar nav button.selected, html[data-theme="dark"] .home-shell .sidebar nav button.selected { color: #7de1d2; background: #1b4b47; }

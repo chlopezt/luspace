@@ -21,6 +21,11 @@ test('RND header icon stays visible on home and modules, with safe empty state',
    if(width<=760)await page.getByRole('button',{name:'Abrir menú',exact:true}).click();
    await page.locator('.sidebar').getByRole('button',{name:section,exact:true}).click();
    await expect(button).toBeVisible();await expect(button.locator('svg')).toBeVisible();
+   for(const theme of ['Claro','Oscuro','Sistema']){
+    const choice=page.locator('.page > header').getByRole('button',{name:theme,exact:true});
+    await expect(choice).toBeVisible();await expect(choice.locator('svg')).toBeVisible();
+    await choice.click();await expect(choice).toHaveAttribute('aria-pressed','true');
+   }
    expect(await button.locator('svg').innerHTML()).toBe(icon);
    const size=await button.locator('svg').boundingBox();
    expect(size?.width).toBe(20);expect(size?.height).toBe(20);

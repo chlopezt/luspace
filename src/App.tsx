@@ -58,7 +58,7 @@ function Theme() {
     } catch {}
   }, [value]);
   return (
-    <div className="theme-control" aria-label="Tema visual">
+    <div className="theme-control" role="group" aria-label="Tema visual">
       {[
         ["light", Sun, "Claro"],
         ["dark", Moon, "Oscuro"],

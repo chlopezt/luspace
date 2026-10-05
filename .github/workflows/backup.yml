@@ -1,0 +1,46 @@
+name: Respaldar LuSpace
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/backup-*.mjs', 'scripts/cloudflare-backup.mjs', '.github/workflows/backup.yml']
+permissions:
+  contents: read
+concurrency:
+  group: luspace-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      LUSPACE_BACKUP_KEY: ${{ secrets.LUSPACE_BACKUP_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Esperar esquema operativo de respaldos
+        run: node scripts/backup-wait.mjs
+      - name: Copiar, cifrar y ensayar restauración
+        id: backup
+        run: node scripts/cloudflare-backup.mjs
+      - name: Copia independiente cifrada
+        id: independent
+        uses: actions/upload-artifact@v4
+        with:
+          name: luspace-respaldo-cifrado-${{ github.run_id }}
+          path: .private-backups/encrypted
+          include-hidden-files: true
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+      - name: Registrar resultado de la copia independiente
+        if: always() && steps.backup.outcome == 'success'
+        env:
+          BACKUP_RUN_ID: ${{ steps.backup.outputs.backup_id }}
+          INDEPENDENT_COPY: ${{ steps.independent.outcome == 'success' && 'verified' || 'failed' }}
+        run: node scripts/backup-independent.mjs

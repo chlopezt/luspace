@@ -6,6 +6,7 @@ import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
+import { backupStatus } from './backup-status.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -569,6 +570,7 @@ export async function handle(req, env) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
       if(path==='platform/consumption' && method==='GET') return json(await consumption(env));
+      if(path==='platform/backups' && method==='GET') return json(await backupStatus(env));
       if(path==='platform/notifications' && method==='GET') return json(await notifications(env,a.id));
       if(path==='platform/notifications/read' && method==='POST') {
         const b=await body(req),current=await notifications(env,a.id);
