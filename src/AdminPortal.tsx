@@ -4,6 +4,7 @@ import { api, type Row } from "./lib";
 import { Brand, ErrorNote } from "./components";
 import PlatformAdmin, {platformSections} from "./PlatformAdmin";
 import PlatformNotifications from './PlatformNotifications';
+import {useStartupLoading} from './StartupScreen';
 
 function PlatformTheme(){
  const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('luspace-theme')||'system';}catch{return 'system';}});
@@ -25,7 +26,8 @@ export default function AdminPortal() {
     try {const data=Object.fromEntries(new FormData(e.currentTarget));await api(enroll?'platform/enroll':'platform/login','POST',data);if(enroll){setEnroll(false);setOwner(false);setNotice('Acceso creado. Ingresa con tu correo y contraseña administrativos.');}else await load();}
     catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
-  if(loading) return <main className="auth-page"><p role="status">Comprobando acceso administrativo…</p></main>;
+  useStartupLoading(loading);
+  if(loading) return null;
   if(!me) return <div className="auth-page"><main className="auth-card"><Brand/><h1><ShieldCheck/> Administración de LuSpace</h1><p>Acceso independiente del portal familiar. Sin acceso a información clínica de otras familias.</p><ErrorNote error={error}/>{notice && <p role="status">{notice}</p>}<form onSubmit={submit}><fieldset disabled={busy}><label className="field">Correo administrativo<input name="correo" type="email" required autoComplete="username"/></label>{enroll && <label className="field">Contraseña familiar actual (verificación)<input name="current_password" type="password" required autoComplete="current-password"/></label>}<label className="field">{enroll?'Nueva contraseña administrativa (mínimo 12 caracteres)':'Contraseña administrativa'}<span className="password-field"><input name="password" type={show?'text':'password'} required minLength={enroll?12:undefined} maxLength={128} autoComplete={enroll?'new-password':'current-password'}/><button type="button" onClick={()=>setShow(!show)} aria-label={show?'Ocultar contraseña':'Mostrar contraseña'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></span></label><button className="primary" type="submit">{busy?'Procesando…':enroll?'Crear acceso administrativo':'Ingresar a administración'}</button></fieldset></form>{owner && <button onClick={()=>{setEnroll(!enroll);setError('');}}>{enroll?'Ya tengo acceso':'Configurar mi acceso administrativo'}</button>}<p className="muted">Las cuentas familiares no habilitan este acceso automáticamente.</p><a href="/login">Ir al acceso familiar</a></main></div>;
   const icons=[Building2,Users,Clock,HardDrive,ShieldCheck,HardDrive];
   return <div className="platform-shell">

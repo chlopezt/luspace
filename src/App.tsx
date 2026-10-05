@@ -38,6 +38,7 @@ import Landing from './Landing';
 import './auth-access.css';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
+import {useStartupLoading} from './StartupScreen';
 import { Audit, Guests, Users } from "./Administration";
 
 function Theme() {
@@ -547,17 +548,12 @@ function FamilyApp() {
     }
   }
   const subscription = useSubscription(me?.subscription,!!me?.guest);
+  useStartupLoading(loading);
   const child = children.find((n) => n.id === childId),
     roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
     readonly = roleReadonly || !subscription.canWrite,
     available = (me?.guest ? me.modules : Object.keys(modules)).filter((m:string)=>!me?.platform_controls?.blocked_modules?.includes(m));
-  if (loading)
-    return (
-      <div className="loading" role="status">
-        <Brand />
-        <p>Abriendo tu espacio…</p>
-      </div>
-    );
+  if (loading) return null;
   if (!me && status && !status.setup && location.pathname === '/') return <Landing/>;
   if (!me)
     return (

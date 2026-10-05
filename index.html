@@ -5,10 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0d9488" />
     <meta name="referrer" content="no-referrer" />
+    <link rel="stylesheet" href="/startup.css" />
+    <script src="/theme-init.js"></script>
+    <link rel="preload" as="image" href="/brand/luspace-logo.png" />
     <link rel="icon" type="image/png" href="/brand/luspace-logo.png" />
     <title>LuSpace · Cuidado conectado</title>
   </head>
   <body>
+    <div id="startup-fallback" class="startup-screen" role="status" aria-label="Cargando LuSpace">
+      <div class="startup-content">
+        <div class="startup-brand"><img src="/brand/luspace-logo.png" alt="" /><span class="startup-wordmark">Lu<span>Space</span></span></div>
+        <div class="startup-track" aria-hidden="true"><span></span></div>
+        <p class="startup-copy">Abriendo tu espacio…</p>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/entry.tsx"></script>
   </body>
