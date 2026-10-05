@@ -3,6 +3,8 @@ import {Brand} from './components';
 import './landing.css';
 import Testimonials from './Testimonials';
 import AudiencePurpose from './AudiencePurpose';
+import ThemeControl from './ThemeControl';
+import './landing-theme.css';
 
 const features = [
   {icon:FileHeart,title:'Su historia de salud, organizada',text:'Reúne consultas, tratamientos, exámenes y recetas. Encuentra lo que necesitas antes de la próxima consulta.'},
@@ -16,7 +18,7 @@ export default function Landing() {
     <header className="lp-header"><div className="lp-nav">
       <a href="/presentacion" aria-label="LuSpace, presentación"><Brand /></a>
       <nav aria-label="Navegación pública"><a href="#caracteristicas">Características</a><a href="#precios">Precios</a><a href="#seguridad">Seguridad</a><a href="#preguntas">Preguntas frecuentes</a></nav>
-      <div className="lp-actions"><a className="lp-login" href="/login"><LogIn size={17}/><span>Iniciar sesión</span></a><a className="lp-button" href="/registro">Probar 14 días gratis <ArrowRight size={16}/></a></div>
+      <div className="lp-actions"><ThemeControl/><a className="lp-login" href="/login"><LogIn size={17}/><span>Iniciar sesión</span></a><a className="lp-button" href="/registro">Probar 14 días gratis <ArrowRight size={16}/></a></div>
     </div></header>
     <main id="contenido">
       <section className="lp-hero lp-wrap">

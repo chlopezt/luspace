@@ -14,6 +14,10 @@ test('public presentation is responsive and links to login and signup without ex
     expect(await page.evaluate(()=>document.querySelector('.lp-header')!.getBoundingClientRect().bottom <= document.querySelector('.lp-hero')!.getBoundingClientRect().top)).toBe(true);
     await expect(page.locator('header').getByRole('link',{name:'Iniciar sesión'})).toBeVisible();
     await expect(page.locator('header').getByRole('link',{name:/Probar 14 días gratis/})).toBeVisible();
+    for(const label of ['Claro','Oscuro','Sistema']){
+      const button=page.locator('.lp-header').getByRole('button',{name:label,exact:true});
+      await expect(button).toBeVisible();await expect(button.locator('svg')).toBeVisible();
+    }
   }
   await page.getByRole('link',{name:'Características',exact:true}).click();
   await expect(page).toHaveURL(/#caracteristicas$/);
@@ -23,4 +27,14 @@ test('public presentation is responsive and links to login and signup without ex
   await expect(page.locator('.google-signin img')).toHaveAttribute('src','/brand/google-g.png');
   await page.getByRole('link',{name:'LuSpace, volver al inicio'}).click();
   await expect(page).toHaveURL(/\/presentacion$/);
+  await page.getByRole('button',{name:'Oscuro',exact:true}).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(page.locator('.lp')).toHaveCSS('background-color','rgb(13, 34, 36)');
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Oscuro',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.emulateMedia({colorScheme:'light'});
+  await page.getByRole('button',{name:'Sistema',exact:true}).click();
+  await expect(page.locator('.lp')).toHaveCSS('background-color','rgb(251, 253, 253)');
+  await page.emulateMedia({colorScheme:'dark'});
+  await expect(page.locator('.lp')).toHaveCSS('background-color','rgb(13, 34, 36)');
 });

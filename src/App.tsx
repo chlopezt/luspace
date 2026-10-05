@@ -7,9 +7,6 @@ import {
   Link,
   ShieldCheck,
   Users as UsersIcon,
-  Sun,
-  Moon,
-  Monitor,
   Menu,
   LogOut,
   UserRound,
@@ -36,6 +33,7 @@ import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
+import Theme from './ThemeControl';
 import './auth-access.css';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
@@ -43,44 +41,6 @@ import {useStartupLoading} from './StartupScreen';
 import { Audit, Guests, Users, ProfileAccess } from "./Administration";
 import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, type PdfResume } from './pdfRecovery';
 
-function Theme() {
-  const [value, setValue] = useState(() => {
-    try {
-      return localStorage.getItem("luspace-theme") || "system";
-    } catch {
-      return "system";
-    }
-  });
-  useEffect(() => {
-    document.documentElement.dataset.theme = value;
-    try {
-      localStorage.setItem("luspace-theme", value);
-    } catch {}
-  }, [value]);
-  return (
-    <div className="theme-control" role="group" aria-label="Tema visual">
-      {[
-        ["light", Sun, "Claro"],
-        ["dark", Moon, "Oscuro"],
-        ["system", Monitor, "Sistema"],
-      ].map(([k, I, label]) => {
-        const Icon = I as typeof Sun;
-        return (
-          <button
-            key={String(k)}
-            onClick={() => setValue(String(k))}
-            className={value === k ? "active" : ""}
-            aria-label={String(label)}
-            title={String(label)}
-            aria-pressed={value === k}
-          >
-            <Icon size={16} />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 function Auth({
   setup,
   local,
