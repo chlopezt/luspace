@@ -5,6 +5,7 @@ import { subscription } from "./subscription.js";
 import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google-auth.js';
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 import {consumption,notifications} from './platform-consumption.js';
+import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -281,6 +282,15 @@ async function validate(db, a, table, input, nino, preserveMissing = false) {
     values.fecha_termino < values.fecha_inicio
   )
     fail(400, "El término debe ser posterior al inicio.");
+  if (table === 'vacunas') {
+    if (values.catalogo_id && !vaccinationCatalog.some(c=>c.id===values.catalogo_id))
+      fail(400, 'Referencia de vacuna inválida.');
+    if (values.estado === 'Administrada') {
+      const n = await child(db,a,nino);
+      if (!values.fecha_aplicacion || values.fecha_aplicacion < n.fecha_nacimiento || values.fecha_aplicacion > vaccinationToday())
+        fail(400,'La fecha de aplicación debe estar entre el nacimiento y hoy.');
+    }
+  }
   return values;
 }
 async function records(db, a, table, nino) {
@@ -893,6 +903,10 @@ export async function handle(req, env) {
       }
       if (method === "POST" || method === "PUT") {
         const v = await validate(db, a, table, await body(req), nino, !!id);
+        if (table === 'vacunas' && v.catalogo_id) {
+          const duplicate = await first(db,'SELECT id FROM vacunas WHERE nino_id=? AND catalogo_id=?',nino,v.catalogo_id);
+          if (duplicate && duplicate.id !== id) fail(409,'Esta dosis ya está registrada. Edita el registro existente.');
+        }
         let rid = id;
         if (models[table].single && !rid)
           rid = (

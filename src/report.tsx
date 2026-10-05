@@ -18,6 +18,7 @@ import {
 } from "../shared/report-format.js";
 import { download, type Row } from "./lib";
 import { loadPdfModule } from "./pdfRecovery";
+import { vaccinationState } from "../shared/vaccinations.js";
 
 const s = StyleSheet.create({
   page: {
@@ -301,6 +302,58 @@ function Log({ row }: { row: Row }) {
     </View>
   );
 }
+function Vaccines({
+  rows,
+  birth,
+  at,
+}: {
+  rows: Row[];
+  birth: string;
+  at: string;
+}) {
+  const sorted = [...rows].sort((a, b) =>
+    (b.fecha_aplicacion || "").localeCompare(a.fecha_aplicacion || ""),
+  );
+  return (
+    <>
+      <Text style={{ marginBottom: 7, color: "#64748b" }}>
+        Registro familiar de inmunizaciones. No constituye certificado MINSAL.
+        Aplicadas recientes y dosis con seguimiento pendiente.
+      </Text>
+      {sorted.map((r, i) => (
+        <View
+          key={r.id || i}
+          style={s.card}
+          wrap={JSON.stringify(r).length > 1500}
+        >
+          <Text style={s.subtitle} minPresenceAhead={20}>
+            {reportText(r.nombre)}
+            {r.dosis ? " - " + reportText(r.dosis) : ""}
+          </Text>
+          <Pairs
+            items={[
+              { label: "Estado", value: vaccinationState(r, birth, at) },
+              {
+                label:
+                  r.estado === "Administrada"
+                    ? "Fecha de aplicación"
+                    : "Fecha prevista",
+                value: reportDate(
+                  r.estado === "Administrada"
+                    ? r.fecha_aplicacion
+                    : r.fecha_prevista,
+                ),
+              },
+              { label: "Lugar", value: reportText(r.centro) },
+              { label: "Lote / marca", value: reportText(r.lote_marca) },
+              { label: "Observaciones", value: reportText(r.notas) },
+            ].filter((e) => meaningful(e.value))}
+          />
+        </View>
+      ))}
+    </>
+  );
+}
 export function Report({ data }: { data: Row }) {
   const child = data.child || {},
     profile = data.sections?.ninos?.[0] || {};
@@ -372,7 +425,13 @@ export function Report({ data }: { data: Row }) {
               }
             >
               <Band title={(models as Row)[table].title} />
-              {["medicamentos", "registros_crecimiento"].includes(table) ? (
+              {table === "vacunas" ? (
+                <Vaccines
+                  rows={rows as Row[]}
+                  birth={child.fecha_nacimiento}
+                  at={String(data.created || "").slice(0, 10)}
+                />
+              ) : ["medicamentos", "registros_crecimiento"].includes(table) ? (
                 <Table table={table} rows={rows as Row[]} />
               ) : (
                 (rows as Row[]).map((r, i) =>

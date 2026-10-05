@@ -757,7 +757,7 @@ export function RecordForm({
               </section>
             ))
           : config.fields
-              .filter((f: any) => fieldVisible(f, values))
+              .filter((f: any) => !f.hidden && fieldVisible(f, values))
               .map((f: any) => (
                 <Field
                   key={f.key}

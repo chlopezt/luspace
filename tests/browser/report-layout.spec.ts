@@ -48,6 +48,10 @@ test("representative and long reports download complete PDFs", async ({
             "Indicaciones registradas por el profesional.",
         },
       ];
+      sections.vacunas = [
+        {id:'v1',nombre:'BCG',dosis:'Única',estado:'Administrada',fecha_aplicacion:'2018-10-20',centro:'CESFAM de ejemplo',lote_marca:'Lote QA',notas:'Sin reacción informada'},
+        {id:'v2',nombre:'Influenza',dosis:'Campaña de ejemplo',estado:'Pendiente/Próxima',fecha_prevista:'2027-03-20',notas:'Confirmar fecha con el vacunatorio'},
+      ];
       sections.ninos[0].hospitalizado = "Sí";
       if (stress)
         sections.bitacora_escolar_diaria[0].incidentes =

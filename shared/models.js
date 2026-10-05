@@ -138,6 +138,22 @@ export const models = {
       f("archivo_id", "Resultado o imagen", "file"),
     ],
   },
+  vacunas: {
+    title: "Carnet de vacunas", module: "salud",
+    fields: [
+      f("catalogo_id", "Referencia", "text", { hidden: true, maxLength: 80 }),
+      f("referencia", "Calendario de referencia", "text", { hidden: true, maxLength: 100 }),
+      f("nombre", "Vacuna", "text", { required: true, maxLength: 180 }),
+      f("dosis", "Dosis / refuerzo", "text", { maxLength: 120 }),
+      f("etapa", "Etapa", "select", {options:["Particulares","0–6 meses","12–36 meses","Escolar"]}),
+      f("estado", "Estado", "select", {options:["Pendiente/Próxima","Administrada","Atrasada"]}),
+      f("fecha_aplicacion", "Fecha de aplicación", "date", {showWhen:{key:"estado",value:"Administrada"}}),
+      f("fecha_prevista", "Fecha prevista (opcional)", "date"),
+      f("centro", "Centro o lugar de vacunación", "text", {maxLength:250}),
+      f("lote_marca", "Lote / marca (opcional)", "text", {maxLength:180}),
+      f("notas", "Notas u observaciones", "textarea"),
+    ],
+  },
   perfiles_escolares: {
     title: "Manual de apoyo",
     module: "escolar",

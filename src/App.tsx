@@ -33,6 +33,7 @@ import {
 import { modules } from "../shared/models.js";
 import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
+import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
 import './auth-access.css';
@@ -784,7 +785,7 @@ function FamilyApp() {
                   </h1>
                   <div className="tabs" role="group" aria-label="Secciones">
                     {(view === "salud"
-                      ? ["Mediciones", "Tratamientos", "Consultas médicas", "Exámenes"]
+                      ? ["Mediciones", "Tratamientos", "Consultas médicas", "Exámenes", "Carnet de vacunas"]
                       : [
                           "Manual de apoyo",
                           "Adecuaciones PIE / PACI",
@@ -803,7 +804,7 @@ function FamilyApp() {
                     ))}
                   </div>
                   {view === "salud" && tab === 2 && !readonly && me.platform_controls?.ai_enabled!==false && <ConsultationPrep key={child.id} child={child} allowed={available || []} />}
-                  <Records
+                  {view === 'salud' && tab === 4 ? <VaccinationCard key={child.id} child={child} readonly={readonly} user={me}/> : <Records
                     key={view + tab}
                     table={
                       (view === "salud" ? healthTables : schoolTables)[tab] ||
@@ -816,7 +817,7 @@ function FamilyApp() {
                         ? ["adecuaciones_json"]
                         : undefined
                     }
-                  />
+                  />}
                   <Attachments
                     child={child}
                     module={view}
