@@ -1,0 +1,119 @@
+.lp-purpose {
+  min-width: 0;
+}
+.lp-purpose-lead {
+  max-width: 800px;
+  margin: 0;
+  color: #536b75;
+  font-size: 17px;
+  line-height: 1.8;
+}
+.lp-audience-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 32px;
+}
+.lp-audience-card {
+  min-width: 0;
+  padding: 28px 24px;
+  border: 1px solid #dfeee9;
+  border-radius: 22px;
+  background: linear-gradient(150deg, #f0fbf7, #fff 65%);
+  box-shadow: 0 5px 18px #0f766e05;
+}
+.lp-audience-card:nth-child(2) {
+  border-color: #ebe4f6;
+  background: linear-gradient(150deg, #f6f1ff, #fff 65%);
+}
+.lp-audience-card:nth-child(3) {
+  border-color: #e1ebf5;
+  background: linear-gradient(150deg, #f0f7ff, #fff 65%);
+}
+.lp-audience-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #dcf8ef;
+  color: #0f766e;
+}
+.lp-audience-card:nth-child(2) .lp-audience-icon {
+  background: #eee5ff;
+  color: #8053c6;
+}
+.lp-audience-card:nth-child(3) .lp-audience-icon {
+  background: #e0efff;
+  color: #3978aa;
+}
+.lp .lp-audience-card h3 {
+  margin: 20px 0 12px;
+  line-height: 1.45;
+}
+.lp-audience-card p {
+  margin: 0;
+  color: #586e78;
+  font-size: 14px;
+  line-height: 1.85;
+}
+.lp-origin {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 24px;
+  padding: 28px;
+  border: 1px solid #f3e5ce;
+  border-radius: 22px;
+  background: #fffbf3;
+}
+.lp-origin-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  background: #fff0d8;
+  color: #986b30;
+}
+.lp .lp-origin h3 {
+  margin: 0 0 8px;
+  color: #664c30;
+}
+.lp-origin p {
+  margin: 0;
+  color: #76634e;
+  font-size: 14px;
+  line-height: 1.85;
+}
+.lp-origin strong {
+  font-weight: 700;
+}
+@media (max-width: 900px) {
+  .lp-audience-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .lp-audience-card {
+    padding: 24px;
+  }
+}
+@media (max-width: 639px) {
+  .lp-purpose-lead {
+    font-size: 15px;
+  }
+  .lp-audience-grid {
+    margin-top: 24px;
+  }
+  .lp-origin {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px;
+  }
+  .lp-audience-card p,
+  .lp-origin p {
+    font-size: 13px;
+  }
+}

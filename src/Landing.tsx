@@ -2,6 +2,7 @@ import {Activity, ArrowRight, BookOpen, CalendarDays, Check, FileHeart, Heart, L
 import {Brand} from './components';
 import './landing.css';
 import Testimonials from './Testimonials';
+import AudiencePurpose from './AudiencePurpose';
 
 const features = [
   {icon:FileHeart,title:'Su historia de salud, organizada',text:'Reúne consultas, tratamientos, exámenes y recetas. Encuentra lo que necesitas antes de la próxima consulta.'},
@@ -26,6 +27,7 @@ export default function Landing() {
         </div>
       </section>
       <section id="caracteristicas" className="lp-section lp-wrap"><p className="lp-eyebrow">UN CUIDADO MÁS CONECTADO</p><h2>Lo importante, a mano.</h2><p className="lp-section-intro">Diseñado para las familias y quienes las acompañan, con una interfaz tranquila y fácil de usar.</p><div className="lp-features">{features.map(({icon:Icon,title,text})=><article key={title}><span className="lp-feature-icon"><Icon size={25}/></span><h3>{title}</h3><p>{text}</p></article>)}</div><p className="lp-note">Carnet digital de vacunas con referencia PNI Chile y registros por dosis.</p></section>
+      <AudiencePurpose/>
       <section id="seguridad" className="lp-section lp-security"><div className="lp-wrap lp-security-grid"><div><p className="lp-eyebrow"><ShieldCheck size={16}/> PRIVACIDAD DESDE EL INICIO</p><h2>Compartir con confianza.<br/>Sin compartir de más.</h2><p className="lp-section-intro">Cada familia tiene un espacio separado. Tú decides quién puede ver y modificar su información.</p></div><ul><li><Check/> Datos y archivos privados, separados por familia.</li><li><Check/> Roles de administración, edición y solo lectura.</li><li><Check/> Accesos profesionales temporales y revocables.</li><li><Check/> Registro de actividad para revisar qué ocurrió.</li></ul></div></section>
       <Testimonials/>
       <section id="precios" className="lp-section lp-wrap"><p className="lp-eyebrow">EMPIEZA SIN COMPROMISO</p><h2>14 días para conocer LuSpace.</h2><div className="lp-price"><div><span className="lp-price-tag">PRUEBA GRATUITA · SIN COBRO INICIAL</span><h3>Tu espacio familiar</h3><p className="lp-price-number">$0 <span>durante 14 días</span></p><div className="lp-paid-plan"><strong>Después de la prueba</strong><p><b>$4.990</b> mensual + IVA</p><small>Precio en pesos chilenos (CLP). IVA no incluido.</small></div><p>Sin plan gratuito permanente. Sin tarjeta ni renovación automática.</p><p>Los pagos aún no están habilitados. No se cobrará automáticamente al terminar la prueba.</p></div><div><ul><li><Check/> Registro de tu familia y perfiles infantiles</li><li><Check/> Módulos de salud, colegio y documentos</li><li><Check/> 50 MB para tus adjuntos durante la prueba</li><li><Check/> Consulta y descarga de datos al finalizar la prueba</li></ul><a className="lp-button lp-large" href="/registro">Probar 14 días a $0 <ArrowRight size={18}/></a></div></div></section>
