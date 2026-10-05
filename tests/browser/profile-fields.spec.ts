@@ -20,6 +20,7 @@ for(const width of [375,1280])test(`profile and consultation conditional fields 
  await modal.getByLabel('Nombre',{exact:true}).fill('Niño QA');await modal.getByLabel('Fecha de nacimiento',{exact:true}).fill('2020-01-01');
  await modal.getByLabel('¿Con quién vive?',{exact:true}).selectOption('__other');
  await modal.getByLabel('Especifica con quién vive',{exact:true}).fill('Tía y abuela');
+ await modal.getByRole('tab',{name:'Salud',exact:true}).click();
  await expect(modal.getByLabel('Motivo de hospitalización',{exact:true})).toHaveCount(0);
  await modal.getByLabel('¿Ha estado hospitalizado/a?',{exact:true}).selectOption('Sí');
  await modal.getByLabel('Motivo de hospitalización',{exact:true}).fill('Antecedente QA');await modal.getByLabel('Tiempo de estadía',{exact:true}).fill('3 días');
@@ -27,11 +28,12 @@ for(const width of [375,1280])test(`profile and consultation conditional fields 
  await expect(modal.getByLabel('Tiempo de estadía',{exact:true})).toHaveCount(0);
  await modal.getByLabel('¿Ha estado hospitalizado/a?',{exact:true}).selectOption('Sí');
  await expect(modal.getByLabel('Tiempo de estadía',{exact:true})).toHaveValue('3 días');
- await modal.getByRole('button',{name:'Guardar',exact:true}).click();await expect(modal).toHaveCount(0);
+ await modal.getByRole('button',{name:'Guardar cambios',exact:true}).click();await expect(modal).toHaveCount(0);
  await section('Perfil');await expect(page.getByText('Tía y abuela',{exact:true})).toBeVisible();await expect(page.getByText('Antecedente QA',{exact:true})).toBeVisible();
  await page.reload();await section('Perfil');await page.getByRole('button',{name:'Editar perfil',exact:true}).click();
  modal=page.getByRole('dialog',{name:'Editar perfil',exact:true});await expect(modal.getByLabel('Especifica con quién vive',{exact:true})).toHaveValue('Tía y abuela');
- await modal.getByLabel('¿Ha estado hospitalizado/a?',{exact:true}).selectOption('No');await modal.getByRole('button',{name:'Guardar',exact:true}).click();
+ await modal.getByRole('tab',{name:'Salud',exact:true}).click();
+ await modal.getByLabel('¿Ha estado hospitalizado/a?',{exact:true}).selectOption('No');await modal.getByRole('button',{name:'Guardar cambios',exact:true}).click();
  await expect(page.getByText('Antecedente QA',{exact:true})).toHaveCount(0);expect(child.hospitalizacion_motivo).toBe('Antecedente QA');
  await section('Salud');await page.getByRole('button',{name:'Consultas médicas',exact:true}).click();
  await page.locator('.record-card').getByRole('button',{name:'Editar',exact:true}).click();

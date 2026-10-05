@@ -409,6 +409,11 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
   );
 }
 
+export function ProfileAccess({close}:{close:()=>void}) {
+  const [users,setUsers]=useState<Row[]>([]), [error,setError]=useState(''), [selected,setSelected]=useState<Row|null>(null), [busy,setBusy]=useState(false), [saved,setSaved]=useState(false);
+  useEffect(()=>{api('users').then(setUsers).catch(e=>setError(e.message));},[]);
+  return <Modal title="Visibilidad de datos familiares" description="Los permisos se aplican por persona a todos los perfiles familiares. Tu edición del perfil se conserva al volver." close={close}><ErrorNote error={error}/>{saved && <p role="status">Permisos actualizados. Se cerraron las sesiones del usuario.</p>}<div className="record-list">{users.map(user=><div className="card" key={user.id}><strong>{user.nombre}</strong><p className="muted">{user.rol==='superadmin'?'SuperAdmin: acceso completo a su familia.':user.rol==='editor'?'Editor':'Solo lectura'}</p>{user.rol!=='superadmin' && <button type="button" className="secondary" onClick={()=>{setSelected(user);setError('');setSaved(false);}}>Configurar permisos de {user.nombre}</button>}</div>)}</div>{!users.length && !error && <p className="muted">Cargando miembros…</p>}{selected && <PermissionsModal user={selected} close={()=>setSelected(null)} busy={busy} onSave={async(permisos_json)=>{setBusy(true);setError('');try{await api('users/'+selected.id,'PUT',{permisos_json});setUsers(previous=>previous.map(user=>user.id===selected.id?{...user,permisos_json:JSON.stringify(permisos_json)}:user));setSelected(null);setSaved(true);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}/>}</Modal>;
+}
 function PermissionsModal({ user, close, onSave, busy }: { user: Row; close: () => void; onSave: (permissions: Row) => Promise<void>; busy: boolean }) {
   const initial = (() => { try { return JSON.parse(user.permisos_json || "{}"); } catch { return {}; } })();
   const [p, setP] = useState<Row>({ modules: initial.modules || allModules, acciones: initial.acciones || ["ver"], sensibles: initial.sensibles || [], privacidad: initial.privacidad || [] });

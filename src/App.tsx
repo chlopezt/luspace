@@ -39,7 +39,7 @@ import './auth-access.css';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import {useStartupLoading} from './StartupScreen';
-import { Audit, Guests, Users } from "./Administration";
+import { Audit, Guests, Users, ProfileAccess } from "./Administration";
 import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, type PdfResume } from './pdfRecovery';
 
 function Theme() {
@@ -449,6 +449,7 @@ export default function App() {
 }
 function FamilyApp() {
   const [subscriptionInfo,setSubscriptionInfo]=useState(false);
+  const [profileAccess,setProfileAccess]=useState(false);
   const [pdfResume, setPdfResume] = useState<PdfResume | null>(() => takePdfResume());
   const [me, setMe] = useState<Row | null>(null),
     [status, setStatus] = useState<Row | null>(null),
@@ -464,6 +465,7 @@ function FamilyApp() {
     [report, setReport] = useState(false),
     [tab, setTab] = useState(0),
     [dirty, setDirty] = useState(false);
+  useEffect(()=>{if(!profile)setProfileAccess(false);},[profile]);
   const [guestToken, setGuestToken] = useState(() =>
     location.pathname.startsWith("/invitado")
       ? location.hash.slice(1) || location.pathname.split("/")[2] || ""
@@ -867,12 +869,16 @@ function FamilyApp() {
       {profile && (
         <Modal
           title={profile.id ? "Editar perfil" : "Nuevo perfil"}
+          className="profile-editor-modal"
+          description="Organiza sus datos por sección."
           close={() => setProfile(null)}
         >
           <RecordForm
             table="ninos"
             initial={profile}
             child={profile.id}
+            onCancel={()=>setProfile(null)}
+            onManagePrivacy={me?.rol === 'superadmin' ? ()=>setProfileAccess(true) : undefined}
             onSave={async (v) => {
               const r = await api(
                 profile.id ? "children/" + profile.id : "children",
@@ -886,6 +892,7 @@ function FamilyApp() {
           />
         </Modal>
       )}
+      {profile && profileAccess && me?.rol === 'superadmin' && <ProfileAccess close={()=>setProfileAccess(false)}/>}
       {rnd && child && (
         <Rnd
           child={child}
