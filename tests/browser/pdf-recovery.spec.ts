@@ -50,7 +50,7 @@ test('report still generates and downloads a real PDF when modules load successf
  const modal=page.getByRole('dialog',{name:'Descargar informe PDF',exact:true});
  const download=page.waitForEvent('download');
  await modal.getByRole('button',{name:'Descargar PDF',exact:true}).click();
- const file=await download;expect(file.suggestedFilename()).toBe('LuSpace-informe.pdf');
+ const file=await download;expect(file.suggestedFilename()).toMatch(/^Informe-LuSpace_QA_\d{2}-\d{2}-\d{4}\.pdf$/);
  const {readFile}=await import('node:fs/promises');const bytes=await readFile((await file.path())!);
  expect(bytes.subarray(0,5).toString()).toBe('%PDF-');await expect(modal).toHaveCount(0);
 });
