@@ -15,6 +15,14 @@ export function storedKey(file) {
     failure("La ubicación del archivo no corresponde a su familia.", 500);
   return expected;
 }
+// The first D1 attachment version used the file's own ID as a marker, with
+// inline contenido. It is NOT an R2 object key. Never follow this marker into
+// the bucket or accept another file's ID as a fallback.
+function legacyInlineD1(file) {
+  objectKey(file);
+  return file.r2_key === file.id && file.contenido != null &&
+    !file.sha256 && !file.r2_verified_at;
+}
 export async function digest(bytes) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
     .map((v) => v.toString(16).padStart(2, "0"))
@@ -88,7 +96,7 @@ export async function putVerified(env, file, bytes) {
   return { key, sha };
 }
 export async function readFileBytes(env, file) {
-  if (!file.r2_key.startsWith("d1:")) {
+  if (!file.r2_key.startsWith("d1:") && !legacyInlineD1(file)) {
     const key = storedKey(file); // Validate even when falling back; never read another family's key.
     try {
       if (env.FILES) {
@@ -111,7 +119,7 @@ export async function readFileBytes(env, file) {
   );
 }
 export async function removeR2(env, file) {
-  if (file.r2_key.startsWith("d1:")) return;
+  if (file.r2_key.startsWith("d1:") || legacyInlineD1(file)) return;
   const key = storedKey(file);
   if (!env.FILES) failure("R2 no está disponible; no se eliminó el registro.");
   await env.FILES.delete(key);

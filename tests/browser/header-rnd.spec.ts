@@ -24,6 +24,13 @@ test('RND header icon stays visible on home and modules, with safe empty state',
    expect(await button.locator('svg').innerHTML()).toBe(icon);
    const size=await button.locator('svg').boundingBox();
    expect(size?.width).toBe(20);expect(size?.height).toBe(20);
+   if(width<=760){
+    const rect=await button.boundingBox();
+    const header=await page.locator('.page > header').boundingBox();
+    expect(Math.abs((size!.x+size!.width/2)-(rect!.x+rect!.width/2))).toBeLessThan(0.6);
+    expect(Math.abs((size!.y+size!.height/2)-(rect!.y+rect!.height/2))).toBeLessThan(0.6);
+    expect(Math.abs((rect!.y+rect!.height/2)-(header!.y+header!.height/2))).toBeLessThan(0.6);
+   }
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }
  }

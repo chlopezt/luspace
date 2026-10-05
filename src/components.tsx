@@ -4,6 +4,7 @@ import { X, Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
 import { api, dateLabel, today, type Row } from "./lib";
 import { models as definitions } from "../shared/models.js";
 import { compressUploadImage } from './imageCompression';
+import { fetchAttachment, downloadAttachment } from './fileAccess';
 export const models: Record<string, any> = definitions;
 export const FileUploadEnabled = createContext(true);
 export function Brand() {
@@ -534,6 +535,25 @@ export function Records({
     </section>
   );
 }
+function AttachmentPreview({ file }: { file: Row }) {
+  const [open, setOpen] = useState(false), [url, setUrl] = useState(''), [error, setError] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController(); let objectUrl = '';
+    setError(''); setUrl('');
+    void fetchAttachment(file.id, controller.signal).then(blob => {
+      if (controller.signal.aborted) return;
+      objectUrl = URL.createObjectURL(blob); setUrl(objectUrl);
+    }).catch(e => { if (!controller.signal.aborted) setError((e as Error).message); });
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [open, file.id]);
+  return <details className="file-preview" onToggle={e => setOpen(e.currentTarget.open)}>
+    <summary>Vista previa</summary>
+    {open && (error ? <ErrorNote error={error} /> : !url ? <p className="muted" role="status">Abriendo archivo…</p> : String(file.mime).startsWith('image/') ?
+      <img src={url} alt={file.nombre} onError={() => setError('No se pudo mostrar la imagen. Puedes intentar descargarla.')} /> :
+      <iframe title={'Vista previa de ' + file.nombre} src={url} />)}
+  </details>;
+}
 export function Attachments({
   child,
   module,
@@ -578,6 +598,11 @@ export function Attachments({
             <a
               href={"/api/files/" + f.id + "?download=1"}
               aria-label={"Descargar " + f.nombre}
+              onClick={async e => {
+                e.preventDefault(); setError('');
+                try { await downloadAttachment(f.id, f.nombre); }
+                catch (e) { setError((e as Error).message); }
+              }}
             >
               <Download size={17} />
             </a>
@@ -598,14 +623,7 @@ export function Attachments({
                 <Trash2 size={16} />
               </button>
             )}
-            <details className="file-preview">
-              <summary>Vista previa</summary>
-              {String(f.mime).startsWith("image/") ? (
-                <img src={"/api/files/" + f.id} alt={f.nombre} />
-              ) : (
-                <iframe title={"Vista previa de " + f.nombre} src={"/api/files/" + f.id} />
-              )}
-            </details>
+            <AttachmentPreview file={f} />
           </li>
         ))}
       </ul>

@@ -1134,6 +1134,9 @@ html[data-theme="dark"] .admin-kpi,html[data-theme="dark"] .admin-panel,html[dat
   .page > header .child-selector select, .page > header.home-topbar .child-selector select { width: 100%; min-width: 0; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; padding: 4px 18px 4px 2px; font-size: 13px; }
   .page > header .header-pdf span, .page > header .theme-control span { display: none; }
   .page > header .header-pdf, .page > header .rnd { flex: 0 0 32px; width: 32px; min-width: 32px; padding: 6px; justify-content: center; }
+  /* Match the home selector's specificity: its desktop left padding must not
+     push the icon off-center inside the mobile button. */
+  .page > header .rnd, .page > header.home-topbar .rnd { height: 34px; padding: 6px 5px; gap: 0; align-items: center; justify-content: center; align-self: center; }
   .page > header .theme-control { flex: 0 0 auto; margin-left: 0; gap: 0; padding: 2px; }
   .page > header .theme-control button { width: 28px; min-width: 28px; padding: 5px; }
   .growth .section-heading { flex-direction: column; align-items: stretch; gap: 12px; }
