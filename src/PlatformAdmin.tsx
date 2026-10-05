@@ -30,12 +30,14 @@ import { api, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
 import PlatformFamilyManager from "./PlatformFamilyManager";
 import StorageMigration from "./StorageMigration";
+import PlatformConsumption from './PlatformConsumption';
 export const platformSections = [
   ["overview", "Resumen"],
   ["families", "Familias"],
   ["subscriptions", "Pruebas y suscripciones"],
   ["storage", "Almacenamiento"],
   ["security", "Seguridad y actividad"],
+  ["consumption", "Consumo y alertas"],
 ] as const;
 const colors = ["#14b8a6", "#8b5cf6", "#60a5fa", "#f59e0b", "#ef7183"];
 const labels: Record<string, string> = {
@@ -152,6 +154,7 @@ export default function PlatformAdmin({
     [status, setStatus] = useState(""),
     [days, setDays] = useState(30);
   useEffect(() => {
+    if(section === 'consumption') return;
     let live = true;
     setBusy(true);
     setError("");
@@ -171,7 +174,7 @@ export default function PlatformAdmin({
     return () => {
       live = false;
     };
-  }, [days]);
+  }, [days,section]);
   async function refresh() {
     setBusy(true);
     setError("");
@@ -183,6 +186,7 @@ export default function PlatformAdmin({
       setBusy(false);
     }
   }
+  if(section === 'consumption') return <section className="platform-dashboard"><div className="platform-page-heading"><div><p className="eyebrow">CONTROL DE PLATAFORMA</p><h1>Consumo y alertas</h1><p className="muted">Capacidad y protección de todas las familias.</p></div></div><PlatformConsumption/></section>;
   const t = data?.totals;
   const familyList = (data?.families || []).filter(
     (f: Row) =>
@@ -450,7 +454,7 @@ export default function PlatformAdmin({
             <ShieldCheck size={20} />
             <p>
               Solo datos administrativos. Sin acceso a perfiles ni archivos
-              sensibles. Registro público y pagos pendientes; no se presentan
+              sensibles. Registro público habilitado; pagos pendientes. No se presentan
               ingresos estimados.
             </p>
           </div>

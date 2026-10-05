@@ -4,6 +4,7 @@ import { consultationContext, basicDraft } from "./consultation.js";
 import { subscription } from "./subscription.js";
 import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google-auth.js';
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
+import {consumption,notifications} from './platform-consumption.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -552,6 +553,14 @@ export async function handle(req, env) {
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
+      if(path==='platform/consumption' && method==='GET') return json(await consumption(env));
+      if(path==='platform/notifications' && method==='GET') return json(await notifications(env,a.id));
+      if(path==='platform/notifications/read' && method==='POST') {
+        const b=await body(req),current=await notifications(env,a.id);
+        if(!Array.isArray(b.keys)||!b.keys.length||b.keys.length>100||b.keys.some(key=>typeof key!=='string'||!current.items.some(item=>item.key===key))) fail(400,'Avisos inválidos. Actualiza las notificaciones.');
+        await db.batch([...new Set(b.keys)].map(key=>stmt(db,'INSERT INTO notificaciones_plataforma_leidas(usuario_id,clave) VALUES(?,?) ON CONFLICT(usuario_id,clave) DO NOTHING',a.id,key)));
+        return json({ok:true});
+      }
       if(path==='platform/storage-migration') {
         if(method==='GET')return json(await migrationStatus(env));
         if(method==='POST') {
@@ -1417,11 +1426,15 @@ export async function handle(req, env) {
       const metadata={id,familia_id:a.familia_id,nino_id:n,mime,bytes:file.size};
       let key=`d1:${id}`,sha=null;
       const chunks = [];
+      let reserved=false;
       try {
+      await stmt(db,'INSERT INTO reservas_almacenamiento(id,bytes) VALUES(?,?)',id,file.size).run();
+      reserved=true;
       if(r2Enabled(env)){const verified=await putVerified(env,metadata,bytes);key=verified.key;sha=verified.sha;}
       else for (let offset = 0; offset < bytes.length; offset += chunkSize)
         chunks.push(bytes.slice(offset, offset + chunkSize));
       await db.batch([
+          stmt(db,'DELETE FROM reservas_almacenamiento WHERE id=?',id),
           stmt(
             db,
             "INSERT INTO archivos(id,familia_id,nino_id,modulo,nombre,mime,bytes,r2_key,sha256,r2_verified_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -1442,7 +1455,11 @@ export async function handle(req, env) {
           audit(db, a, "CREATE", "Archivo adjuntado a " + m, ip),
         ]);
       }catch(error){
-        if(r2Enabled(env))try{await env.FILES.delete(objectKey(metadata));}catch{console.error('R2 upload cleanup pending');}
+        if(reserved){
+          let cleaned=true;
+          if(r2Enabled(env))try{await env.FILES.delete(objectKey(metadata));}catch{cleaned=false;console.error('R2 upload cleanup pending; reservation preserved');}
+          if(cleaned)await stmt(db,'DELETE FROM reservas_almacenamiento WHERE id=?',id).run();
+        }
         throw error;
       }
       return json({ id }, 201);
@@ -1491,6 +1508,7 @@ export async function handle(req, env) {
     }
     fail(404, "Ruta no encontrada.");
   } catch (e) {
+    if(String(e.message).includes('D1_ATTACHMENT_LIMIT_EXCEEDED')) return json({error:'Se alcanzó la reserva de adjuntos en D1. No se guardó el archivo; los documentos existentes siguen disponibles.'},413);
     if(String(e.message).includes('APP_STORAGE_LIMIT_EXCEEDED')) return json({error:'LuSpace alcanzó su reserva de almacenamiento. No se guardó el archivo.'},413);
     if(String(e.message).includes('STORAGE_QUOTA_EXCEEDED')) return json({error:'La cuota de almacenamiento está completa. No se guardó el archivo.'},413);
     if (e.status) return json({ error: e.message }, e.status);
