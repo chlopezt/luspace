@@ -10,6 +10,7 @@ LUSPACE_BILLING_MODE = "test"
 LUSPACE_BILLING_ISOLATED = "true"
 LUSPACE_BILLING_AMOUNT_CLP = "5938"
 MP_BILLING_BACK_URL = "https://luspace-payments-preview.pages.dev/login"
+MP_TEST_SELLER_ID = "3745839756"
 
 [[d1_databases]]
 binding = "DB"

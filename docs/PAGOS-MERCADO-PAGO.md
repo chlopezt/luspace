@@ -11,6 +11,16 @@
   receptor firmado con bandeja durable, conciliación mediante API, renovación por período
   de factura, cancelación, historial familiar y resumen de plataforma.
 - Producción bloqueada explícitamente en esta etapa, incluso con credenciales reales.
+- Rama remota `payments-preview` y proyecto independiente `luspace-payments-preview`.
+  Base exclusiva `luspace-payments-preview-db`, sin copias de datos familiares, R2 ni IA.
+  El despliegue principal quedó fijado a su UUID original para no confundir las bases.
+  El preview requiere secretos propios; no hereda las credenciales de producción.
+- Vendedor ficticio verificado por ID de la ficha: `3745839756`.
+  Aplicación de pruebas de ese vendedor: `3968959036503963` (Suscripciones).
+  Access Token y firma webhook guardados como secretos en el dashboard del preview.
+  Valores no leídos. El titular reportó copiar las claves de la aplicación ficticia.
+  Pendientes: validar token por API, inicializar cuenta LuSpace ficticia con SETUP_KEY,
+  confirmar correo del comprador ficticio y volver a desplegar para aplicar los secretos.
 - Validación local: proveedor ficticio en tests; esto NO demuestra funcionamiento end-to-end
   con Mercado Pago. Falta configurar claves del vendedor ficticio y validar sus respuestas reales.
 - El receptor responde error si no pudo conciliar, para solicitar reintento del proveedor;
