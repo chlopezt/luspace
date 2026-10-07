@@ -331,7 +331,7 @@ function Export({
           </details>;
         })}
         {!allowed.includes('rnd') && <label className="check"><input type="checkbox" disabled={busy} checked={selected.includes(documentSelection)} onChange={e=>setSelected(old=>e.target.checked?[...old,documentSelection]:old.filter(id=>id!==documentSelection))} />Lista / resumen de documentos adjuntos de los módulos seleccionados</label>}
-        <p className="muted">Se omiten datos vacíos. Los adjuntos se listan por nombre; no se incrustan. Si solo eliges documentos, se resumen todos los módulos permitidos. Las mediciones se incluyen en una tabla.</p>
+        <p className="muted">La ficha de identificación, contacto principal y últimas mediciones siempre se incluye según tus permisos. Estas casillas controlan las secciones detalladas. Se omiten datos vacíos del detalle. Los adjuntos se listan por nombre; no se incrustan. Si solo eliges documentos, se resumen todos los módulos permitidos.</p>
       </div>
       <ErrorNote error={error} />
       {busy && <p role="status" aria-live="polite">Generando informe…</p>}

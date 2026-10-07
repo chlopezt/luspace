@@ -15,6 +15,7 @@ import {
   reportText,
   reportAge,
   reportFilename,
+  patientSummary,
 } from "../shared/report-format.js";
 import { download, type Row } from "./lib";
 import { loadPdfModule } from "./pdfRecovery";
@@ -39,7 +40,7 @@ const s = StyleSheet.create({
     padding: 13,
     marginBottom: 12,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   name: {
     fontFamily: "Helvetica-Bold",
@@ -59,10 +60,17 @@ const s = StyleSheet.create({
     backgroundColor: "#fff6dc",
     color: "#92400e",
     borderRadius: 4,
-    padding: 5,
-    marginTop: 6,
+    padding: 9,
+    marginTop: 12,
     fontSize: 8,
   },
+  patientColumns: {flexDirection:'row', alignItems:'flex-start'},
+  patientColumn: {width:'50%', paddingRight:12},
+  patientField: {marginBottom:7},
+  patientLabel: {fontSize:7, color:'#526b72', marginBottom:2},
+  patientValue: {fontSize:9, color:'#134e4a', lineHeight:1.3},
+  allergyHeading: {fontFamily:'Helvetica-Bold', fontSize:9, marginBottom:5},
+  allergyRow: {flexDirection:'row', marginBottom:3},
   section: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
@@ -358,12 +366,11 @@ export function Report({ data }: { data: Row }) {
   const child = data.child || {},
     profile = data.sections?.ninos?.[0] || {};
   // Only use the export payload: never request additional clinical fields or attachments.
-  const blood = child.grupo_sanguineo ?? profile.grupo_sanguineo,
-    allergies = child.alergias ?? profile.alergias;
+  const {blood, allergies, rut, contact, weight, height, birth} = patientSummary(data);
   const name =
     [child.primer_nombre, child.apellidos].filter(meaningful).join(" ") ||
     "Ficha pediátrica";
-  const age = reportAge(child.fecha_nacimiento, data.created);
+  const age = reportAge(birth, data.created);
   return (
     <Document
       title={`Informe de Cuidado y Salud Pediátrica - ${name}`}
@@ -371,27 +378,36 @@ export function Report({ data }: { data: Row }) {
       language="es-CL"
     >
       <Page size="A4" style={s.page}>
-        <View style={s.patient} wrap={reportText(allergies).length > 1200}>
+        <View style={s.patient} wrap={JSON.stringify([allergies,contact,name]).length > 1200}>
           {data.includePhoto && data.profilePhoto && (
             <Image src={data.profilePhoto} style={s.photo} />
           )}
           <View style={{ flex: 1 }}>
-            <Text style={s.name}>{reportText(name)}</Text>
-            <Text>
-              {[age, meaningful(blood) ? `Grupo sanguíneo: ${blood}` : ""]
-                .filter(Boolean)
-                .join("   |   ")}
-            </Text>
-            {child.fecha_nacimiento && (
-              <Text style={s.date}>
-                Nacimiento: {reportDate(child.fecha_nacimiento)}
-              </Text>
-            )}
-            {meaningful(allergies) && (
-              <Text style={s.allergy}>
-                ALERGIAS REGISTRADAS: {reportText(allergies)}
-              </Text>
-            )}
+            <View style={s.patientColumns}>
+              <View style={s.patientColumn}>
+                <Text style={s.name}>{reportText(name)}</Text>
+                <View style={s.patientField}><Text style={s.patientLabel}>RUT / Documento de identidad</Text><Text style={s.patientValue}>{meaningful(rut) ? reportText(rut) : '-'}</Text></View>
+                <View style={s.patientField}>
+                  <Text style={s.patientLabel}>Nacimiento</Text>
+                  <Text style={s.patientValue}>{birth ? reportDate(birth) : '-'}</Text>
+                  <Text style={s.date}>Edad: {age || '-'}</Text>
+                </View>
+              </View>
+              <View style={s.patientColumn}>
+                <View style={s.patientField}><Text style={s.patientLabel}>Grupo sanguíneo</Text><Text style={s.patientValue}>{meaningful(blood) ? reportText(blood) : '-'}</Text></View>
+                <View style={s.patientField}>
+                  <Text style={s.patientLabel}>Mediciones recientes</Text>
+                  <Text style={s.patientValue}>Peso: {weight ? `${weight.peso_kg} kg` : '-'} / Talla: {height ? `${height.talla_cm} cm` : '-'}</Text>
+                  {weight && <Text style={s.date}>Peso: {reportDate(weight.fecha_medicion)}</Text>}
+                  {height && <Text style={s.date}>Talla: {reportDate(height.fecha_medicion)}</Text>}
+                </View>
+                <View style={s.patientField}><Text style={s.patientLabel}>Contacto de emergencia / Tutor principal</Text><Text style={s.patientValue}>{meaningful(contact) ? reportText(contact) : '-'}</Text></View>
+              </View>
+            </View>
+            {allergies.length > 0 && <View style={s.allergy}>
+              <Text style={s.allergyHeading} minPresenceAhead={18}>ALERGIAS REGISTRADAS / ADVERTENCIAS</Text>
+              {allergies.map((allergy:string,index:number)=><View key={index} style={s.allergyRow} wrap={allergy.length>450}><Text style={{width:10}}>•</Text><Text style={{flex:1}} orphans={2} widows={2}>{reportText(allergy)}</Text></View>)}
+            </View>}
           </View>
         </View>
         {Object.entries(data.sections || {})

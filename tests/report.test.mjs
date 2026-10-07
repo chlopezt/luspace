@@ -62,3 +62,9 @@ test("report formatting preserves dates, meaningful zero and names safely", () =
   assert.ok(!reportText("Consulta 2026-09-11T23:59:00.000Z").includes("T23"));
   assert.equal(reportText("Texto extenso ".repeat(1000)).length, 14000);
 });
+import {patientSummary} from '../shared/report-format.js';
+test('patient PDF summary takes latest nonempty weight and height independently and respects excluded fields',()=>{
+ const data={child:{primer_nombre:'QA'},sections:{ninos:[{rut:'12.345.678-5',alergias:'APLV; Zancudos\nOtra alergia',contacto_emergencia_principal_nombre:'Tutor QA'}],registros_crecimiento:[{fecha_medicion:'2026-09-01',peso_kg:21,talla_cm:119},{fecha_medicion:'2026-10-01',peso_kg:24,talla_cm:null},{fecha_medicion:'2026-09-15',peso_kg:null,talla_cm:122}]}};
+ const summary=patientSummary(data);assert.equal(summary.weight.peso_kg,24);assert.equal(summary.height.talla_cm,122);assert.equal(summary.rut,'12.345.678-5');assert.equal(summary.allergies.length,3);
+ const excluded=patientSummary(filterReport(data,['allergies']));assert.equal(excluded.rut,undefined);assert.equal(excluded.weight,undefined);assert.equal(excluded.contact,'');
+});

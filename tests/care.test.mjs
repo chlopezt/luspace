@@ -22,7 +22,9 @@ test('SOS, emergency and routine CRUD, attachment ownership, readonly and family
  try{
  assert.equal((await call('setup','POST',{nombre:'QA',familia:'QA',correo:'care@example.test',password:'FamilyPassword!2026'})).status,201);
  const owner=cookie,me=(await call('me')).body;
- const child=(await call('children','POST',{primer_nombre:'QA',fecha_nacimiento:'2020-01-01'})).body.id;
+ const child=(await call('children','POST',{primer_nombre:'QA',fecha_nacimiento:'2020-01-01',rut:'12.345.678-5',grupo_sanguineo:'O+',contacto_emergencia_principal_nombre:'Tutor QA'})).body.id;
+ await call(`records/registros_crecimiento?child=${child}`,'POST',{fecha_medicion:'2026-09-01',peso_kg:21,talla_cm:119});
+ await call(`records/registros_crecimiento?child=${child}`,'POST',{fecha_medicion:'2026-10-01',peso_kg:24});
  const data={dosis_sos:{fecha:new Date(Date.now()-60000).toISOString(),medicamento:'Registro ficticio',dosis:'Dosis registrada',motivo:'Fiebre',temperatura:38,intervalo_horas:6},urgencias:{fecha:new Date(Date.now()-60000).toISOString(),centro:'Centro QA',motivo:'Motivo QA',diagnostico:'Ejemplo'},horario_escolar:{dia:'Lunes',hora_inicio:'08:00',hora_fin:'09:00',actividad:'Actividad QA',materiales:'Cuaderno'}};
  for(const [table,row] of Object.entries(data)){
    const endpoint=`records/${table}?child=${child}`;const saved=await call(endpoint,'POST',row);assert.equal(saved.status,201,JSON.stringify(saved));
@@ -34,8 +36,12 @@ test('SOS, emergency and routine CRUD, attachment ownership, readonly and family
  assert.equal((await call(`records/urgencias?child=${child}`,'POST',{...data.urgencias,fecha:'2099-01-01T12:00:00Z'})).status,400);
  assert.equal((await call(`records/horario_escolar?child=${child}`,'POST',{...data.horario_escolar,hora_fin:'07:00'})).status,400);
  const report=await call('export','POST',{child,modules:['salud','escolar'],selection:['sos','urgent','school_schedule']});assert.equal(report.status,200);assert.equal(report.body.sections.urgencias.length,1);
+ assert.equal(report.body.patient_summary.rut,'12.345.678-5');assert.equal(report.body.patient_summary.weight.peso_kg,24);assert.equal(report.body.patient_summary.height.talla_cm,119);assert.equal(report.body.sections.registros_crecimiento,undefined);
  assert.equal((await call('users','POST',{nombre:'Reader',correo:'reader-care@example.test',rol:'lector',password:'ReaderPassword!2026'})).status,201);
  await call('login','POST',{correo:'reader-care@example.test',password:'ReaderPassword!2026'});
+ await env.DB.prepare('UPDATE usuarios SET permisos_json=? WHERE correo=?').bind(JSON.stringify({modules:['salud'],acciones:['ver','descargar'],privacidad:['rut','telefono']}),'reader-care@example.test').run();
+ const restricted=await call('export','POST',{child,modules:['salud'],selection:['urgent']});assert.equal(restricted.status,200);assert.equal(restricted.body.patient_summary.rut,undefined);assert.equal(restricted.body.patient_summary.birth,undefined);assert.equal(restricted.body.patient_summary.weight.peso_kg,24);
+ await env.DB.prepare('UPDATE usuarios SET permisos_json=? WHERE correo=?').bind(JSON.stringify({modules:['salud','escolar','perfil'],acciones:['ver']}),'reader-care@example.test').run();
  for(const [table,row] of Object.entries(data)){
  const list=await call(`records/${table}?child=${child}`);assert.equal(list.status,200);
  for(const method of ['POST','PUT','DELETE'])assert.equal((await call(`records/${table}${method==='POST'?'':'/'+list.body[0].id}?child=${child}`,method,row)).status,403);

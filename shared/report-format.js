@@ -96,3 +96,20 @@ export function fieldText(field, value) {
   }
   return reportText(value);
 }
+export function patientSummary(data) {
+  if (data.patient_summary) return {...data.patient_summary, profile: data.sections?.ninos?.[0] || {}, allergies: meaningful(data.child?.alergias ?? data.sections?.ninos?.[0]?.alergias) ? String(data.child?.alergias ?? data.sections?.ninos?.[0]?.alergias).split(/[\n;,|]+/).map(line=>line.replace(/^\s*[•*-]\s*/, '').trim()).filter(Boolean) : []};
+  const child = data.child || {}, profile = data.sections?.ninos?.[0] || {};
+  const measurements = [...(data.sections?.registros_crecimiento || [])]
+    .filter(row => /^\d{4}-\d{2}-\d{2}$/.test(row.fecha_medicion || ''))
+    .sort((a,b) => b.fecha_medicion.localeCompare(a.fecha_medicion));
+  const latest = key => measurements.find(row => Number.isFinite(Number(row[key])) && Number(row[key]) > 0);
+  const weight = latest('peso_kg'), height = latest('talla_cm');
+  const allergyText = child.alergias ?? profile.alergias;
+  const allergies = meaningful(allergyText) ? String(allergyText).split(/[\n;,|]+/)
+    .map(line => line.replace(/^\s*[•*-]\s*/, '').trim()).filter(Boolean) : [];
+  return {profile, weight, height, allergies, birth: child.fecha_nacimiento,
+    blood: child.grupo_sanguineo ?? profile.grupo_sanguineo,
+    rut: profile.rut,
+    contact: [profile.contacto_emergencia_principal_nombre, profile.contacto_emergencia_principal_parentesco, profile.contacto_emergencia_principal_telefono].filter(meaningful).join(' · '),
+  };
+}

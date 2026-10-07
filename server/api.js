@@ -1402,6 +1402,21 @@ export async function handle(req, env) {
           data.anamnesis = r ? JSON.parse(r.documento_json) : {};
         }
       }
+      // Fixed identification card is separate from optional report sections.
+      // Check module and private-field permissions before exposing each value.
+      const permits = module => { try { allowed(a,module); return true; } catch(e) { if(e.status!==403) throw e; return false; } };
+      const privateFields = a.rol === 'superadmin' ? [] : JSON.parse(a.permisos_json || '{}').privacidad || [];
+      data.patient_summary = {};
+      if (permits('perfil')) {
+        data.patient_summary.birth = n.fecha_nacimiento;
+        data.patient_summary.blood = n.grupo_sanguineo;
+        if (!privateFields.includes('rut')) data.patient_summary.rut = n.rut;
+        data.patient_summary.contact = [n.contacto_emergencia_principal_nombre,n.contacto_emergencia_principal_parentesco,privateFields.includes('telefono') ? '' : n.contacto_emergencia_principal_telefono].filter(Boolean).join(' · ');
+      }
+      if (permits('salud')) {
+        data.patient_summary.weight = await first(db,'SELECT peso_kg,fecha_medicion FROM registros_crecimiento WHERE nino_id=? AND peso_kg>0 ORDER BY fecha_medicion DESC,created_at DESC LIMIT 1',n.id);
+        data.patient_summary.height = await first(db,'SELECT talla_cm,fecha_medicion FROM registros_crecimiento WHERE nino_id=? AND talla_cm>0 ORDER BY fecha_medicion DESC,created_at DESC LIMIT 1',n.id);
+      }
       if (b.selection?.includes(documentSelection)) {
         data.documents = [];
         for (const m of b.modules) {
