@@ -27,6 +27,8 @@ export async function notifications(env,actorId,metrics=null) {
   const db=env.DB,report=metrics||await consumption(env),items=[];
   const add=(key,title,detail,severity='info',target='consumption',created_at=null)=>items.push({key,title,detail,severity,target,created_at});
   const {storage,d1,ai}=report;
+  const pendingPayments=await rows(db,"SELECT p.id,p.creado_at,p.tipo,f.nombre FROM pagos_manuales p JOIN familias f ON f.id=p.familia_id WHERE p.estado='pendiente' ORDER BY p.creado_at DESC LIMIT 20");
+  for(const p of pendingPayments)add('manual-payment:'+p.id,p.tipo==='cortesia'?'Cortesía pendiente de autorizar':'Transferencia pendiente de revisión',p.nombre,'info','payments',p.creado_at);
   const backupRows=await rows(db,"SELECT id,status,completed_at,error_code,independent_copy FROM respaldos_plataforma ORDER BY started_at DESC LIMIT 20");
   const backup=backupRows.find(r=>r.status==='verified'),latestBackup=backupRows[0];
   if(!backup||Date.now()-Date.parse(backup.completed_at)>36*3600000)add('backup-stale','Respaldo pendiente o desactualizado','No hay una copia verificada reciente. Revisar protección y recuperación de datos.','critical','backups');

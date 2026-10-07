@@ -6,6 +6,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {randomBytes} from 'node:crypto';
 import {localEnv} from '../server/local.js';
 import {handle} from '../server/api.js';
+import {registerManualPayment,reviewManualPayment} from '../server/manual-payments.js';
 import {createArchive,restoreArchive,encrypt,decrypt,verifyDatabase,databaseSummary} from '../scripts/backup-core.mjs';
 
 function dump(db){
@@ -29,6 +30,13 @@ test('encrypted backups restore two isolated families and reject tampering, miss
    for(const [table,sample]of Object.entries(samples)) assert.equal((await request(env,'records/'+table+'?child='+children[i],'POST',sample,[ca,cb][i])).res.status,201);
   }
   // A third attachment remains in D1 to test old formats and binary exports.
+  const manualRecords=[];
+  for(let i=0;i<2;i++){
+   const me=await (await request(env,'me','GET',undefined,[ca,cb][i])).res.json();
+   await env.DB.prepare('INSERT INTO administradores_plataforma(usuario_id) VALUES(?)').bind(me.id).run();
+   const p=await registerManualPayment(env.DB,{id:me.id},{familia_id:me.familia_id,tipo:'transferencia',monto_clp:5938,fecha_pago:'2026-01-01',referencia:'BANK-QA-'+i,notas:'Pago QA familia '+i,dias_cortesia:0,cuota_bytes:0,request_key:'backup-payment-key-'+i});
+   manualRecords.push(await reviewManualPayment(env.DB,{id:me.id},p.id,{estado:'confirmado',bank_verified:true,notas:'Ingreso QA verificado'}));
+  }
   env.LUSPACE_R2_ENABLED='false';const legacy=new FormData();legacy.append('file',new Blob(['%PDF-1.4 Legacy'],{type:'application/pdf'}),'antiguo.pdf');assert.equal((await request(env,'files?child='+children[0]+'&module=salud','POST',legacy,ca)).res.status,201);
   original=new DatabaseSync(resolve(root,'luspace.sqlite'));const before=databaseSummary(original),sql=dump(original),key=randomBytes(32).toString('hex');
   sourceObjects.set('orphan/unknown',Buffer.from('objeto sin referencia'));
@@ -37,6 +45,7 @@ test('encrypted backups restore two isolated families and reject tampering, miss
   for(const encrypted of archive.objects.values())assert.equal(encrypted.includes(Buffer.from('backup-a@example.test')),false);
   const restored=restoreArchive(archive.objects,key);try{
    assert.equal(restored.summary.families,2);assert.equal(restored.db.prepare('SELECT COUNT(*) AS n FROM sesiones').get().n,0);
+   for(const p of manualRecords){const restoredPayment=restored.db.prepare('SELECT * FROM pagos_manuales WHERE id=?').get(p.id);assert.equal(restoredPayment.familia_id,p.familia_id);assert.equal(restoredPayment.periodo_fin,p.periodo_fin);assert.equal(restoredPayment.notas,p.notas);assert.equal(restored.db.prepare('SELECT manual_paid_until FROM familias WHERE id=?').get(p.familia_id).manual_paid_until,p.periodo_fin);}
    assert.equal((await request(restored.env,'children','GET',undefined,ca)).res.status,401);
    const ra=await request(restored.env,'login','POST',{correo:'backup-a@example.test',password});assert.equal(ra.res.status,200);
    const rb=await request(restored.env,'login','POST',{correo:'backup-b@example.test',password});assert.equal(rb.res.status,200);

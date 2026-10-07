@@ -32,6 +32,7 @@ import PlatformFamilyManager from "./PlatformFamilyManager";
 import StorageMigration from "./StorageMigration";
 import PlatformConsumption from './PlatformConsumption';
 import PlatformBackups from './PlatformBackups';
+import PlatformPayments from './PlatformPayments';
 export const platformSections = [
   ["overview", "Resumen"],
   ["families", "Familias"],
@@ -40,6 +41,7 @@ export const platformSections = [
   ["security", "Seguridad y actividad"],
   ["consumption", "Consumo y alertas"],
   ["backups", "Respaldos y recuperación"],
+  ["payments", "Pagos y acceso"],
 ] as const;
 const colors = ["#14b8a6", "#8b5cf6", "#60a5fa", "#f59e0b", "#ef7183"];
 const labels: Record<string, string> = {
@@ -156,7 +158,7 @@ export default function PlatformAdmin({
     [status, setStatus] = useState(""),
     [days, setDays] = useState(30);
   useEffect(() => {
-    if(['consumption','backups'].includes(section)) return;
+    if(['consumption','backups','payments'].includes(section)) return;
     let live = true;
     setBusy(true);
     setError("");
@@ -190,6 +192,7 @@ export default function PlatformAdmin({
   }
   if(section === 'consumption') return <section className="platform-dashboard"><div className="platform-page-heading"><div><p className="eyebrow">CONTROL DE PLATAFORMA</p><h1>Consumo y alertas</h1><p className="muted">Capacidad y protección de todas las familias.</p></div></div><PlatformConsumption/></section>;
   if(section === 'backups') return <PlatformBackups/>;
+  if(section === 'payments') return <PlatformPayments/>;
   const t = data?.totals;
   const familyList = (data?.families || []).filter(
     (f: Row) =>

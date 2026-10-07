@@ -4,6 +4,7 @@ import { reportGroups, filterReport, selectionModules, documentSelection } from 
 import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
 import { subscription } from "./subscription.js";
+import {manualPaymentOverview,registerManualPayment,reviewManualPayment} from './manual-payments.js';
 import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google-auth.js';
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 import {consumption,notifications} from './platform-consumption.js';
@@ -583,6 +584,14 @@ export async function handle(req, env) {
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
       if(path==='platform/consumption' && method==='GET') return json(await consumption(env));
       if(path==='platform/backups' && method==='GET') return json(await backupStatus(env));
+      if(path==='platform/manual-payments' && method==='GET')return json(await manualPaymentOverview(db));
+      const manualReview=path.match(/^platform\/manual-payments\/([a-zA-Z0-9-]+)\/review$/);
+      if((path==='platform/manual-payments'||manualReview)&&method==='POST'){
+        await limit(db,'platform-payment:'+a.id);
+        const b=await body(req),credential=await first(db,'SELECT password_hash FROM credenciales_plataforma WHERE usuario_id=?',a.id);
+        if(!credential||!await verify(text(b.admin_password||'',128),credential.password_hash))fail(401,'Contraseña administrativa incorrecta.');
+        return json(manualReview?await reviewManualPayment(db,a,manualReview[1],b):await registerManualPayment(db,a,b),manualReview?200:201);
+      }
       if(path==='platform/notifications' && method==='GET') return json(await notifications(env,a.id));
       if(path==='platform/notifications/read' && method==='POST') {
         const b=await body(req),current=await notifications(env,a.id);
