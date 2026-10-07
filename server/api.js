@@ -290,7 +290,7 @@ async function validate(db, a, table, input, nino, preserveMissing = false) {
     fail(400, "El término debe ser posterior al inicio.");
   if (table === 'alimentacion' && values.unidad === '%' && values.cantidad > 100)
     fail(400, 'El porcentaje debe estar entre 0 y 100.');
-  if (['dosis_sos','urgencias','horario_escolar'].includes(table)) {
+  if (['dosis_sos','urgencias','horario_escolar','sesiones_terapia','gastos_medicos','turnos_cuidadores'].includes(table)) {
     const n = await child(db,a,nino);
     const problem = careValidation(table, values, n.fecha_nacimiento);
     if (problem) fail(400, problem);
@@ -920,6 +920,10 @@ export async function handle(req, env) {
       }
       if (method === "POST" || method === "PUT") {
         const v = await validate(db, a, table, await body(req), nino, !!id);
+        if (table === 'turnos_cuidadores' && !v.hora_fin) {
+          const open = await first(db,"SELECT id FROM turnos_cuidadores WHERE nino_id=? AND hora_fin='' AND id<>?",nino,id || '');
+          if (open) fail(409,'Ya hay un cuidador a cargo. Finaliza su turno antes de registrar el relevo.');
+        }
         if (table === 'vacunas' && v.catalogo_id) {
           const duplicate = await first(db,'SELECT id FROM vacunas WHERE nino_id=? AND catalogo_id=?',nino,v.catalogo_id);
           if (duplicate && duplicate.id !== id) fail(409,'Esta dosis ya está registrada. Edita el registro existente.');
@@ -1582,6 +1586,7 @@ export async function handle(req, env) {
     }
     fail(404, "Ruta no encontrada.");
   } catch (e) {
+    if(String(e.message).includes('UNIQUE') && String(e.message).includes('turnos_cuidadores.nino_id')) return json({error:'Ya hay un cuidador a cargo. Finaliza su turno antes de registrar el relevo.'},409);
     if(String(e.message).includes('D1_ATTACHMENT_LIMIT_EXCEEDED')) return json({error:'Se alcanzó la reserva de adjuntos en D1. No se guardó el archivo; los documentos existentes siguen disponibles.'},413);
     if(String(e.message).includes('APP_STORAGE_LIMIT_EXCEEDED')) return json({error:'LuSpace alcanzó su reserva de almacenamiento. No se guardó el archivo.'},413);
     if(String(e.message).includes('STORAGE_QUOTA_EXCEEDED')) return json({error:'La cuota de almacenamiento está completa. No se guardó el archivo.'},413);

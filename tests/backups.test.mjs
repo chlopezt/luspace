@@ -24,6 +24,10 @@ test('encrypted backups restore two isolated families and reject tampering, miss
   const b=await request(env,'register','POST',{nombre:'Admin B',familia:'Familia B',correo:'backup-b@example.test',password,password_confirmation:password});assert.equal(b.res.status,201);const cb=b.cookie;
   const children=[];for(const session of [ca,cb]){const c=await request(env,'children','POST',{primer_nombre:'Niño QA',fecha_nacimiento:'2020-01-01'},session);assert.equal(c.res.status,201);children.push((await c.res.json()).id);}
   const files=[];for(let i=0;i<2;i++){const form=new FormData();form.append('file',new Blob(['%PDF-1.4 Familia '+i],{type:'application/pdf'}),'privado.pdf');const f=await request(env,'files?child='+children[i]+'&module=salud','POST',form,[ca,cb][i]);assert.equal(f.res.status,201);files.push((await f.res.json()).id);}
+  for(let i=0;i<2;i++){
+   const samples={sesiones_terapia:{profesional:'QA '+i,especialidad:'Fonoaudiología',fecha:new Date(Date.now()-60000).toISOString(),avances:'Avance familiar '+i,adjuntos_json:[files[i]]},gastos_medicos:{fecha:'2026-10-01',concepto:'Consulta',monto:20000,estado_reembolso:'No aplica',adjuntos_json:[files[i]]},turnos_cuidadores:{cuidador:'Cuidador '+i,hora_inicio:new Date(Date.now()-60000).toISOString(),notas_entrega:'Entrega familiar '+i,adjuntos_json:[files[i]]}};
+   for(const [table,sample]of Object.entries(samples)) assert.equal((await request(env,'records/'+table+'?child='+children[i],'POST',sample,[ca,cb][i])).res.status,201);
+  }
   // A third attachment remains in D1 to test old formats and binary exports.
   env.LUSPACE_R2_ENABLED='false';const legacy=new FormData();legacy.append('file',new Blob(['%PDF-1.4 Legacy'],{type:'application/pdf'}),'antiguo.pdf');assert.equal((await request(env,'files?child='+children[0]+'&module=salud','POST',legacy,ca)).res.status,201);
   original=new DatabaseSync(resolve(root,'luspace.sqlite'));const before=databaseSummary(original),sql=dump(original),key=randomBytes(32).toString('hex');
@@ -37,6 +41,11 @@ test('encrypted backups restore two isolated families and reject tampering, miss
    const ra=await request(restored.env,'login','POST',{correo:'backup-a@example.test',password});assert.equal(ra.res.status,200);
    const rb=await request(restored.env,'login','POST',{correo:'backup-b@example.test',password});assert.equal(rb.res.status,200);
    for(let i=0;i<2;i++){const session=[ra.cookie,rb.cookie][i];const list=await (await request(restored.env,'children','GET',undefined,session)).res.json();assert.deepEqual(list.map(c=>c.id),[children[i]]);assert.equal((await request(restored.env,'files/'+files[1-i],'GET',undefined,session)).res.status,404);assert.equal((await request(restored.env,'records/vacunas?child='+children[1-i],'GET',undefined,session)).res.status,404);const response=(await request(restored.env,'files/'+files[i],'GET',undefined,session)).res;assert.equal(response.status,200);assert.equal(await response.text(),'%PDF-1.4 Familia '+i);}
+   for(let i=0;i<2;i++) for(const table of ['sesiones_terapia','gastos_medicos','turnos_cuidadores']){
+    const session=[ra.cookie,rb.cookie][i];const records=await request(restored.env,'records/'+table+'?child='+children[i],'GET',undefined,session);
+    assert.equal(records.res.status,200);const rows=await records.res.json();assert.equal(rows.length,1);assert.equal(rows[0].nino_id,children[i]);
+    assert.equal((await request(restored.env,'records/'+table+'?child='+children[1-i],'GET',undefined,session)).res.status,404);
+   }
   }finally{restored.db.close();}
   const missing=new Map(archive.objects);missing.delete(archive.manifest.files[0].name);assert.throws(()=>restoreArchive(missing,key),/INTEGRITY/);
   const tampered=new Map(archive.objects),changed=Buffer.from(tampered.get('database.sql.gz.enc'));changed[changed.length-1]^=1;tampered.set('database.sql.gz.enc',changed);assert.throws(()=>restoreArchive(tampered,key),/INTEGRITY/);

@@ -187,6 +187,43 @@ export const models = {
       f("instrucciones_especiales", "Indicaciones del profesional", "textarea"),
     ],
   },
+  sesiones_terapia: {
+    title: "Terapias y equipo multidisciplinario", module: "salud",
+    fields: [
+      f("profesional", "Profesional", "text", {required:true,maxLength:180}),
+      f("especialidad", "Especialidad", "select-other", {options:medicalSpecialties,otherLabel:"Otra especialidad",required:true,maxLength:180}),
+      f("fecha", "Fecha y hora de la sesión", "datetime-local", {required:true}),
+      f("objetivos", "Objetivos a corto / mediano plazo", "textarea"),
+      f("tareas_hogar", "Tareas o ejercicios asignados para el hogar", "textarea"),
+      f("avances", "Avances de esta sesión", "textarea"),
+      f("observaciones", "Observaciones / evolución", "textarea"),
+    ],
+  },
+  gastos_medicos: {
+    title: "Gastos médicos y reembolsos", module: "salud",
+    fields: [
+      f("fecha", "Fecha del gasto", "date", {required:true}),
+      f("concepto", "Concepto", "select-other", {options:["Consulta","Farmacia / Medicamento","Terapia","Examen","Insumos"],otherLabel:"Otro concepto",required:true,maxLength:180}),
+      f("detalle", "Detalle del gasto", "text", {maxLength:250}),
+      f("monto", "Monto gastado (CLP)", "number", {required:true,min:0,max:1000000000,step:1,currency:'CLP'}),
+      f("estado_reembolso", "Estado de reembolso", "select", {options:["No aplica","Pendiente en Isapre/Fonasa","Pendiente en Seguro Complementario","Reembolsado"],required:true}),
+      f("monto_reembolsado", "Monto reembolsado (CLP)", "number", {min:0,max:1000000000,step:1,currency:'CLP'}),
+      f("observaciones", "Observaciones", "textarea"),
+    ],
+  },
+  turnos_cuidadores: {
+    title: "Muro de cuidadores / Bitácora de relevo", module: "salud",
+    fields: [
+      f("cuidador", "Cuidador a cargo", "text", {required:true,maxLength:180}),
+      f("parentesco", "Parentesco / función", "select-other", {options:["Madre","Padre","Abuelo/a","Tutor/a","Enfermero/a","Cuidador/a"],otherLabel:"Otra función",maxLength:180}),
+      f("hora_inicio", "Inicio del turno", "datetime-local", {required:true}),
+      f("hora_fin", "Fin del turno (vacío si sigue a cargo)", "datetime-local"),
+      f("estado_animo", "Estado de ánimo / comportamiento", "textarea"),
+      f("alimentacion_hidratacion", "Comidas / hidratación recibida", "textarea"),
+      f("medicamentos_administrados", "Medicamentos administrados (nombre, dosis y hora)", "textarea"),
+      f("notas_entrega", "Notas de entrega / recordatorios indicados", "textarea"),
+    ],
+  },
   dosis_sos: {
     title: "Dosis SOS / Episodios de enfermedad", module: "salud",
     fields: [

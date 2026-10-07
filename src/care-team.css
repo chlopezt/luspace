@@ -1,0 +1,12 @@
+.expense-overview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0; }
+.expense-overview article { min-width:0; padding:16px; }
+.expense-overview svg,.caregiver-overview>svg { color:var(--accent); flex-shrink:0; }
+.expense-overview p { margin:8px 0; font-size:13px; color:var(--muted); }
+.expense-overview strong { display:block; font-size:20px; color:var(--ink); overflow-wrap:anywhere; }
+.expense-overview small { display:block; color:var(--muted); margin-top:6px; font-size:11px; }
+.caregiver-overview { display:flex; align-items:center; gap:14px; padding:18px; margin:16px 0; }
+.caregiver-overview>div { min-width:0; flex:1; overflow-wrap:anywhere; }
+.caregiver-overview h3 { margin:4px 0; }
+.caregiver-overview p { margin:6px 0; font-size:13px; }
+.caregiver-overview small { color:var(--muted); }
+@media(max-width:600px){ .expense-overview { grid-template-columns:minmax(0,1fr); } .caregiver-overview { flex-wrap:wrap; } .caregiver-overview button { margin-left:38px; max-width:calc(100% - 38px); } }

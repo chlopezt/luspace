@@ -563,6 +563,9 @@ function FamilyApp() {
       "alimentacion",
       "dosis_sos",
       "urgencias",
+      "sesiones_terapia",
+      "gastos_medicos",
+      "turnos_cuidadores",
     ];
   return (
     <FileUploadEnabled.Provider value={me.platform_controls?.uploads_enabled!==false}><div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
@@ -735,7 +738,7 @@ function FamilyApp() {
                   </h1>
                   <div className="tabs" role="group" aria-label="Secciones">
                     {(view === "salud"
-                      ? ["Mediciones", "Tratamientos continuos", "Consultas médicas", "Exámenes", "Carnet de vacunas", "Alimentación", "Dosis SOS / Enfermedad", "Urgencias"]
+                      ? ["Mediciones", "Tratamientos continuos", "Consultas médicas", "Exámenes", "Carnet de vacunas", "Alimentación", "Dosis SOS / Enfermedad", "Urgencias", "Terapias y equipo", "Gastos y reembolsos", "Muro de cuidadores"]
                       : [
                           "Manual de apoyo",
                           "Adecuaciones PIE / PACI",

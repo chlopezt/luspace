@@ -73,6 +73,7 @@ export function reportFilename(child = {}, issued) {
 }
 export function fieldText(field, value) {
   if (!meaningful(value)) return "";
+  if (field.currency === 'CLP') return new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(value));
   if (field.type === "checkbox")
     return value === true || value === 1 || value === "1" ? "Sí" : "No";
   if (

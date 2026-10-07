@@ -23,6 +23,9 @@ export const reportGroups = [
     item('nutrition', 'Alimentación y nutrición', 'alimentacion'),
     item('sos', 'Dosis SOS y episodios de enfermedad', 'dosis_sos'),
     item('urgent', 'Atenciones de urgencia', 'urgencias'),
+    item('therapy', 'Terapias y equipo multidisciplinario', 'sesiones_terapia'),
+    item('expenses', 'Gastos médicos y reembolsos', 'gastos_medicos'),
+    item('caregivers', 'Bitácora de relevo de cuidadores', 'turnos_cuidadores'),
   ] },
   { module: 'escolar', label: 'Escolar', items: [
     item('school_logs', 'Bitácoras diarias / informes del colegio', 'bitacora_escolar_diaria'),

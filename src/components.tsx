@@ -29,8 +29,9 @@ import "./contextual-records.css";
 import MultiFiles, { FileGallery, fileIds } from "./RecordFiles";
 import { api, dateLabel, today, type Row } from "./lib";
 import { models as definitions, fieldVisible } from "../shared/models.js";
-import { weekdays } from '../shared/care.js';
+import { weekdays, moneyCLP } from '../shared/care.js';
 import SosReminders from './SosReminders';
+import CareTeamOverview from './CareTeamOverview';
 import { compressUploadImage } from "./imageCompression";
 import { fetchAttachment, downloadAttachment } from "./fileAccess";
 export const models: Record<string, any> = definitions;
@@ -407,7 +408,7 @@ export function Field({
           inputMode={f.type === "rut" ? "text" : undefined}
           min={f.min}
           max={f.max}
-          step={f.type === "number" ? "any" : undefined}
+          step={f.type === "number" ? f.step || "any" : undefined}
           maxLength={f.maxLength || 12000}
           onChange={(e) =>
             onChange(
@@ -909,6 +910,7 @@ export function RecordDetails({
           if (v === null || v === undefined || v === "") return null;
           if (f.type === "checkbox") v = v ? "Sí" : "No";
           if (f.type === "lines") v = JSON.parse(v).join("\n");
+          if (f.currency === 'CLP') v = moneyCLP(v);
           if (f.type === "date" || f.type === "datetime-local")
             v = dateLabel(v);
           return (
@@ -978,7 +980,7 @@ export function Records({
   }
   const config = models[table];
   useEffect(() => {
-    if (!["consultas_medicas", "dosis_sos"].includes(table)) return;
+    if (!["consultas_medicas", "dosis_sos", "turnos_cuidadores"].includes(table)) return;
     setVisitNow(Date.now());
     const timer = setInterval(() => setVisitNow(Date.now()), 60000);
     return () => clearInterval(timer);
@@ -1005,9 +1007,9 @@ export function Records({
         },
       )
     : table === 'horario_escolar' ? [...rows].sort((a,b)=>weekdays.indexOf(a.dia)-weekdays.indexOf(b.dia) || a.hora_inicio.localeCompare(b.hora_inicio))
-    : ['dosis_sos','urgencias'].includes(table) ? [...rows].sort((a,b)=>Date.parse(b.fecha)-Date.parse(a.fecha)) : rows;
+    : ['dosis_sos','urgencias','sesiones_terapia','gastos_medicos','turnos_cuidadores'].includes(table) ? [...rows].sort((a,b)=>Date.parse(b.fecha || b.hora_inicio)-Date.parse(a.fecha || a.hora_inicio)) : rows;
   return (
-    <section className={'record-section' + (['dosis_sos','urgencias','horario_escolar'].includes(table) ? ' care-records' : '')}>
+    <section className={'record-section' + (['dosis_sos','urgencias','horario_escolar','sesiones_terapia','gastos_medicos','turnos_cuidadores'].includes(table) ? ' care-records' : '')}>
       <div className="section-heading">
         <h2>{onlyFields ? "Adecuaciones PIE / PACI" : config.title}</h2>
         {!readonly && (
@@ -1016,11 +1018,12 @@ export function Records({
             onClick={() => setEdit(config.single ? rows[0] || {} : {})}
           >
             <Plus size={16} />
-            {table === 'dosis_sos' ? "Registrar Dosis SOS / Episodio de enfermedad" : config.single && rows.length ? "Editar" : "Agregar"}
+            {table === 'dosis_sos' ? "Registrar Dosis SOS / Episodio de enfermedad" : table === 'sesiones_terapia' ? 'Registrar sesión' : table === 'turnos_cuidadores' ? 'Registrar turno / relevo' : config.single && rows.length ? "Editar" : "Agregar"}
           </button>
         )}
       </div>
       <ErrorNote error={error} />
+      {!loading && <CareTeamOverview table={table} rows={rows} now={visitNow} finish={readonly ? undefined : setEdit}/>}
       {table === 'dosis_sos' && <><p className="muted">Registra lo administrado. El aviso usa el intervalo indicado por tu profesional y solo se actualiza con la aplicación abierta; no sustituye una indicación médica ni envía notificaciones en segundo plano.</p><SosReminders rows={rows} now={visitNow}/></>}
       {isVisit && (
         <div
@@ -1075,6 +1078,7 @@ export function Records({
                   <time>
                     {table === 'horario_escolar' ? `${row.dia} · ${row.hora_inicio}–${row.hora_fin}` : dateLabel(
                       row.fecha ||
+                        row.hora_inicio ||
                         row.fecha_medicion ||
                         row.fecha_inicio ||
                         row.periodo_inicio ||
@@ -1084,13 +1088,14 @@ export function Records({
                   <strong title={row.especialidad || row.nombre}>
                     {row.especialidad ||
                       row.nombre ||
-                      row.medicamento || row.actividad || row.centro ||
+                      row.medicamento || row.actividad || row.centro || row.concepto || row.cuidador ||
                       row.colegio_actual ||
                       row.estado_animo ||
                       config.title}
                   </strong>
                   <span>
                     {row.medico_nombre ||
+                      row.profesional || (table === 'gastos_medicos' ? `${moneyCLP(row.monto)} · ${row.estado_reembolso}` : '') || (table === 'turnos_cuidadores' ? row.hora_fin ? 'Turno finalizado' : 'A cargo' : '') ||
                       row.dosis ||
                       row.tipo_comida ||
                       row.curso ||
