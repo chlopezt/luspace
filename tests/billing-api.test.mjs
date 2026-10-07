@@ -6,7 +6,12 @@ import {join} from 'node:path';
 import {createHmac} from 'node:crypto';
 import {localEnv} from '../server/local.js';
 import {handle} from '../server/api.js';
-import {billingPeriod} from '../server/billing.js';
+import {billingPeriod,isTestBuyerEmail} from '../server/billing.js';
+
+test('fictional buyer email accepts legacy and current formats, never real addresses',()=>{
+  for(const email of ['testuser202@testuser.com','test_user_202@testuser.com'])assert.equal(isTestBuyerEmail(email),true);
+  for(const email of ['owner@gmail.com','test@testuser.com','testuser202@testuser.com.attacker.test','testuser202@testuser.com\n',''])assert.equal(isTestBuyerEmail(email),false);
+});
 
 test('monthly period clamps leap years and month-end without adding days from today',()=>{
   assert.equal(billingPeriod('2024-01-31T09:00:00Z').end,'2024-02-29T09:00:00.000Z');
@@ -22,6 +27,7 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     const url=new URL(input);let result;
     assert.equal(url.hostname,'api.mercadopago.com');
     if(url.pathname==='/users/me')result={id:101,site_id:'MLC',tags:unsafeSeller?[]:['test_user']};
+    else if(url.pathname==='/users/202')result={id:202,site_id:'MLC',tags:['test_user'],nickname:'TESTBUYER202',email:'test_user_202@testuser.com'};
     else if(url.pathname==='/preapproval'&&options.method==='POST'){
       const data=JSON.parse(options.body);assert.equal(data.payer_email,'testuser202@testuser.com');assert.equal(data.status,'pending');assert.equal(data.auto_recurring.transaction_amount,5938);
       const id='contract'+(++createCount);result={...data,id,collector_id:101,last_modified:stamp(),init_point:'https://www.mercadopago.cl/subscriptions/checkout?preapproval_id='+id};contracts.set(id,result);
@@ -62,6 +68,10 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     assert.equal((await call('billing')).body.subscriptions.length,0);
     delete env.MP_TEST_BUYER_EMAIL;
     assert.equal((await call('billing/connection')).body.buyer_configured,false);
+    env.MP_TEST_BUYER_ID='202';env.MP_TEST_BUYER_USERNAME='TESTBUYER202';
+    assert.equal((await call('billing/connection')).body.buyer_configured,true,'resolve the email returned by the provider without inventing it');
+    env.MP_TEST_BUYER_USERNAME='WRONG';assert.equal((await call('billing/connection')).status,503);
+    delete env.MP_TEST_BUYER_ID;delete env.MP_TEST_BUYER_USERNAME;
     env.MP_TEST_BUYER_EMAIL='testuser202@testuser.com';
     const checkout=await call('billing/checkout','POST',{amount:1,familia_id:'other'});assert.equal(checkout.status,201);assert.ok(checkout.body.url);
     const row=(await env.DB.prepare('SELECT * FROM billing_subscriptions WHERE familia_id=?').bind(one.familia_id).all()).results[0];

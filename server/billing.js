@@ -47,11 +47,24 @@ function checkoutUrl(value){
 }
 const owner=a=>{if(a.guest||a.rol!=='superadmin')fail(403,'Solo el Administrador de la familia puede gestionar la suscripción.');};
 
+export const isTestBuyerEmail=value=>typeof value==='string'&&/^(?:testuser\d+|test_user_\d+)@testuser\.com$/i.test(value);
+async function testBuyerEmail(env){
+  if(env.MP_TEST_BUYER_ID){
+    if(!/^\d{1,20}$/.test(env.MP_TEST_BUYER_ID)||env.MP_TEST_BUYER_ID===env.MP_TEST_SELLER_ID)fail(503,'La cuenta compradora de pruebas debe ser distinta de la vendedora.');
+    const user=await mp(env,'/users/'+resource(env.MP_TEST_BUYER_ID));
+    if(String(user.id)!==env.MP_TEST_BUYER_ID||user.site_id!=='MLC'||!user.tags?.includes('test_user')||user.nickname!==env.MP_TEST_BUYER_USERNAME)
+      fail(503,'No se pudo verificar la cuenta compradora ficticia de Chile.');
+    // Never invent an email from the nickname or ID. Some public user responses omit it.
+    if(isTestBuyerEmail(user.email))return user.email;
+  }
+  return isTestBuyerEmail(env.MP_TEST_BUYER_EMAIL)?env.MP_TEST_BUYER_EMAIL:null;
+}
+
 // Read-only provider check: never create contracts, charges or payment records.
 export async function billingConnection(env,a){
   owner(a);requireTest(env);
   await seller(env);
-  return {seller_verified:true,mode:'test',buyer_configured:/^testuser\d+@testuser\.com$/i.test(env.MP_TEST_BUYER_EMAIL||'')};
+  return {seller_verified:true,mode:'test',buyer_configured:!!await testBuyerEmail(env)};
 }
 
 export async function billingStatus(env,a){
@@ -65,7 +78,8 @@ export async function billingStatus(env,a){
 export async function createCheckout(env,a){
   owner(a);const config=requireTest(env),sellerId=await seller(env),db=env.DB;
   // A fixed fictional payer must be configured in preview; never send a real family email.
-  if(!/^testuser\d+@testuser\.com$/i.test(env.MP_TEST_BUYER_EMAIL||''))fail(503,'Configura el correo del comprador ficticio.');
+  const payerEmail=await testBuyerEmail(env);
+  if(!payerEmail)fail(503,'Mercado Pago no publicó el correo de la cuenta de prueba. Revisa el correo dentro del perfil del comprador ficticio.');
   let back;try{back=new URL(env.MP_BILLING_BACK_URL);}catch{fail(503,'Configura la URL de retorno de pruebas.');}
   if(back.protocol!=='https:'&&!((back.hostname==='127.0.0.1'||back.hostname==='localhost')&&env.LOCAL_DEV===true))fail(503,'La URL de retorno debe ser segura.');
   if(back.search||back.hash||back.username||back.password)fail(503,'La URL de retorno no debe incluir parámetros.');
@@ -78,7 +92,7 @@ export async function createCheckout(env,a){
   try{await sql(db,"INSERT INTO billing_subscriptions(id,familia_id,environment,external_reference,amount_clp) VALUES(?,?,'test',?,?)",id,a.familia_id,reference,config.amount).run();}
   catch(error){if(String(error.message).includes('UNIQUE'))fail(409,'Ya hay una solicitud en curso. Actualiza el estado.');throw error;}
   // Keep the reservation on timeout/error. No blind second POST after an uncertain result.
-  const provider=await mp(env,'/preapproval','POST',{reason:'LuSpace · Suscripción mensual de prueba',external_reference:reference,payer_email:env.MP_TEST_BUYER_EMAIL,auto_recurring:{frequency:1,frequency_type:'months',transaction_amount:config.amount,currency_id:'CLP'},back_url:back.href,status:'pending'},id);
+  const provider=await mp(env,'/preapproval','POST',{reason:'LuSpace · Suscripción mensual de prueba',external_reference:reference,payer_email:payerEmail,auto_recurring:{frequency:1,frequency_type:'months',transaction_amount:config.amount,currency_id:'CLP'},back_url:back.href,status:'pending'},id);
   resource(provider.id);assertProviderSubscription({provider_id:String(provider.id),external_reference:reference,amount_clp:config.amount},provider,sellerId);
   const url=checkoutUrl(provider.init_point);
   await sql(db,"UPDATE billing_subscriptions SET provider_id=?,checkout_url=?,state=?,provider_updated_at=?,updated_at=? WHERE id=? AND familia_id=?",String(provider.id),url,provider.status,iso(provider.last_modified),now(),id,a.familia_id).run();
@@ -186,4 +200,3 @@ export async function platformBillingStatus(env){
   const inbox=await first(env.DB,"SELECT COUNT(*) AS pending FROM billing_webhook_inbox WHERE state!='processed'");
   return {mode:'test',enabled:testBilling(env).enabled,subscriptions:rows,pending_notifications:inbox.pending};
 }
-
