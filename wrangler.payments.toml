@@ -8,16 +8,17 @@ LUSPACE_R2_ENABLED = "false"
 LUSPACE_REGISTRATION_ENABLED = "false"
 LUSPACE_BILLING_MODE = "test"
 LUSPACE_BILLING_ISOLATED = "true"
+LUSPACE_BILLING_TEST_STRATEGY = "fictional_accounts"
 LUSPACE_BILLING_AMOUNT_CLP = "5938"
 MP_BILLING_BACK_URL = "https://luspace-payments-preview.pages.dev/login"
 MP_TEST_SELLER_ID = "3745839756"
 MP_TEST_BUYER_ID = "3742236219"
 MP_TEST_BUYER_USERNAME = "TESTUSER1699089723149032202"
 MP_TEST_BUYER_EMAIL = "test_user_1699089723149032202@testuser.com"
+MP_TEST_APPLICATION_ID = "3968959036503963"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "luspace-payments-preview-db"
 database_id = "REEMPLAZAR_PREVIEW_DATABASE_ID"
 migrations_dir = "db/migrations"
-

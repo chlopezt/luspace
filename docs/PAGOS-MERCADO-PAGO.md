@@ -85,3 +85,20 @@ las capturas son de demostración de interfaz, no pruebas de un cargo del provee
 
 Las utilidades verifican todos los componentes de la firma y una tolerancia de 5 minutos.
 Validar el formato y reintentos reales del tópico de Suscripciones antes de conectar el receptor.
+
+## Verificación remota del 7 de octubre de 2026
+
+- Vendedor ficticio MLC y correo del comprador configurados en preview independiente.
+- Suscripción existente observada como autorizada. No crear una segunda para reintentar.
+- HTTP 400 en authorized_payments/search resuelto al quitar limit y offset; usar filtros documentados y rechazar páginas parciales.
+- La consulta de cuotas ya devuelve un pago, pero su campo live_mode no cumple la comprobación estricta `=== false`. Se rechaza antes de guardar el pago o conceder un período pagado.
+- Pendiente: confirmar con documentación/soporte de Mercado Pago la semántica de live_mode cuando se usan credenciales de producción de una cuenta ficticia. No eliminar esta validación ni habilitar cobros productivos para superar la prueba.
+- Este resultado NO confirma una prueba de pagos extremo a extremo ni habilita producción.
+
+### Estrategia aislada de cuentas ficticias
+
+`LUSPACE_BILLING_TEST_STRATEGY=fictional_accounts` distingue las credenciales de la aplicación ficticia del sandbox tradicional. Solo puede usarse con modo test y entorno aislado (o LOCAL_DEV), IDs distintos del vendedor/comprador y un ID de aplicación fijo.
+
+En esta estrategia, /users/me debe seguir confirmando vendedor test_user de Chile; la suscripción debe pertenecer al vendedor y aplicación configurados; cada pago debe corresponder exactamente al comprador ficticio y vendedor previstos, además de moneda, importe, cuota y referencia familiar. live_mode debe ser booleano, pero no es el único clasificador de pruebas. Las notificaciones con live_mode=true requieren HMAC válido y user_id del vendedor ficticio; posteriormente se consulta el recurso y se aplican todas las verificaciones anteriores. Un comprador, aplicación, firma o familia distintos siguen rechazados. El modo productivo de LuSpace continúa deshabilitado.
+
+Referencia de credenciales de aplicaciones de cuentas ficticias: https://www.mercadopago.cl/developers/es/docs/salesforce-commerce-cloud/create-application?scope=prod

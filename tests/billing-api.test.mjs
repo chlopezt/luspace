@@ -48,10 +48,10 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];
     return {status:response.status,body:await response.json()};
   }
-  async function webhook(id,topic='subscription_authorized_payment',signed=true){
+  async function webhook(id,topic='subscription_authorized_payment',signed=true,liveMode=false,userId){
     const ts=String(Math.floor(Date.now()/1000)),requestId='request-'+sequence++;
     const signature=createHmac('sha256',env.MP_WEBHOOK_SECRET).update(`id:${id};request-id:${requestId};ts:${ts};`).digest('hex');
-    const req=new Request('http://localhost:5173/api/billing/webhook?data.id='+id,{method:'POST',headers:{'Content-Type':'application/json','x-request-id':requestId,'x-signature':`ts=${ts},v1=${signed?signature:'0'.repeat(64)}`},body:JSON.stringify({type:topic,data:{id},live_mode:false})});
+    const req=new Request('http://localhost:5173/api/billing/webhook?data.id='+id,{method:'POST',headers:{'Content-Type':'application/json','x-request-id':requestId,'x-signature':`ts=${ts},v1=${signed?signature:'0'.repeat(64)}`},body:JSON.stringify({type:topic,data:{id},live_mode:liveMode,...(userId?{user_id:userId}:{})})});
     const response=await handle(req,env);return {status:response.status,body:await response.json()};
   }
   function pay(contractId,id,debitDate){
@@ -93,6 +93,26 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     assert.equal((await call('subscription')).body.can_write,false,'card authorization is not a payment');
     const current=new Date();current.setUTCDate(Math.max(1,current.getUTCDate()-1));
     pay(row.provider_id,'inv1',current.toISOString());
+    const firstPayment=payments.get('payinv1');
+    payments.set('payinv1',{...firstPayment,live_mode:true,payer:{id:202}});
+    assert.equal((await call('billing/refresh','POST',{})).status,400,'traditional sandbox still rejects production-labelled payments');
+    Object.assign(env,{LUSPACE_BILLING_TEST_STRATEGY:'fictional_accounts',MP_TEST_SELLER_ID:'101',MP_TEST_BUYER_ID:'202',MP_TEST_APPLICATION_ID:'303'});
+    assert.equal((await call('billing/refresh','POST',{})).status,400,'fictional mode requires matching application as well as seller');
+    contracts.get(row.provider_id).application_id=303;
+    payments.set('payinv1',{...firstPayment,live_mode:true,payer:{id:999}});
+    assert.equal((await call('billing/refresh','POST',{})).status,400,'other buyers cannot grant access even with a matching seller');
+    assert.equal((await call('billing')).body.payments.length,0);
+    payments.set('payinv1',{...firstPayment,live_mode:true,payer:{id:202}});
+    assert.equal((await call('billing/refresh','POST',{})).status,200);
+    assert.equal((await call('billing')).body.payments.length,1);
+    assert.equal((await webhook('inv1',undefined,false,true,101)).status,401);
+    assert.equal((await webhook('inv1',undefined,true,true,999)).status,400);
+    assert.equal((await webhook('inv1',undefined,true,true,101)).status,200);
+    // Reset only this disposable fixture before exercising the original sandbox/webhook flow.
+    await env.DB.prepare('DELETE FROM billing_payments WHERE subscription_id=?').bind(row.id).run();
+    await env.DB.prepare('UPDATE billing_subscriptions SET paid_until=NULL WHERE id=?').bind(row.id).run();
+    delete env.LUSPACE_BILLING_TEST_STRATEGY;delete env.MP_TEST_BUYER_ID;delete env.MP_TEST_APPLICATION_ID;
+    payments.set('payinv1',firstPayment);
     assert.equal((await webhook('inv1',undefined,false)).status,401);assert.equal((await call('subscription')).body.can_write,false);
     assert.equal((await webhook('inv1')).status,200);assert.equal((await call('subscription')).body.can_write,true);
     assert.equal((await webhook('inv1')).status,200);assert.equal((await call('billing')).body.payments.length,1);

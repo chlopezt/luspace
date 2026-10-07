@@ -1,5 +1,5 @@
 import {uid} from './security.js';
-import {billingConfiguration,verifyBillingSignature,validateBillingNotification,assertProviderSubscription} from './billing-security.js';
+import {billingConfiguration,verifyBillingSignature,validateBillingNotification,assertProviderSubscription,fictionalAccounts,assertTestPaymentMode} from './billing-security.js';
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const sql=(db,query,...args)=>db.prepare(query).bind(...args);
 const first=(db,query,...args)=>sql(db,query,...args).first();
@@ -12,9 +12,11 @@ export function testBilling(env) {
   const configuration=billingConfiguration(env);
   // This phase deliberately has NO production checkout. Test databases must be isolated.
   return {...configuration,enabled:configuration.enabled && configuration.mode==='test'
+    &&(!env.LUSPACE_BILLING_TEST_STRATEGY||env.LUSPACE_BILLING_TEST_STRATEGY==='sandbox'||fictionalAccounts(env))
     && (env.LOCAL_DEV===true || env.LUSPACE_BILLING_ISOLATED==='true')};
 }
 function requireTest(env){const config=testBilling(env);if(!config.enabled)fail(503,'Los pagos de prueba todavía no están configurados. No se realizó ningún cobro.');return config;}
+const expectedApp=env=>fictionalAccounts(env)?env.MP_TEST_APPLICATION_ID:undefined;
 async function mp(env,path,method='GET',data,key) {
   requireTest(env);
   const transport=env.LOCAL_DEV===true && env.BILLING_TEST_FETCH ? env.BILLING_TEST_FETCH : globalThis.fetch.bind(globalThis);
@@ -98,7 +100,7 @@ export async function createCheckout(env,a){
   catch(error){if(String(error.message).includes('UNIQUE'))fail(409,'Ya hay una solicitud en curso. Actualiza el estado.');throw error;}
   // Keep the reservation on timeout/error. No blind second POST after an uncertain result.
   const provider=await mp(env,'/preapproval','POST',{reason:'LuSpace · Suscripción mensual de prueba',external_reference:reference,payer_email:payerEmail,auto_recurring:{frequency:1,frequency_type:'months',transaction_amount:config.amount,currency_id:'CLP'},back_url:back.href,status:'pending'},id);
-  resource(provider.id);assertProviderSubscription({provider_id:String(provider.id),external_reference:reference,amount_clp:config.amount},provider,sellerId);
+  resource(provider.id);assertProviderSubscription({provider_id:String(provider.id),external_reference:reference,amount_clp:config.amount},provider,sellerId,expectedApp(env));
   const url=checkoutUrl(provider.init_point);
   await sql(db,"UPDATE billing_subscriptions SET provider_id=?,checkout_url=?,state=?,provider_updated_at=?,updated_at=? WHERE id=? AND familia_id=?",String(provider.id),url,provider.status,iso(provider.last_modified),now(),id,a.familia_id).run();
   return {url,existing:false};
@@ -118,7 +120,7 @@ async function saveInvoice(env,record,invoice,sellerId){
   const payment=await mp(env,'/v1/payments/'+resource(invoice.payment.id));
   if(String(payment.id)!==String(invoice.payment.id))fail(400,'El identificador del pago no coincide con la cuota consultada.');
   if(String(payment.collector_id)!==String(sellerId))fail(400,'El vendedor del pago no coincide con el vendedor de pruebas verificado.');
-  if(payment.live_mode!==false)fail(400,'Mercado Pago informó el pago fuera del modo sandbox esperado. No se aplicó a la familia.');
+  assertTestPaymentMode(env,payment,sellerId);
   if(payment.currency_id!=='CLP'||payment.transaction_amount!==record.amount_clp)fail(400,'La moneda o el importe del pago no coincide con la suscripción.');
   if(payment.external_reference!==record.external_reference)fail(400,'La referencia del pago no coincide con la familia de la suscripción.');
   const states={approved:'approved',rejected:'rejected',cancelled:'cancelled',refunded:'refunded',charged_back:'charged_back',pending:'pending',in_process:'pending',authorized:'pending'};
@@ -136,11 +138,11 @@ async function syncRecord(env,record,sellerId){
     const matches=(result.results||[]).filter(p=>p.external_reference===record.external_reference);
     if(matches.length!==1)fail(409,'La solicitud todavía no se pudo conciliar. No se creará otra automáticamente.');
     record={...record,provider_id:String(matches[0].id)};
-    assertProviderSubscription(record,matches[0],sellerId);
+    assertProviderSubscription(record,matches[0],sellerId,expectedApp(env));
     await sql(env.DB,'UPDATE billing_subscriptions SET provider_id=? WHERE id=?',record.provider_id,record.id).run();
   }
   const provider=await mp(env,'/preapproval/'+resource(record.provider_id));
-  assertProviderSubscription(record,provider,sellerId);
+  assertProviderSubscription(record,provider,sellerId,expectedApp(env));
   const updated=iso(provider.last_modified),url=provider.status==='pending'?checkoutUrl(provider.init_point):null;
   await sql(env.DB,'UPDATE billing_subscriptions SET state=?,checkout_url=?,provider_updated_at=?,updated_at=? WHERE id=? AND (provider_updated_at IS NULL OR provider_updated_at<=?)',provider.status,url,updated,now(),record.id,updated).run();
   // This search endpoint documents subscription/payment filters, not custom pagination inputs.
@@ -162,10 +164,10 @@ export async function cancelSubscription(env,a,id){
   if(!record)fail(404,'Suscripción no encontrada.');
   if(!record.provider_id)fail(409,'Primero concilia la solicitud pendiente.');
   const original=await mp(env,'/preapproval/'+resource(record.provider_id));
-  assertProviderSubscription(record,original,sellerId);
+  assertProviderSubscription(record,original,sellerId,expectedApp(env));
   if(original.status!=='cancelled'){
     const canceled=await mp(env,'/preapproval/'+resource(record.provider_id),'PUT',{status:'cancelled'});
-    assertProviderSubscription(record,canceled,sellerId);
+    assertProviderSubscription(record,canceled,sellerId,expectedApp(env));
     if(canceled.status!=='cancelled')fail(502,'Mercado Pago no confirmó la cancelación.');
   }
   await syncRecord(env,record,sellerId);
@@ -178,7 +180,7 @@ export async function receiveBillingWebhook(req,env){
   if(!await verifyBillingSignature(req,env.MP_WEBHOOK_SECRET))fail(401,'Firma de notificación inválida.');
   const raw=await req.text();if(raw.length>20000)fail(413,'Notificación demasiado grande.');
   let payload;try{payload=JSON.parse(raw);}catch{fail(400,'Notificación inválida.');}
-  const message=validateBillingNotification(req,payload,'test'),db=env.DB;
+  const message=validateBillingNotification(req,payload,'test',env),db=env.DB;
   const ts=req.headers.get('x-signature').split(',').find(part=>part.trim().startsWith('ts=')).trim().slice(3);
   await sql(db,"INSERT INTO billing_webhook_inbox(id,environment,topic,resource_id,request_id,signature_ts) VALUES(?,'test',?,?,?,?) ON CONFLICT(environment,topic,resource_id,request_id,signature_ts) DO NOTHING",uid(),message.topic,message.resourceId,message.requestId,ts).run();
   const event=await first(db,"SELECT * FROM billing_webhook_inbox WHERE environment='test' AND topic=? AND resource_id=? AND request_id=? AND signature_ts=?",message.topic,message.resourceId,message.requestId,ts);
@@ -191,7 +193,7 @@ export async function receiveBillingWebhook(req,env){
     else if(message.topic==='subscription_authorized_payment'){
       const invoice=await mp(env,'/authorized_payments/'+resource(message.resourceId));
       record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment='test'",String(invoice.preapproval_id));
-      if(record){const subscription=await mp(env,'/preapproval/'+resource(record.provider_id));assertProviderSubscription(record,subscription,sellerId);await saveInvoice(env,record,invoice,sellerId);}
+      if(record){const subscription=await mp(env,'/preapproval/'+resource(record.provider_id));assertProviderSubscription(record,subscription,sellerId,expectedApp(env));await saveInvoice(env,record,invoice,sellerId);}
     } else {
       const invoices=await mp(env,'/authorized_payments/search?payment_id='+resource(message.resourceId));
       if(invoices.results?.length===1&&invoices.paging?.total===1){const invoice=invoices.results[0];record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment='test'",String(invoice.preapproval_id));}
@@ -209,4 +211,3 @@ export async function platformBillingStatus(env){
   const inbox=await first(env.DB,"SELECT COUNT(*) AS pending FROM billing_webhook_inbox WHERE state!='processed'");
   return {mode:'test',enabled:testBilling(env).enabled,subscriptions:rows,pending_notifications:inbox.pending};
 }
-

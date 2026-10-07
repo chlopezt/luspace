@@ -3,7 +3,25 @@ import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {billingConfiguration,verifyBillingSignature,validateBillingNotification,assertProviderSubscription} from '../server/billing-security.js';
+import {billingConfiguration,verifyBillingSignature,validateBillingNotification,assertProviderSubscription,fictionalAccounts,assertTestPaymentMode} from '../server/billing-security.js';
+
+test('fictional-account strategy pins both counterparties and cannot enable production or unknown modes',()=>{
+  const env={LUSPACE_BILLING_MODE:'test',LUSPACE_BILLING_TEST_STRATEGY:'fictional_accounts',LUSPACE_BILLING_ISOLATED:'true',MP_TEST_SELLER_ID:'101',MP_TEST_BUYER_ID:'202',MP_TEST_APPLICATION_ID:'303'};
+  const payment={live_mode:true,collector_id:101,payer:{id:202}};
+  assert.equal(fictionalAccounts(env),true);assert.doesNotThrow(()=>assertTestPaymentMode(env,payment,101));
+  assert.throws(()=>assertTestPaymentMode(env,{...payment,payer:{id:999}},101));
+  assert.throws(()=>assertTestPaymentMode(env,{...payment,collector_id:999},101));
+  assert.throws(()=>assertTestPaymentMode(env,payment,999));
+  assert.throws(()=>assertTestPaymentMode(env,{...payment,live_mode:undefined},101));
+  for(const changes of [{LUSPACE_BILLING_MODE:'production'},{LUSPACE_BILLING_ISOLATED:'false'},{MP_TEST_APPLICATION_ID:''},{MP_TEST_BUYER_ID:'101'},{LUSPACE_BILLING_TEST_STRATEGY:'sandbox'}]){
+    const unsafe={...env,...changes};assert.equal(fictionalAccounts(unsafe),false);assert.throws(()=>assertTestPaymentMode(unsafe,payment,101));
+  }
+  const req=new Request('https://example.test/webhook?data.id=abc',{headers:{'x-request-id':'event1'}});
+  const notification={type:'payment',data:{id:'abc'},live_mode:true,user_id:101};
+  assert.doesNotThrow(()=>validateBillingNotification(req,notification,'test',env));
+  assert.throws(()=>validateBillingNotification(req,{...notification,user_id:999},'test',env));
+  assert.throws(()=>validateBillingNotification(req,notification,'test'));
+});
 
 test('billing is disabled by default and production requires explicit approval',()=>{
   assert.equal(billingConfiguration({}).enabled,false);
