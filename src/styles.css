@@ -675,3 +675,10 @@ header {
     min-height: 175px;
   }
 }
+/* Granular report choices share the existing theme and remain local to the modal. */
+.report-selection details { border: 1px solid var(--border, #dce5eb); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+.report-selection summary { cursor: pointer; font-weight: 600; margin-bottom: 12px; }
+.report-selection summary span { float: right; font-size: .85em; }
+.report-selection .check { align-items: center; min-height: 44px; overflow-wrap: anywhere; }
+.report-selection .check input { flex-shrink: 0; }
+@media (max-width: 600px) { .report-selection .check-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -256,6 +256,18 @@ test("authentication, family isolation, CRUD, guest scope, revocation, files, ex
   );
   assert.equal(report.status, 200);
   assert.equal(report.body.anamnesis.identificacion[0], "Padres QA");
+  const granular = await call('export','POST',{child,modules:['anamnesis'],selection:['anamnesis_identificacion']},guest);
+  assert.equal(granular.status,200);
+  assert.deepEqual(Object.keys(granular.body.anamnesis),['identificacion']);
+  assert.equal(granular.body.child.fecha_nacimiento,undefined);
+  const documentReport=await call('export','POST',{child,modules:['salud'],selection:['documents']});
+  assert.equal(documentReport.status,200);
+  assert.deepEqual(documentReport.body.sections,{});
+  assert.ok(documentReport.body.documents.every(f=>!('r2_key' in f)&&!('familia_id' in f)));
+  assert.equal((await call('export','POST',{child:'other-child',modules:['salud'],selection:['documents']})).status,404);
+  assert.equal((await call('export','POST',{child,modules:['anamnesis'],selection:['diagnoses']},guest)).status,400);
+  assert.equal((await call('export','POST',{child,modules:['salud'],selection:['nutrition']},guest)).status,403);
+  assert.equal((await call('export','POST',{child,modules:['anamnesis'],selection:['invented']},guest)).status,400);
   const guests = (await call("guests?child=" + child)).body;
   assert.equal("token_hash" in guests[0], false);
   assert.equal((await call("guests/" + guests[0].id, "DELETE")).status, 200);

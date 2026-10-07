@@ -1,4 +1,5 @@
 import { models, modules, anamnesisSections } from "../shared/models.js";
+import { reportGroups, filterReport, selectionModules, documentSelection } from '../shared/report-selection.js';
 import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
 import { subscription } from "./subscription.js";
@@ -1388,6 +1389,8 @@ export async function handle(req, env) {
         b.modules.some((m) => !modules[m])
       )
         fail(400, "Selecciona módulos.");
+      if (b.selection !== undefined && (!Array.isArray(b.selection) || !b.selection.length || b.selection.some(id=>!reportGroups.flatMap(g=>g.items.map(i=>i.id)).concat(documentSelection).includes(id)) || selectionModules(b.selection).some(m=>!b.modules.includes(m))))
+        fail(400, 'Selección de informe inválida.');
       const data = {
         child: {
           primer_nombre: n.primer_nombre,
@@ -1415,6 +1418,13 @@ export async function handle(req, env) {
           data.anamnesis = r ? JSON.parse(r.documento_json) : {};
         }
       }
+      if (b.selection?.includes(documentSelection)) {
+        data.documents = [];
+        for (const m of b.modules) {
+          const files = await all(db, 'SELECT nombre,mime,bytes,created_at FROM archivos WHERE familia_id=? AND nino_id=? AND modulo=? ORDER BY created_at DESC', a.familia_id, n.id, m);
+          data.documents.push(...files.map(f=>({...f,module:modules[m]})));
+        }
+      }
       await audit(
         db,
         a,
@@ -1422,7 +1432,7 @@ export async function handle(req, env) {
         "Exportación de " + b.modules.join(", "),
         ip,
       ).run();
-      return json(data);
+      return json(b.selection ? filterReport(data, b.selection) : data);
     }
     if (path === "files" && method === "GET") {
       const n = url.searchParams.get("child"),
