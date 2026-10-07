@@ -3,6 +3,8 @@ import { Activity, AlertTriangle, Calendar, CalendarHeart, CheckCircle2, Chevron
 import { api, age, today, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
 import Growth from "./Growth";
+import { todaySchedule } from '../shared/care.js';
+import SosReminders from './SosReminders';
 export function nextDose(m: Row, now: number) {
   if (
     !m.activo ||
@@ -33,6 +35,8 @@ export default function Dashboard({
     [meds, setMeds] = useState<Row[]>([]),
     [visits, setVisits] = useState<Row[]>([]),
     [diary, setDiary] = useState<Row[]>([]),
+    [schedule, setSchedule] = useState<Row[]>([]),
+    [sos, setSos] = useState<Row[]>([]),
     [error, setError] = useState(""),
     [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -41,9 +45,11 @@ export default function Dashboard({
       "medicamentos",
       "consultas_medicas",
       "bitacora_escolar_diaria",
+      "horario_escolar",
+      "dosis_sos",
     ];
     Promise.all(tables.map((t) => api(`records/${t}?child=${child.id}`)))
-      .then(([g, m, v, d]) => {
+      .then(([g, m, v, d, s, doses]) => {
         setGrowth(
           g.sort((a: Row, b: Row) =>
             b.fecha_medicion.localeCompare(a.fecha_medicion),
@@ -52,6 +58,8 @@ export default function Dashboard({
         setMeds(m);
         setVisits(v);
         setDiary(d);
+        setSchedule(s);
+        setSos(doses);
       })
       .catch((e) => setError(e.message));
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -166,6 +174,7 @@ export default function Dashboard({
           <button className="soft-action" onClick={() => go("salud")}>
             Ver tratamientos
           </button>
+          {sos.length > 0 && <details><summary>Dosis SOS recientes</summary><SosReminders rows={sos} now={now}/></details>}
         </article>
         <article className="card school dashboard-panel home-panel">
           <div className="section-heading">
@@ -173,6 +182,10 @@ export default function Dashboard({
             <span className={mood ? "home-status done" : "home-status"}>{mood ? <><CheckCircle2 size={14} /> Completado</> : "Pendiente"}</span>
           </div>
           <div className="school-cta">
+            <ul className="daily-routine">
+              {todaySchedule(schedule, new Date(now)).map((block:Row)=><li key={block.id}><time>{block.hora_inicio}–{block.hora_fin}</time><div><strong>{block.actividad}</strong>{block.lugar && <small>{block.lugar}</small>}{block.materiales && <p>Materiales / recordatorios: {block.materiales}</p>}</div></li>)}
+            </ul>
+            {!todaySchedule(schedule, new Date(now)).length && <p className="muted">No hay actividades programadas para hoy.</p>}
             <h3>{mood ? mood.estado_animo : "Bitácora de hoy pendiente"}</h3>
             <p className="muted">
             {mood

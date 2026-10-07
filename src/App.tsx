@@ -552,6 +552,7 @@ function FamilyApp() {
       "perfiles_escolares",
       "historial_colegios",
       "bitacora_escolar_diaria",
+      "horario_escolar",
     ],
     healthTables = [
       "registros_crecimiento",
@@ -560,6 +561,8 @@ function FamilyApp() {
       "examenes_medicos",
       "vacunas",
       "alimentacion",
+      "dosis_sos",
+      "urgencias",
     ];
   return (
     <FileUploadEnabled.Provider value={me.platform_controls?.uploads_enabled!==false}><div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
@@ -732,12 +735,13 @@ function FamilyApp() {
                   </h1>
                   <div className="tabs" role="group" aria-label="Secciones">
                     {(view === "salud"
-                      ? ["Mediciones", "Tratamientos", "Consultas médicas", "Exámenes", "Carnet de vacunas", "Alimentación"]
+                      ? ["Mediciones", "Tratamientos continuos", "Consultas médicas", "Exámenes", "Carnet de vacunas", "Alimentación", "Dosis SOS / Enfermedad", "Urgencias"]
                       : [
                           "Manual de apoyo",
                           "Adecuaciones PIE / PACI",
                           "Historial de colegios",
                           "Bitácora diaria",
+                          "Horario / Rutina diaria",
                         ]
                     ).map((s, i) => (
                       <button

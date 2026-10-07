@@ -1,4 +1,5 @@
 import { models, modules, anamnesisSections } from "../shared/models.js";
+import { careValidation } from '../shared/care.js';
 import { reportGroups, filterReport, selectionModules, documentSelection } from '../shared/report-selection.js';
 import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
@@ -289,6 +290,11 @@ async function validate(db, a, table, input, nino, preserveMissing = false) {
     fail(400, "El término debe ser posterior al inicio.");
   if (table === 'alimentacion' && values.unidad === '%' && values.cantidad > 100)
     fail(400, 'El porcentaje debe estar entre 0 y 100.');
+  if (['dosis_sos','urgencias','horario_escolar'].includes(table)) {
+    const n = await child(db,a,nino);
+    const problem = careValidation(table, values, n.fecha_nacimiento);
+    if (problem) fail(400, problem);
+  }
   if (table === 'vacunas') {
     if (values.catalogo_id && !vaccinationCatalog.some(c=>c.id===values.catalogo_id))
       fail(400, 'Referencia de vacuna inválida.');

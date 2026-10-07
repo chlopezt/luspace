@@ -187,6 +187,40 @@ export const models = {
       f("instrucciones_especiales", "Indicaciones del profesional", "textarea"),
     ],
   },
+  dosis_sos: {
+    title: "Dosis SOS / Episodios de enfermedad", module: "salud",
+    fields: [
+      f("fecha", "Fecha y hora de administración", "datetime-local", {required:true}),
+      f("medicamento", "Medicamento", "text", {required:true,maxLength:180}),
+      f("dosis", "Dosis entregada", "text", {required:true,maxLength:180}),
+      f("motivo", "Motivo / síntoma", "select-other", {options:["Fiebre","Dolor de cabeza","Dolor","Malestar","Alergia"],otherLabel:"Otro",required:true,maxLength:250}),
+      f("temperatura", "Temperatura corporal (°C, opcional)", "number", {min:30,max:45}),
+      f("intervalo_horas", "Intervalo mínimo indicado por el profesional (horas, opcional)", "number", {min:0.25,max:720}),
+      f("observaciones", "Observaciones / evolución", "textarea"),
+    ],
+  },
+  urgencias: {
+    title: "Atenciones de urgencia", module: "salud",
+    fields: [
+      f("fecha", "Fecha y hora de ingreso", "datetime-local", {required:true}),
+      f("centro", "Centro médico / hospital / clínica", "text", {required:true,maxLength:250}),
+      f("motivo", "Motivo / síntomas principales", "textarea", {required:true}),
+      f("diagnostico", "Diagnóstico médico otorgado", "textarea"),
+      f("indicaciones", "Indicaciones / tratamiento al alta", "textarea"),
+      f("profesional", "Profesional que atendió", "text", {maxLength:180}),
+    ],
+  },
+  horario_escolar: {
+    title: "Horario de clases / rutina diaria", module: "escolar",
+    fields: [
+      f("dia", "Día", "select", {options:["Lunes","Martes","Miércoles","Jueves","Viernes"],required:true}),
+      f("hora_inicio", "Hora de inicio", "time", {required:true}),
+      f("hora_fin", "Hora de fin", "time", {required:true}),
+      f("actividad", "Asignatura o actividad", "text", {required:true,maxLength:250}),
+      f("lugar", "Aula / lugar", "text", {maxLength:250}),
+      f("materiales", "Materiales / útiles / recordatorios", "textarea"),
+    ],
+  },
   consultas_medicas: {
     title: "Consultas médicas",
     module: "salud",
