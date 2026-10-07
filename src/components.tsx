@@ -511,6 +511,7 @@ export function RecordForm({
                 .filter(Boolean),
             ]),
           ];
+        if (f.type === "files") v = fileIds(v);
         if (
           v &&
           f.type === "datetime-local" &&

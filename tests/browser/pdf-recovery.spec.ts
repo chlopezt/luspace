@@ -1,4 +1,18 @@
 import {test,expect} from '@playwright/test';
+test('new profiles submit an empty attachment array instead of an invalid string',async({page})=>{
+ await family(page);let submitted:any;
+ await page.route('**/api/children',r=>{
+   if(r.request().method()==='POST'){submitted=r.request().postDataJSON();return r.fulfill({json:{id:'new-qa-child'}});}
+   return r.fulfill({json:[]});
+ });
+ await page.goto('/');await page.getByRole('button',{name:'Crear primer perfil',exact:true}).click();
+ const modal=page.getByRole('dialog',{name:'Nuevo perfil',exact:true});
+ await modal.getByLabel('Nombre',{exact:true}).fill('Perfil ficticio');
+ await modal.getByLabel('Fecha de nacimiento',{exact:true}).fill('2020-01-02');
+ await modal.getByRole('button',{name:'Guardar cambios',exact:true}).click();
+ await expect.poll(()=>submitted?.primer_nombre).toBe('Perfil ficticio');
+ expect(submitted.adjuntos_json).toEqual([]);
+});
 test('granular payload produces a PDF with selected data and document summary',async({page})=>{
  await family(page);await page.goto('/');
  const download=page.waitForEvent('download');
