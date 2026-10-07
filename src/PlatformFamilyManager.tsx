@@ -1,28 +1,475 @@
-import {useEffect,useState} from 'react';
-import {Settings2,Save,KeyRound,UserCheck,UserX,LogOut,ShieldCheck} from 'lucide-react';
-import {api,type Row} from './lib';
-import {Modal,ErrorNote} from './components';
-import {modules} from '../shared/models.js';
+import { useEffect, useState } from "react";
+import {
+  Settings2,
+  Save,
+  KeyRound,
+  UserCheck,
+  UserX,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
+import { api, type Row } from "./lib";
+import { Modal, ErrorNote } from "./components";
+import { modules } from "../shared/models.js";
+import PlatformUserVisibility from "./PlatformUserVisibility";
 
-export default function PlatformFamilyManager({id,close,changed}:{id:string;close:()=>void;changed:()=>void}) {
- const [data,setData]=useState<Row|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[adminPassword,setAdminPassword]=useState(''),[reason,setReason]=useState(''),[userAction,setUserAction]=useState<Row|null>(null),[newPassword,setNewPassword]=useState('');
- async function load(){setData(await api('platform/families/'+encodeURIComponent(id)));}
- useEffect(()=>{let live=true;api('platform/families/'+encodeURIComponent(id)).then(r=>{if(live)setData(r);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[id]);
- function updateFamily(key:string,value:unknown){setData(d=>d&&({...d,family:{...d.family,[key]:value}}));}
- function updateControl(key:string,value:unknown){setData(d=>d&&({...d,controls:{...d.controls,[key]:value}}));}
- async function submit(e:React.FormEvent){
-  e.preventDefault();setBusy(true);setError('');setNotice('');
-  try {
-   const auth={reason,admin_password:adminPassword};
-   if(userAction) await api('platform/families/'+encodeURIComponent(id)+'/users/'+encodeURIComponent(userAction.user.id)+'/'+userAction.operation,'POST',{...auth,new_password:newPassword,active:!userAction.user.activo});
-   else await api('platform/families/'+encodeURIComponent(id),'PUT',{...data!.family,...data!.controls,...auth,commercial_exempt:!!data!.family.commercial_exempt,storage_limit_bytes:Number(data!.family.storage_limit_bytes)});
-   setAdminPassword('');setNewPassword('');setReason('');setUserAction(null);await load();changed();setNotice('Cambio aplicado y registrado en auditoría. Las sesiones se cierran al restablecer o desactivar un acceso.');
-  } catch(e){setError((e as Error).message);} finally{setBusy(false);}
- }
- return <Modal title={'Gestionar familia'+(data?' · '+data.family.nombre:'')} close={()=>{if(!busy)close();}}><div className="platform-family-manager"><ErrorNote error={error}/>{notice&&<p className="platform-notice" role="status">{notice}</p>}{!data?<p role="status">Cargando parámetros administrativos…</p>:<><p className="muted"><ShieldCheck size={16}/> Soporte administrativo, sin acceso a datos clínicos. Los cambios no eliminan información ni generan cobros.</p><form onSubmit={submit}><fieldset disabled={busy}>
- {!userAction?<><h3><Settings2 size={18}/> Parámetros de la familia</h3><div className="platform-manager-grid"><label>Nombre de familia<input required maxLength={120} value={data.family.nombre} onChange={e=>updateFamily('nombre',e.target.value)}/></label><label>Estado de acceso comercial<select value={data.family.subscription_status} onChange={e=>updateFamily('subscription_status',e.target.value)}>{[['trial','Prueba'],['active','Activa (habilitación manual)'],['past_due','Pago pendiente'],['canceled','Cancelada'],['expired','Vencida']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Vencimiento de prueba<input type="datetime-local" required={data.family.subscription_status==='trial'} value={data.family.trial_ends_at?localDate(data.family.trial_ends_at):''} onChange={e=>updateFamily('trial_ends_at',e.target.value?new Date(e.target.value).toISOString():null)}/></label><label>Cuota de adjuntos (MiB)<input type="number" min={1} max={10240} step={1} required value={data.family.storage_limit_bytes/1048576} onChange={e=>updateFamily('storage_limit_bytes',Number(e.target.value)*1048576)}/></label></div><div className="platform-quota-picker"><strong>Cuotas rápidas</strong><div className="platform-quota-presets" role="group" aria-label="Cuotas rápidas de almacenamiento">{[[50,'50 MB · Prueba'],[250,'250 MB'],[500,'500 MB'],[1024,'1 GB'],[2048,'2 GB']].map(([size,label])=><button type="button" key={size} aria-pressed={data.family.storage_limit_bytes===Number(size)*1048576} onClick={()=>updateFamily('storage_limit_bytes',Number(size)*1048576)}>{label}</button>)}</div><p className="muted">Activar la familia no cambia su cuota automáticamente. Elige un límite y guarda los parámetros. MB y GB se calculan aquí en base 1024.</p><p className="muted">Estos límites son por familia; el almacenamiento de Cloudflare se comparte entre todas. Aumentar la cuota no reserva espacio ni activa un plan de pago.</p></div><label className="platform-check"><input type="checkbox" checked={!!data.family.commercial_exempt} onChange={e=>updateFamily('commercial_exempt',e.target.checked)}/> Excepción comercial: sin bloqueo por prueba ni cuota</label><p className="muted">La excepción tiene prioridad sobre estado, vencimiento y cuota. Reducir una cuota no borra archivos existentes.</p>
- <h3>Módulos habilitados</h3><div className="platform-manager-options">{Object.entries(modules).map(([key,label])=><label className="platform-check" key={key}><input type="checkbox" checked={!data.controls.blocked_modules.includes(key)} onChange={e=>updateControl('blocked_modules',e.target.checked?data.controls.blocked_modules.filter((m:string)=>m!==key):[...data.controls.blocked_modules,key])}/>{label}</label>)}</div><h3>Funciones habilitadas</h3><div className="platform-manager-options">{[['ai_enabled','Preparar consulta con IA'],['uploads_enabled','Subir adjuntos'],['reports_enabled','Generar informe PDF']].map(([key,label])=><label key={key} className="platform-check"><input type="checkbox" checked={data.controls[key]} onChange={e=>updateControl(key,e.target.checked)}/>{label}</label>)}</div><p className="muted">Desactivar IA no activa ni cancela servicios Cloudflare. Solo bloquea la función en esta familia. Los controles se validan también en el servidor y no los puede alterar el administrador familiar.</p></>:<div className="platform-action-confirm"><h3>{userAction.operation==='reset-password'?'Restablecer contraseña':userAction.operation==='active'?(userAction.user.activo?'Desactivar cuenta':'Activar cuenta'):'Cerrar sesiones'} · {userAction.user.nombre}</h3><p>{userAction.user.correo}</p>{userAction.operation==='reset-password'&&<><label>Nueva contraseña familiar (12–128 caracteres)<input required type="password" autoComplete="new-password" minLength={12} maxLength={128} value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label><p className="muted">Se cerrarán todas las sesiones familiares de esta cuenta. Entrega la contraseña por un canal privado y pide que la cambie desde Mi familia y accesos. No modifica credenciales administrativas.</p></>}<button type="button" onClick={()=>{setUserAction(null);setNewPassword('');setAdminPassword('');}}>Cancelar acción de cuenta</button></div>}
- <div className="platform-manager-confirm"><label>Motivo del cambio<textarea required minLength={5} maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Ej.: solicitud de recuperación de acceso de la familia"/></label><label>Tu contraseña administrativa<input required type="password" autoComplete="current-password" maxLength={128} value={adminPassword} onChange={e=>setAdminPassword(e.target.value)}/></label><button className="primary" type="submit"><Save size={17}/>{busy?'Aplicando…':userAction?'Confirmar acción':'Guardar parámetros'}</button></div>
- </fieldset></form><h3>Cuentas y acceso familiar</h3><div className="platform-managed-users">{data.members.map((u:Row)=><article key={u.id}><div><strong>{u.nombre}</strong><small>{u.correo} · {u.rol} · {u.activo?'Activa':'Inactiva'} · {u.sesiones} sesiones</small></div>{u.platform_protected?<p className="muted">Cuenta de plataforma protegida. No modificable desde soporte familiar.</p>:<div className="platform-user-actions">{[['reset-password',KeyRound,'Restablecer contraseña'],['active',u.activo?UserX:UserCheck,u.activo?'Desactivar cuenta':'Activar cuenta'],['close-sessions',LogOut,'Cerrar sesiones']].map(([op,Icon,label]:any)=><button key={op} disabled={busy} onClick={()=>{setUserAction({user:u,operation:op});setNewPassword('');setAdminPassword('');setError('');setNotice('');}}><Icon size={16}/>{label}</button>)}</div>}</article>)}</div></>}</div></Modal>;
+export default function PlatformFamilyManager({
+  id,
+  close,
+  changed,
+}: {
+  id: string;
+  close: () => void;
+  changed: () => void;
+}) {
+  const [data, setData] = useState<Row | null>(null),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [busy, setBusy] = useState(false),
+    [adminPassword, setAdminPassword] = useState(""),
+    [reason, setReason] = useState(""),
+    [userAction, setUserAction] = useState<Row | null>(null),
+    [newPassword, setNewPassword] = useState("");
+  async function load() {
+    setData(await api("platform/families/" + encodeURIComponent(id)));
+  }
+  const [visibility, setVisibility] = useState<Row | null>(null);
+  useEffect(() => {
+    let live = true;
+    api("platform/families/" + encodeURIComponent(id))
+      .then((r) => {
+        if (live) setData(r);
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
+    return () => {
+      live = false;
+    };
+  }, [id]);
+  function updateFamily(key: string, value: unknown) {
+    setData((d) => d && { ...d, family: { ...d.family, [key]: value } });
+  }
+  function updateControl(key: string, value: unknown) {
+    setData((d) => d && { ...d, controls: { ...d.controls, [key]: value } });
+  }
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const auth = { reason, admin_password: adminPassword };
+      if (userAction)
+        await api(
+          "platform/families/" +
+            encodeURIComponent(id) +
+            "/users/" +
+            encodeURIComponent(userAction.user.id) +
+            "/" +
+            userAction.operation,
+          "POST",
+          {
+            ...auth,
+            new_password: newPassword,
+            active: !userAction.user.activo,
+          },
+        );
+      else
+        await api("platform/families/" + encodeURIComponent(id), "PUT", {
+          ...data!.family,
+          ...data!.controls,
+          ...auth,
+          commercial_exempt: !!data!.family.commercial_exempt,
+          storage_limit_bytes: Number(data!.family.storage_limit_bytes),
+        });
+      setAdminPassword("");
+      setNewPassword("");
+      setReason("");
+      setUserAction(null);
+      await load();
+      changed();
+      setNotice(
+        "Cambio aplicado y registrado en auditoría. Las sesiones se cierran al restablecer o desactivar un acceso.",
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal
+      title={"Gestionar familia" + (data ? " · " + data.family.nombre : "")}
+      close={() => {
+        if (!busy) close();
+      }}
+    >
+      <div className="platform-family-manager">
+        <ErrorNote error={error} />
+        {notice && (
+          <p className="platform-notice" role="status">
+            {notice}
+          </p>
+        )}
+        {!data ? (
+          <p role="status">Cargando parámetros administrativos…</p>
+        ) : (
+          <>
+            <p className="muted">
+              <ShieldCheck size={16} /> Soporte administrativo, sin acceso a
+              datos clínicos. Los cambios no eliminan información ni generan
+              cobros.
+            </p>
+            <form onSubmit={submit}>
+              <fieldset disabled={busy}>
+                {!userAction ? (
+                  <>
+                    <h3>
+                      <Settings2 size={18} /> Parámetros de la familia
+                    </h3>
+                    <div className="platform-manager-grid">
+                      <label>
+                        Nombre de familia
+                        <input
+                          required
+                          maxLength={120}
+                          value={data.family.nombre}
+                          onChange={(e) =>
+                            updateFamily("nombre", e.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Estado de acceso comercial
+                        <select
+                          value={data.family.subscription_status}
+                          onChange={(e) =>
+                            updateFamily("subscription_status", e.target.value)
+                          }
+                        >
+                          {[
+                            ["trial", "Prueba"],
+                            ["active", "Activa (habilitación manual)"],
+                            ["past_due", "Pago pendiente"],
+                            ["canceled", "Cancelada"],
+                            ["expired", "Vencida"],
+                          ].map(([v, l]) => (
+                            <option key={v} value={v}>
+                              {l}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Vencimiento de prueba
+                        <input
+                          type="datetime-local"
+                          required={data.family.subscription_status === "trial"}
+                          value={
+                            data.family.trial_ends_at
+                              ? localDate(data.family.trial_ends_at)
+                              : ""
+                          }
+                          onChange={(e) =>
+                            updateFamily(
+                              "trial_ends_at",
+                              e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : null,
+                            )
+                          }
+                        />
+                      </label>
+                      <label>
+                        Cuota de adjuntos (MiB)
+                        <input
+                          type="number"
+                          min={1}
+                          max={10240}
+                          step={1}
+                          required
+                          value={data.family.storage_limit_bytes / 1048576}
+                          onChange={(e) =>
+                            updateFamily(
+                              "storage_limit_bytes",
+                              Number(e.target.value) * 1048576,
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="platform-quota-picker">
+                      <strong>Cuotas rápidas</strong>
+                      <div
+                        className="platform-quota-presets"
+                        role="group"
+                        aria-label="Cuotas rápidas de almacenamiento"
+                      >
+                        {[
+                          [50, "50 MB · Prueba"],
+                          [250, "250 MB"],
+                          [500, "500 MB"],
+                          [1024, "1 GB"],
+                          [2048, "2 GB"],
+                        ].map(([size, label]) => (
+                          <button
+                            type="button"
+                            key={size}
+                            aria-pressed={
+                              data.family.storage_limit_bytes ===
+                              Number(size) * 1048576
+                            }
+                            onClick={() =>
+                              updateFamily(
+                                "storage_limit_bytes",
+                                Number(size) * 1048576,
+                              )
+                            }
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="muted">
+                        Activar la familia no cambia su cuota automáticamente.
+                        Elige un límite y guarda los parámetros. MB y GB se
+                        calculan aquí en base 1024.
+                      </p>
+                      <p className="muted">
+                        Estos límites son por familia; el almacenamiento de
+                        Cloudflare se comparte entre todas. Aumentar la cuota no
+                        reserva espacio ni activa un plan de pago.
+                      </p>
+                    </div>
+                    <label className="platform-check">
+                      <input
+                        type="checkbox"
+                        checked={!!data.family.commercial_exempt}
+                        onChange={(e) =>
+                          updateFamily("commercial_exempt", e.target.checked)
+                        }
+                      />{" "}
+                      Excepción comercial: sin bloqueo por prueba ni cuota
+                    </label>
+                    <p className="muted">
+                      La excepción tiene prioridad sobre estado, vencimiento y
+                      cuota. Reducir una cuota no borra archivos existentes.
+                    </p>
+                    <h3>Módulos habilitados</h3>
+                    <div className="platform-manager-options">
+                      {Object.entries(modules).map(([key, label]) => (
+                        <label className="platform-check" key={key}>
+                          <input
+                            type="checkbox"
+                            checked={
+                              !data.controls.blocked_modules.includes(key)
+                            }
+                            onChange={(e) =>
+                              updateControl(
+                                "blocked_modules",
+                                e.target.checked
+                                  ? data.controls.blocked_modules.filter(
+                                      (m: string) => m !== key,
+                                    )
+                                  : [...data.controls.blocked_modules, key],
+                              )
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <h3>Funciones habilitadas</h3>
+                    <div className="platform-manager-options">
+                      {[
+                        ["ai_enabled", "Preparar consulta con IA"],
+                        ["uploads_enabled", "Subir adjuntos"],
+                        ["reports_enabled", "Generar informe PDF"],
+                      ].map(([key, label]) => (
+                        <label key={key} className="platform-check">
+                          <input
+                            type="checkbox"
+                            checked={data.controls[key]}
+                            onChange={(e) =>
+                              updateControl(key, e.target.checked)
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="muted">
+                      Desactivar IA no activa ni cancela servicios Cloudflare.
+                      Solo bloquea la función en esta familia. Los controles se
+                      validan también en el servidor y no los puede alterar el
+                      administrador familiar.
+                    </p>
+                  </>
+                ) : (
+                  <div className="platform-action-confirm">
+                    <h3>
+                      {userAction.operation === "reset-password"
+                        ? "Restablecer contraseña"
+                        : userAction.operation === "active"
+                          ? userAction.user.activo
+                            ? "Desactivar cuenta"
+                            : "Activar cuenta"
+                          : "Cerrar sesiones"}{" "}
+                      · {userAction.user.nombre}
+                    </h3>
+                    <p>{userAction.user.correo}</p>
+                    {userAction.operation === "reset-password" && (
+                      <>
+                        <label>
+                          Nueva contraseña familiar (12–128 caracteres)
+                          <input
+                            required
+                            type="password"
+                            autoComplete="new-password"
+                            minLength={12}
+                            maxLength={128}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                          />
+                        </label>
+                        <p className="muted">
+                          Se cerrarán todas las sesiones familiares de esta
+                          cuenta. Entrega la contraseña por un canal privado y
+                          pide que la cambie desde Mi familia y accesos. No
+                          modifica credenciales administrativas.
+                        </p>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserAction(null);
+                        setNewPassword("");
+                        setAdminPassword("");
+                      }}
+                    >
+                      Cancelar acción de cuenta
+                    </button>
+                  </div>
+                )}
+                <div className="platform-manager-confirm">
+                  <label>
+                    Motivo del cambio
+                    <textarea
+                      required
+                      minLength={5}
+                      maxLength={500}
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="Ej.: solicitud de recuperación de acceso de la familia"
+                    />
+                  </label>
+                  <label>
+                    Tu contraseña administrativa
+                    <input
+                      required
+                      type="password"
+                      autoComplete="current-password"
+                      maxLength={128}
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                    />
+                  </label>
+                  <button className="primary" type="submit">
+                    <Save size={17} />
+                    {busy
+                      ? "Aplicando…"
+                      : userAction
+                        ? "Confirmar acción"
+                        : "Guardar parámetros"}
+                  </button>
+                </div>
+              </fieldset>
+            </form>
+            <h3>Cuentas y acceso familiar</h3>
+            <div className="platform-managed-users">
+              {data.members.map((u: Row) => (
+                <article key={u.id}>
+                  <div>
+                    <strong>{u.nombre}</strong>
+                    <small>
+                      {u.correo} ·{" "}
+                      {u.rol === "superadmin"
+                        ? "Administrador de la familia"
+                        : u.rol === "lector"
+                          ? "Solo lectura"
+                          : "Editor"}{" "}
+                      · {u.activo ? "Activa" : "Inactiva"} · {u.sesiones}{" "}
+                      sesiones
+                    </small>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={busy}
+                      onClick={() => setVisibility(u)}
+                    >
+                      Visibilidad de Auditoría e IA
+                    </button>
+                  </div>
+                  {u.platform_protected ? (
+                    <p className="muted">
+                      Cuenta de plataforma protegida. No modificable desde
+                      soporte familiar.
+                    </p>
+                  ) : (
+                    <div className="platform-user-actions">
+                      {[
+                        ["reset-password", KeyRound, "Restablecer contraseña"],
+                        [
+                          "active",
+                          u.activo ? UserX : UserCheck,
+                          u.activo ? "Desactivar cuenta" : "Activar cuenta",
+                        ],
+                        ["close-sessions", LogOut, "Cerrar sesiones"],
+                      ].map(([op, Icon, label]: any) => (
+                        <button
+                          key={op}
+                          disabled={busy}
+                          onClick={() => {
+                            setUserAction({ user: u, operation: op });
+                            setNewPassword("");
+                            setAdminPassword("");
+                            setError("");
+                            setNotice("");
+                          }}
+                        >
+                          <Icon size={16} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+        {visibility && (
+          <PlatformUserVisibility
+            family={id}
+            user={visibility}
+            close={() => setVisibility(null)}
+            changed={() => {
+              void load().catch((error) => setError(error.message));
+              changed();
+            }}
+          />
+        )}
+      </div>
+    </Modal>
+  );
 }
-function localDate(iso:string){const d=new Date(iso);return Number.isNaN(d.getTime())?'':new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
+function localDate(iso: string) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+}

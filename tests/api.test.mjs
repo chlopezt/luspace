@@ -279,6 +279,8 @@ test("authentication, family isolation, CRUD, guest scope, revocation, files, ex
     ).status,
     200,
   );
+  assert.equal((await call("audit")).status, 403);
+  await env.DB.prepare("UPDATE usuarios SET audit_visible=1 WHERE correo=?").bind("admin@example.test").run();
   const logs = (await call("audit")).body;
   for (const action of [
     "CREATE",

@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import "./profile-editor.css";
 import "./care-lists.css";
+import "./contextual-records.css";
+import MultiFiles, { FileGallery, fileIds } from "./RecordFiles";
 import { api, dateLabel, today, type Row } from "./lib";
 import { models as definitions, fieldVisible } from "../shared/models.js";
 import { compressUploadImage } from "./imageCompression";
@@ -207,6 +209,18 @@ export function Field({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [value, compact, f.type]);
+  if (f.type === "files")
+    return (
+      <MultiFiles
+        value={value}
+        onChange={onChange}
+        child={child}
+        module={module || "perfil"}
+        label={f.label}
+        disabled={disabled || !uploadEnabled}
+        onBusy={onBusy}
+      />
+    );
   const upload = async (file?: File) => {
     if (!file) return;
     if (
@@ -411,6 +425,7 @@ export function RecordForm({
   onSave,
   onCancel,
   onManagePrivacy,
+  onlyFields,
 }: {
   table: string;
   initial?: Row;
@@ -418,6 +433,7 @@ export function RecordForm({
   onSave: (v: Row) => Promise<void>;
   onCancel?: () => void;
   onManagePrivacy?: () => void;
+  onlyFields?: string[];
 }) {
   const config = models[table];
   const isProfile = table === "ninos";
@@ -478,13 +494,23 @@ export function RecordForm({
       title: "Privacidad",
       icon: ShieldCheck,
       heading: "Credenciales y privacidad",
-      fields: ["rnd_habilitado"],
+      fields: ["rnd_habilitado", "adjuntos_json"],
     },
   ];
   const [values, setValues] = useState<Row>(() =>
     Object.fromEntries(
       config.fields.map((f: any) => {
         let v = initial[f.key];
+        if (f.key === "adjuntos_json" && !isProfile)
+          v = [
+            ...new Set([
+              ...fileIds(v),
+              ...config.fields
+                .filter((field: any) => field.type === "file")
+                .map((field: any) => initial[field.key])
+                .filter(Boolean),
+            ]),
+          ];
         if (
           v &&
           f.type === "datetime-local" &&
@@ -749,7 +775,8 @@ export function RecordForm({
                         </button>
                       ) : (
                         <small>
-                          El SuperAdmin de tu familia administra estos permisos.
+                          El administrador de tu familia gestiona estos
+                          permisos.
                         </small>
                       )}
                     </div>
@@ -758,14 +785,32 @@ export function RecordForm({
               </section>
             ))
           : config.fields
-              .filter((f: any) => !f.hidden && fieldVisible(f, values))
+              .filter(
+                (f: any) =>
+                  !f.hidden &&
+                  f.type !== "file" &&
+                  (!onlyFields || onlyFields.includes(f.key)) &&
+                  fieldVisible(f, values),
+              )
               .map((f: any) => (
                 <Field
                   key={f.key}
                   field={f}
                   value={values[f.key]}
                   onChange={(v) =>
-                    setValues((previous) => ({ ...previous, [f.key]: v }))
+                    setValues((previous) => {
+                      const next: Row = { ...previous, [f.key]: v };
+                      if (f.key === "adjuntos_json")
+                        for (const legacy of config.fields.filter(
+                          (field: any) => field.type === "file",
+                        ))
+                          if (
+                            next[legacy.key] &&
+                            !fileIds(v).includes(next[legacy.key])
+                          )
+                            next[legacy.key] = "";
+                      return next;
+                    })
                   }
                   onBusy={(value) =>
                     setUploads((previous) => ({ ...previous, [f.key]: value }))
@@ -832,10 +877,32 @@ export function RecordDetails({
       {models[table].fields
         .filter(
           (f: any) =>
-            fieldVisible(f, row) && (!onlyFields || onlyFields.includes(f.key)),
+            fieldVisible(f, row) &&
+            (onlyFields
+              ? onlyFields.includes(f.key)
+              : f.key !== "adecuaciones_adjuntos_json") &&
+            !(
+              f.type === "file" &&
+              fileIds(row.adjuntos_json).includes(row[f.key])
+            ),
         )
         .map((f: any) => {
           let v = row[f.key];
+          if (f.type === "files") {
+            const ids = fileIds(v);
+            return ids.length ? (
+              <div key={f.key}>
+                <dt>{f.label}</dt>
+                <dd>
+                  <FileGallery
+                    ids={ids}
+                    child={row.nino_id || row.id}
+                    module={models[table].module}
+                  />
+                </dd>
+              </div>
+            ) : null;
+          }
           if (v === null || v === undefined || v === "") return null;
           if (f.type === "checkbox") v = v ? "Sí" : "No";
           if (f.type === "lines") v = JSON.parse(v).join("\n");
@@ -846,9 +913,11 @@ export function RecordDetails({
               <dt>{f.label}</dt>
               <dd>
                 {f.type === "file" ? (
-                  <a href={"/api/files/" + v} target="_blank" rel="noreferrer">
-                    {f.viewLabel || "Abrir archivo"}
-                  </a>
+                  <FileGallery
+                    ids={[v]}
+                    child={row.nino_id || row.id}
+                    module={models[table].module}
+                  />
                 ) : (
                   String(v)
                 )}
@@ -878,7 +947,7 @@ export function Records({
     [edit, setEdit] = useState<Row | null>(null),
     [remove, setRemove] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
-    [visitCategory, setVisitCategory] = useState('upcoming'),
+    [visitCategory, setVisitCategory] = useState("upcoming"),
     [visitNow, setVisitNow] = useState(Date.now());
   const endpoint = `records/${table}?child=${child.id}`;
   async function reload() {
@@ -905,21 +974,34 @@ export function Records({
     onChange?.();
   }
   const config = models[table];
-  useEffect(()=>{
-    if(table!=='consultas_medicas') return;
+  useEffect(() => {
+    if (table !== "consultas_medicas") return;
     setVisitNow(Date.now());
-    const timer=setInterval(()=>setVisitNow(Date.now()),60000);
-    return ()=>clearInterval(timer);
-  },[table,child.id]);
-  const isVisit=table==='consultas_medicas';
-  const upcoming=rows.filter(row=>Number.isFinite(Date.parse(row.fecha))&&Date.parse(row.fecha)>=visitNow);
-  const completed=rows.filter(row=>!Number.isFinite(Date.parse(row.fecha))||Date.parse(row.fecha)<visitNow);
-  const shownRows=isVisit?[...(visitCategory==='upcoming'?upcoming:completed)].sort((a,b)=>{
-    const da=Date.parse(a.fecha),db=Date.parse(b.fecha);
-    if(!Number.isFinite(da))return Number.isFinite(db)?1:0;
-    if(!Number.isFinite(db))return -1;
-    return visitCategory==='upcoming'?da-db:db-da;
-  }):rows;
+    const timer = setInterval(() => setVisitNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, [table, child.id]);
+  const isVisit = table === "consultas_medicas";
+  const upcoming = rows.filter(
+    (row) =>
+      Number.isFinite(Date.parse(row.fecha)) &&
+      Date.parse(row.fecha) >= visitNow,
+  );
+  const completed = rows.filter(
+    (row) =>
+      !Number.isFinite(Date.parse(row.fecha)) ||
+      Date.parse(row.fecha) < visitNow,
+  );
+  const shownRows = isVisit
+    ? [...(visitCategory === "upcoming" ? upcoming : completed)].sort(
+        (a, b) => {
+          const da = Date.parse(a.fecha),
+            db = Date.parse(b.fecha);
+          if (!Number.isFinite(da)) return Number.isFinite(db) ? 1 : 0;
+          if (!Number.isFinite(db)) return -1;
+          return visitCategory === "upcoming" ? da - db : db - da;
+        },
+      )
+    : rows;
   return (
     <section className="record-section">
       <div className="section-heading">
@@ -935,14 +1017,38 @@ export function Records({
         )}
       </div>
       <ErrorNote error={error} />
-      {isVisit&&<div className="tabs consultation-categories" role="group" aria-label="Categoría de consultas">
-        <button aria-pressed={visitCategory==='upcoming'} className={visitCategory==='upcoming'?'selected':''} onClick={()=>setVisitCategory('upcoming')}>Por realizar ({upcoming.length})</button>
-        <button aria-pressed={visitCategory==='completed'} className={visitCategory==='completed'?'selected':''} onClick={()=>setVisitCategory('completed')}>Realizadas ({completed.length})</button>
-      </div>}
+      {isVisit && (
+        <div
+          className="tabs consultation-categories"
+          role="group"
+          aria-label="Categoría de consultas"
+        >
+          <button
+            aria-pressed={visitCategory === "upcoming"}
+            className={visitCategory === "upcoming" ? "selected" : ""}
+            onClick={() => setVisitCategory("upcoming")}
+          >
+            Por realizar ({upcoming.length})
+          </button>
+          <button
+            aria-pressed={visitCategory === "completed"}
+            className={visitCategory === "completed" ? "selected" : ""}
+            onClick={() => setVisitCategory("completed")}
+          >
+            Realizadas ({completed.length})
+          </button>
+        </div>
+      )}
       {loading ? (
         <p role="status">Cargando registros…</p>
       ) : !shownRows.length ? (
-        <Empty>{isVisit?(visitCategory==='upcoming'?'No hay consultas por realizar.':'No hay consultas realizadas.'):'Aún no hay información registrada.'}</Empty>
+        <Empty>
+          {isVisit
+            ? visitCategory === "upcoming"
+              ? "No hay consultas por realizar."
+              : "No hay consultas realizadas."
+            : "Aún no hay información registrada."}
+        </Empty>
       ) : (
         <div
           className={
@@ -950,50 +1056,98 @@ export function Records({
           }
         >
           {shownRows.map((row) => {
-            const Card=isVisit?'details':'article';
-            return <Card className={isVisit?'card record-card consultation-accordion':'card record-card'} key={row.id}>
-              {isVisit&&<summary className="consultation-summary"><time>{Number.isFinite(Date.parse(row.fecha))?dateLabel(row.fecha):'Fecha sin registrar'}</time><strong title={row.especialidad}>{row.especialidad||'Consulta médica'}</strong><span title={row.medico_nombre}>{row.medico_nombre||'Profesional por confirmar'}</span></summary>}
-              <div className={isVisit?'consultation-body':'record-card-body'}>
-              {onlyFields ? (
-                <div>
-                  <h3>
-                    {row.pie_paci_activo
-                      ? "Programa activo"
-                      : "Sin programa activo"}
-                  </h3>
-                  <ul>
-                    {JSON.parse(row.adecuaciones_json || "[]").map(
-                      (s: string, i: number) => (
-                        <li key={i}>{s}</li>
-                      ),
+            const Card = "details";
+            return (
+              <Card
+                className={
+                  isVisit
+                    ? "card record-card consultation-accordion"
+                    : "card record-card"
+                }
+                key={row.id}
+              >
+                <summary className="consultation-summary">
+                  <time>
+                    {dateLabel(
+                      row.fecha ||
+                        row.fecha_medicion ||
+                        row.fecha_inicio ||
+                        row.periodo_inicio ||
+                        "",
+                    ) || "Registro"}
+                  </time>
+                  <strong title={row.especialidad || row.nombre}>
+                    {row.especialidad ||
+                      row.nombre ||
+                      row.colegio_actual ||
+                      row.estado_animo ||
+                      config.title}
+                  </strong>
+                  <span>
+                    {row.medico_nombre ||
+                      row.dosis ||
+                      row.tipo_comida ||
+                      row.curso ||
+                      ""}
+                  </span>
+                </summary>
+                <div className="consultation-body">
+                  {onlyFields ? (
+                    <div>
+                      <h3>
+                        {row.pie_paci_activo
+                          ? "Programa activo"
+                          : "Sin programa activo"}
+                      </h3>
+                      <ul>
+                        {JSON.parse(row.adecuaciones_json || "[]").map(
+                          (s: string, i: number) => (
+                            <li key={i}>{s}</li>
+                          ),
+                        )}
+                      </ul>
+                      {fileIds(row.paec_json).length > 0 && (
+                        <>
+                          <h3>PAEC</h3>
+                          <ul>
+                            {fileIds(row.paec_json).map((text, index) => (
+                              <li key={index}>{text}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      <FileGallery
+                        ids={fileIds(row.adecuaciones_adjuntos_json)}
+                        child={child.id}
+                        module={config.module}
+                      />
+                    </div>
+                  ) : (
+                    <RecordDetails table={table} row={row} />
+                  )}
+                  <div className="actions">
+                    {!readonly && (
+                      <>
+                        <button
+                          className="link-button"
+                          onClick={() => setEdit(row)}
+                        >
+                          <Pencil size={15} />
+                          Editar
+                        </button>
+                        <button
+                          className="link-button danger"
+                          onClick={() => setRemove(row)}
+                        >
+                          <Trash2 size={15} />
+                          Eliminar
+                        </button>
+                      </>
                     )}
-                  </ul>
+                  </div>
                 </div>
-              ) : (
-                <RecordDetails table={table} row={row} />
-              )}
-              <div className="actions">
-                {!readonly && (
-                  <>
-                    <button
-                      className="link-button"
-                      onClick={() => setEdit(row)}
-                    >
-                      <Pencil size={15} />
-                      Editar
-                    </button>
-                    <button
-                      className="link-button danger"
-                      onClick={() => setRemove(row)}
-                    >
-                      <Trash2 size={15} />
-                      Eliminar
-                    </button>
-                  </>
-                )}
-              </div>
-              </div>
-            </Card>;
+              </Card>
+            );
           })}
         </div>
       )}
@@ -1003,6 +1157,7 @@ export function Records({
             table={table}
             initial={edit}
             child={child.id}
+            onlyFields={onlyFields}
             onSave={save}
             onCancel={() => setEdit(null)}
           />
@@ -1047,8 +1202,35 @@ export function Records({
     </section>
   );
 }
-export function PdfPreview({url,name}:{url:string;name:string}){
-  return <div className="pdf-preview-card"><FileText size={30} aria-hidden="true"/><div><strong title={name}>{name}</strong><p>Documento PDF · Ábrelo en el visor de tu dispositivo o descárgalo.</p><div className="actions"><a className="secondary" href={url} target="_blank" rel="noopener noreferrer">Ver PDF</a><a className="secondary" href={url.startsWith('blob:')?url:url+'?download=1'} download={name}><Download size={16}/> Descargar PDF</a></div></div></div>;
+export function PdfPreview({ url, name }: { url: string; name: string }) {
+  return (
+    <div className="pdf-preview-card">
+      <FileText size={30} aria-hidden="true" />
+      <div>
+        <strong title={name}>{name}</strong>
+        <p>
+          Documento PDF · Ábrelo en el visor de tu dispositivo o descárgalo.
+        </p>
+        <div className="actions">
+          <a
+            className="secondary"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ver PDF
+          </a>
+          <a
+            className="secondary"
+            href={url.startsWith("blob:") ? url : url + "?download=1"}
+            download={name}
+          >
+            <Download size={16} /> Descargar PDF
+          </a>
+        </div>
+      </div>
+    </div>
+  );
 }
 function AttachmentPreview({ file }: { file: Row }) {
   const [open, setOpen] = useState(false),
@@ -1098,7 +1280,7 @@ function AttachmentPreview({ file }: { file: Row }) {
             }
           />
         ) : (
-          <PdfPreview name={file.nombre} url={url}/>
+          <PdfPreview name={file.nombre} url={url} />
         ))}
     </details>
   );

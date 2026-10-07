@@ -7,6 +7,7 @@ import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migr
 import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 import { backupStatus } from './backup-status.js';
+import {validateRecordFiles} from './record-files.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -113,7 +114,7 @@ async function actor(req, db) {
   if (s.usuario_id) {
     const u = await first(
       db,
-      "SELECT id,familia_id,nombre,correo,rol,permisos_json FROM usuarios WHERE id=? AND activo=1",
+      "SELECT id,familia_id,nombre,correo,rol,permisos_json,audit_visible,ai_visible FROM usuarios WHERE id=? AND activo=1",
       s.usuario_id,
     );
     if (!u) fail(401, "Acceso revocado.");
@@ -174,6 +175,7 @@ function featureModule(a, module) {
     fail(403, "Este módulo está desactivado por la administración de plataforma.");
 }
 function feature(a, name) {
+  if(name==='ai_enabled'&&!a.ai_visible)fail(403,'La IA no está habilitada para esta cuenta.');
   if (a.platform_controls?.[name] === false)
     fail(403, "Esta función está desactivada por la administración de plataforma.");
 }
@@ -205,6 +207,7 @@ async function validate(db, a, table, input, nino, preserveMissing = false) {
     // Older open forms do not know these new fields. Omission must not erase
     // values saved by a newer client; an explicit empty value still clears.
     if (preserveMissing && f.preserveIfMissing && input[f.key] === undefined) continue;
+    if(f.type==='files'){values[f.key]=JSON.stringify(await validateRecordFiles(db,a,input[f.key],nino,models[table].module));continue;}
     let v = input[f.key];
     if (f.type === "select" && (v === undefined || v === null || v === ""))
       v = f.options?.[0] || "";
@@ -283,6 +286,8 @@ async function validate(db, a, table, input, nino, preserveMissing = false) {
     values.fecha_termino < values.fecha_inicio
   )
     fail(400, "El término debe ser posterior al inicio.");
+  if (table === 'alimentacion' && values.unidad === '%' && values.cantidad > 100)
+    fail(400, 'El porcentaje debe estar entre 0 y 100.');
   if (table === 'vacunas') {
     if (values.catalogo_id && !vaccinationCatalog.some(c=>c.id===values.catalogo_id))
       fail(400, 'Referencia de vacuna inválida.');
@@ -588,7 +593,7 @@ export async function handle(req, env) {
         }
         fail(405,'Método no permitido.');
       }
-      const familyRoute=path.match(/^platform\/families\/([^/]+)(?:\/users\/([^/]+)\/(reset-password|active|close-sessions))?$/);
+      const familyRoute=path.match(/^platform\/families\/([^/]+)(?:\/users\/([^/]+)\/(reset-password|active|close-sessions|visibility))?$/);
       if(familyRoute) {
         const [,familyId,userId,operation]=familyRoute;
         const family=await first(db,"SELECT id,nombre,created_at,trial_ends_at,subscription_status,storage_limit_bytes,commercial_exempt FROM familias WHERE id=?",familyId);
@@ -596,7 +601,7 @@ export async function handle(req, env) {
         const controls=await first(db,"SELECT modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled,updated_at FROM plataforma_controles_familia WHERE familia_id=?",familyId);
         const platformAudit=(action,reason,detail)=>stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)",uid(),a.id,action,JSON.stringify({familia_id:familyId,usuario_id:userId||null,motivo:reason,...detail}));
         if(method==='GET'&&!userId) {
-          const members=await all(db,"SELECT u.id,u.nombre,u.correo,u.rol,u.activo,EXISTS(SELECT 1 FROM administradores_plataforma p WHERE p.usuario_id=u.id AND p.activo=1) AS platform_protected,(SELECT COUNT(*) FROM sesiones s WHERE s.usuario_id=u.id AND s.expira_at>?) AS sesiones FROM usuarios u WHERE u.familia_id=? ORDER BY u.created_at",new Date().toISOString(),familyId);
+          const members=await all(db,"SELECT u.id,u.nombre,u.correo,u.rol,u.activo,u.audit_visible,u.ai_visible,EXISTS(SELECT 1 FROM administradores_plataforma p WHERE p.usuario_id=u.id AND p.activo=1) AS platform_protected,(SELECT COUNT(*) FROM sesiones s WHERE s.usuario_id=u.id AND s.expira_at>?) AS sesiones FROM usuarios u WHERE u.familia_id=? ORDER BY u.created_at",new Date().toISOString(),familyId);
           await platformAudit('VIEW_FAMILY_PARAMETERS','Consulta de soporte administrativo',{}).run();
           return json({family,controls:{blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0},members});
         }
@@ -626,9 +631,12 @@ export async function handle(req, env) {
         if(userId&&method==='POST') {
           const target=await first(db,"SELECT id,rol,activo FROM usuarios WHERE id=? AND familia_id=?",userId,familyId);
           if(!target) fail(404,"Usuario no encontrado en esta familia.");
-          if(await first(db,"SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1",userId)) fail(403,"Esta cuenta administra la plataforma. No se puede modificar desde soporte familiar.");
+          if(operation!=='visibility'&&await first(db,"SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1",userId)) fail(403,"Esta cuenta administra la plataforma. No se puede modificar desde soporte familiar.");
           const ops=[];
-          if(operation==='reset-password') {
+          if(operation==='visibility'){
+            if(typeof b.audit_visible!=='boolean'||typeof b.ai_visible!=='boolean')fail(400,'Visibilidad inválida.');
+            ops.push(stmt(db,'UPDATE usuarios SET audit_visible=?,ai_visible=? WHERE id=? AND familia_id=?',b.audit_visible?1:0,b.ai_visible?1:0,userId,familyId));
+          } else if(operation==='reset-password') {
             ops.push(stmt(db,"INSERT INTO credenciales_usuario(password_hash,usuario_id) VALUES(?,?) ON CONFLICT(usuario_id) DO UPDATE SET password_hash=excluded.password_hash",await password(pass(b.new_password)),userId));
           } else if(operation==='active') {
             if(typeof b.active!=='boolean') fail(400,"Estado inválido.");
@@ -637,9 +645,9 @@ export async function handle(req, env) {
           }
           if(operation!=='active') ops.push(stmt(db,"DELETE FROM sesiones WHERE usuario_id=?",userId));
           else if(b.active===false) ops.push(stmt(db,"DELETE FROM sesiones WHERE usuario_id=? AND EXISTS(SELECT 1 FROM usuarios WHERE id=? AND activo=0)",userId,userId));
-          const action=operation==='reset-password'?'RESET_FAMILY_PASSWORD':operation==='active'?'SET_FAMILY_USER_ACTIVE':'CLOSE_FAMILY_SESSIONS';
+          const action=operation==='visibility'?'SET_FAMILY_USER_VISIBILITY':operation==='reset-password'?'RESET_FAMILY_PASSWORD':operation==='active'?'SET_FAMILY_USER_ACTIVE':'CLOSE_FAMILY_SESSIONS';
           if(operation==='active') ops.push(stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM usuarios WHERE id=? AND familia_id=? AND activo=?)",uid(),a.id,action,JSON.stringify({familia_id:familyId,usuario_id:userId,motivo:reason,activo:b.active}),userId,familyId,b.active?1:0));
-          else ops.push(platformAudit(action,reason,{}));
+          else ops.push(platformAudit(action,reason,operation==='visibility'?{audit_visible:b.audit_visible,ai_visible:b.ai_visible}:{}));
           const result=await db.batch(ops);
           if(operation==='active'&&!result[0].meta.changes) fail(409,"No se puede desactivar el último SuperAdmin activo de la familia.");
           return json({ok:true});
@@ -985,6 +993,8 @@ export async function handle(req, env) {
         const doc = {};
         for (const [key, , fields] of anamnesisSections) {
           doc[key] = {};
+          const oldDoc=row?JSON.parse(row.documento_json):{};
+          doc[key].archivos=await validateRecordFiles(db,a,b.documento[key]?.archivos??oldDoc[key]?.archivos??[],nino,'anamnesis');
           for (let i = 0; i < fields.length; i++)
             doc[key][i] = text(b.documento[key]?.[i] || "", 8000);
         }
@@ -1222,6 +1232,7 @@ export async function handle(req, env) {
     }
     if (path === "audit" && method === "GET") {
       admin(a);
+      if(!a.audit_visible)fail(403,'La auditoría no está habilitada para esta cuenta.');
       const from = url.searchParams.get("from") || "0000",
         to = url.searchParams.get("to") || "9999",
         action = url.searchParams.get("action") || "",
@@ -1490,6 +1501,17 @@ export async function handle(req, env) {
       const f = await first(db, "SELECT * FROM archivos WHERE id=? AND familia_id=?", id, a.familia_id);
       if (!f) fail(404, "Archivo no encontrado.");
       member(a, f.modulo, "eliminar");
+      for(const [table,model] of Object.entries(models)){
+        if(model.module!==f.modulo)continue;
+        for(const field of model.fields.filter(field=>field.type==='files')){
+          const linked=await first(db,`SELECT 1 FROM ${table},json_each(${table}.${field.key}) AS j WHERE j.value=? AND ${table}.${table==='ninos'?'id':'nino_id'}=? LIMIT 1`,id,f.nino_id);
+          if(linked)fail(409,'Retira primero el archivo de sus registros; el original se conserva.');
+        }
+      }
+      if(f.modulo==='anamnesis'){
+        const record=await first(db,'SELECT documento_json FROM anamnesis WHERE nino_id=?',f.nino_id),doc=record?JSON.parse(record.documento_json):{};
+        if(anamnesisSections.some(([key])=>doc[key]?.archivos?.includes(id)))fail(409,'Retira primero el archivo de la anamnesis; el original se conserva.');
+      }
       await removeR2(env,f);
       await db.batch([
         stmt(db, "DELETE FROM archivo_chunks WHERE archivo_id=?", id),

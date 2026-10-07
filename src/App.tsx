@@ -570,6 +570,8 @@ function FamilyApp() {
       "medicamentos",
       "consultas_medicas",
       "examenes_medicos",
+      "vacunas",
+      "alimentacion",
     ];
   return (
     <FileUploadEnabled.Provider value={me.platform_controls?.uploads_enabled!==false}><div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
@@ -591,7 +593,7 @@ function FamilyApp() {
             .filter(([k]) =>
               readonly
                 ? available.includes(k)
-                : k !== "auditoria" || me.rol === "superadmin",
+                : k !== "auditoria" || (me.rol === "superadmin" && !!me.audit_visible),
             )
             .map(([key, label, Icon]) => (
               <button
@@ -720,7 +722,7 @@ function FamilyApp() {
                       ) : (
                         <div className="patient-avatar" aria-label="Sin foto de perfil"><UserRound size={48} /></div>
                       )}
-                      <RecordDetails table="ninos" row={child} onlyFields={["primer_nombre", "apellidos", "rut", "fecha_nacimiento", "convivientes", "sexo_referencia", "foto_perfil_id", "carnet_identidad_id"]} />
+                      <RecordDetails table="ninos" row={child} onlyFields={["primer_nombre", "apellidos", "rut", "fecha_nacimiento", "convivientes", "sexo_referencia", "foto_perfil_id", "carnet_identidad_id", "adjuntos_json"]} />
                     </article>
                     <article className="card profile-card">
                       <h2>Información médica y previsión</h2>
@@ -742,7 +744,7 @@ function FamilyApp() {
                   </h1>
                   <div className="tabs" role="group" aria-label="Secciones">
                     {(view === "salud"
-                      ? ["Mediciones", "Tratamientos", "Consultas médicas", "Exámenes", "Carnet de vacunas"]
+                      ? ["Mediciones", "Tratamientos", "Consultas médicas", "Exámenes", "Carnet de vacunas", "Alimentación"]
                       : [
                           "Manual de apoyo",
                           "Adecuaciones PIE / PACI",
@@ -760,7 +762,7 @@ function FamilyApp() {
                       </button>
                     ))}
                   </div>
-                  {view === "salud" && tab === 2 && !readonly && me.platform_controls?.ai_enabled!==false && <ConsultationPrep key={child.id} child={child} allowed={available || []} />}
+                  {view === "salud" && tab === 2 && !readonly && !!me.ai_visible && me.platform_controls?.ai_enabled!==false && <ConsultationPrep key={child.id} child={child} allowed={available || []} />}
                   {view === 'salud' && tab === 4 ? <VaccinationCard key={child.id} child={child} readonly={readonly} user={me}/> : <Records
                     key={view + tab}
                     table={
@@ -771,15 +773,10 @@ function FamilyApp() {
                     readonly={readonly}
                     onlyFields={
                       view === "escolar" && tab === 1
-                        ? ["adecuaciones_json"]
+                        ? ["pie_paci_activo", "adecuaciones_json", "paec_json", "adecuaciones_adjuntos_json"]
                         : undefined
                     }
                   />}
-                  <Attachments
-                    child={child}
-                    module={view}
-                    readonly={readonly}
-                  />
                 </>
               )}
               {view === "anamnesis" && (
@@ -818,7 +815,7 @@ function FamilyApp() {
                   }}
                 />
               )}
-              {view === "auditoria" && me.rol === "superadmin" && <Audit />}
+              {view === "auditoria" && me.rol === "superadmin" && !!me.audit_visible && <Audit />}
             </>
           )}
         </main>

@@ -18,6 +18,8 @@ test("consultation consent, isolation, minimized payload, AI and fallback", asyn
     await call("setup", {nombre:"QA",familia:"QA",correo:"ai@example.test",password:"QaPassword!2026"});
     const child = (await call("children",{primer_nombre:"SECRET-NAME",fecha_nacimiento:"2020-01-01",sexo_referencia:"masculino",contacto_emergencia_principal_telefono:"SECRET-PHONE",alergias:"Polen"})).body.id;
     const input = {child,modules:["perfil","salud"],concern:"Preparar preguntas"};
+    assert.equal((await call("consultation/preview",input)).status,403);
+    await env.DB.prepare("UPDATE usuarios SET ai_visible=1 WHERE correo=?").bind("ai@example.test").run();
     const preview = await call("consultation/preview",input);
     assert.equal(preview.status,200);
     assert.ok(!JSON.stringify(preview.body.payload).includes("SECRET"));

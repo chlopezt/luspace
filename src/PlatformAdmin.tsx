@@ -48,7 +48,7 @@ const labels: Record<string, string> = {
   past_due: "Pago pendiente",
   canceled: "Cancelada",
   expired: "Vencida",
-  superadmin: "SuperAdmin familiar",
+  superadmin: "Administrador de la familia",
   editor: "Editor",
   lector: "Solo lectura",
 };

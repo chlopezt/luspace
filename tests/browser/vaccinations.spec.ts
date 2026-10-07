@@ -51,6 +51,7 @@ for (const width of [320, 375, 414, 1280])
     await expect(
       page.getByText("Por verificar", { exact: true }).first(),
     ).toBeVisible();
+    await page.locator('.vaccine-dose').filter({has:page.getByRole('heading',{name:'BCG',exact:true})}).locator('summary').click();
     await page
       .locator(".vaccine-dose")
       .filter({ has: page.getByRole("heading", { name: "BCG", exact: true }) })
@@ -68,6 +69,7 @@ for (const width of [320, 375, 414, 1280])
       .fill("CESFAM QA");
     await modal.getByRole("button", { name: "Guardar", exact: true }).click();
     await expect(modal).toHaveCount(0);
+    await page.locator('.vaccine-dose').filter({has:page.getByRole('heading',{name:'BCG',exact:true})}).locator('summary').click();
     await expect(page.getByText("CESFAM QA")).toBeVisible();
     await expect(page.getByText("Administrada", { exact: true })).toBeVisible();
     expect(
@@ -92,5 +94,6 @@ for (const width of [320, 375, 414, 1280])
     await page
       .getByRole("button", { name: "Carnet de vacunas", exact: true })
       .click();
+    await page.locator('.vaccine-dose').filter({has:page.getByRole('heading',{name:'BCG',exact:true})}).locator('summary').click();
     await expect(page.getByText("CESFAM QA")).toBeVisible();
   });

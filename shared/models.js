@@ -14,17 +14,39 @@ export const modules = {
 export const fieldVisible = (field, row) =>
   !field.showWhen || row[field.showWhen.key] === field.showWhen.value;
 export const medicalSpecialties = [
-  "Pediatría General / Infantil", "Medicina General / Familiar",
-  "Broncopulmonar / Neumología", "Cardiología Pediátrica", "Dermatología",
-  "Endocrinología Pediátrica", "Gastroenterología", "Inmunología / Alergias",
-  "Kinesiología / Fisioterapia", "Neurología Pediátrica", "Nutrición / Dietética",
-  "Nutriología", "Odontopediatría", "Oftalmología", "Otorrinolaringología",
-  "Psiquiatría Infantil", "Psicología Infantil", "Terapia Ocupacional",
-  "Fonoaudiología", "Traumatología / Ortopedia", "Laboratorio / Toma de Muestras",
-  "Enfermería", "Nefrología Pediátrica", "Urología Pediátrica",
-  "Hematología Pediátrica", "Oncología Pediátrica", "Infectología Pediátrica",
-  "Cirugía Pediátrica", "Reumatología Pediátrica", "Genética Clínica",
-  "Neonatología", "Medicina Física y Rehabilitación", "Psicopedagogía",
+  "Pediatría General / Infantil",
+  "Medicina General / Familiar",
+  "Broncopulmonar / Neumología",
+  "Cardiología Pediátrica",
+  "Dermatología",
+  "Endocrinología Pediátrica",
+  "Gastroenterología",
+  "Inmunología / Alergias",
+  "Kinesiología / Fisioterapia",
+  "Neurología Pediátrica",
+  "Nutrición / Dietética",
+  "Nutriología",
+  "Odontopediatría",
+  "Oftalmología",
+  "Otorrinolaringología",
+  "Psiquiatría Infantil",
+  "Psicología Infantil",
+  "Terapia Ocupacional",
+  "Fonoaudiología",
+  "Traumatología / Ortopedia",
+  "Laboratorio / Toma de Muestras",
+  "Enfermería",
+  "Nefrología Pediátrica",
+  "Urología Pediátrica",
+  "Hematología Pediátrica",
+  "Oncología Pediátrica",
+  "Infectología Pediátrica",
+  "Cirugía Pediátrica",
+  "Reumatología Pediátrica",
+  "Genética Clínica",
+  "Neonatología",
+  "Medicina Física y Rehabilitación",
+  "Psicopedagogía",
 ];
 export const models = {
   ninos: {
@@ -37,39 +59,97 @@ export const models = {
       f("fecha_nacimiento", "Fecha de nacimiento", "date", { required: true }),
       f("convivientes", "¿Con quién vive?", "select-other", {
         options: ["Ambos padres", "Madre", "Padre", "Abuelos", "Tutores"],
-        otherLabel: "Otro", customLabel: "Especifica con quién vive", maxLength: 180, preserveIfMissing: true,
+        otherLabel: "Otro",
+        customLabel: "Especifica con quién vive",
+        maxLength: 180,
+        preserveIfMissing: true,
       }),
       f("sexo_referencia", "Sexo de referencia OMS", "select", {
         options: ["sin_registrar", "masculino", "femenino"],
       }),
-      f("foto_perfil_id", "Foto de perfil", "file", { viewLabel: "Ver foto de perfil" }),
-      f("carnet_identidad_id", "Cédula de identidad", "file", { viewLabel: "Ver carnet de identidad" }),
+      f("foto_perfil_id", "Foto de perfil", "file", {
+        viewLabel: "Ver foto de perfil",
+      }),
+      f("carnet_identidad_id", "Cédula de identidad", "file", {
+        viewLabel: "Ver carnet de identidad",
+      }),
       f("grupo_sanguineo", "Grupo sanguíneo", "select", {
-        options: ["sin_registrar", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"],
+        options: [
+          "sin_registrar",
+          "O+",
+          "O-",
+          "A+",
+          "A-",
+          "B+",
+          "B-",
+          "AB+",
+          "AB-",
+        ],
       }),
       f("prevision_salud", "Previsión de salud", "select", {
-        options: ["sin_registrar", "Fonasa A", "Fonasa B", "Fonasa C", "Fonasa D", "Isapre", "Particular"],
+        options: [
+          "sin_registrar",
+          "Fonasa A",
+          "Fonasa B",
+          "Fonasa C",
+          "Fonasa D",
+          "Isapre",
+          "Particular",
+        ],
       }),
       f("alergias", "Alergias y reacciones", "textarea"),
       f("diagnostico", "Diagnósticos confirmados", "textarea"),
       f("hospitalizado", "¿Ha estado hospitalizado/a?", "select", {
-        options: ["", "Sí", "No"], preserveIfMissing: true,
+        options: ["", "Sí", "No"],
+        preserveIfMissing: true,
       }),
       f("hospitalizacion_motivo", "Motivo de hospitalización", "textarea", {
-        showWhen: { key: "hospitalizado", value: "Sí" }, preserveIfMissing: true,
+        showWhen: { key: "hospitalizado", value: "Sí" },
+        preserveIfMissing: true,
       }),
       f("hospitalizacion_estadia", "Tiempo de estadía", "text", {
-        showWhen: { key: "hospitalizado", value: "Sí" }, maxLength: 180, preserveIfMissing: true,
+        showWhen: { key: "hospitalizado", value: "Sí" },
+        maxLength: 180,
+        preserveIfMissing: true,
       }),
-      f("especialistas_json", "Profesionales y especialistas tratantes (uno por línea)", "lines"),
-      f("contacto_emergencia_principal_nombre", "Contacto de emergencia principal: nombre"),
-      f("contacto_emergencia_principal_parentesco", "Contacto principal: parentesco"),
-      f("contacto_emergencia_principal_telefono", "Contacto principal: teléfono", "tel"),
-      f("contacto_emergencia_secundario_nombre", "Contacto de emergencia secundario: nombre"),
-      f("contacto_emergencia_secundario_parentesco", "Contacto secundario: parentesco"),
-      f("contacto_emergencia_secundario_telefono", "Contacto secundario: teléfono", "tel"),
-      f("colegio_actual", "Institución o modalidad de cuidado", "text", { placeholder: "Hogar, familiar, sala cuna, jardín, colegio…" }),
-      f("curso_actual", "Nivel, etapa o curso actual", "text", { placeholder: "Lactante menor, Medio Menor, Kínder, 1° Básico, No aplica…" }),
+      f(
+        "especialistas_json",
+        "Profesionales y especialistas tratantes (uno por línea)",
+        "lines",
+      ),
+      f(
+        "contacto_emergencia_principal_nombre",
+        "Contacto de emergencia principal: nombre",
+      ),
+      f(
+        "contacto_emergencia_principal_parentesco",
+        "Contacto principal: parentesco",
+      ),
+      f(
+        "contacto_emergencia_principal_telefono",
+        "Contacto principal: teléfono",
+        "tel",
+      ),
+      f(
+        "contacto_emergencia_secundario_nombre",
+        "Contacto de emergencia secundario: nombre",
+      ),
+      f(
+        "contacto_emergencia_secundario_parentesco",
+        "Contacto secundario: parentesco",
+      ),
+      f(
+        "contacto_emergencia_secundario_telefono",
+        "Contacto secundario: teléfono",
+        "tel",
+      ),
+      f("colegio_actual", "Institución o modalidad de cuidado", "text", {
+        placeholder: "Hogar, familiar, sala cuna, jardín, colegio…",
+      }),
+      f("curso_actual", "Nivel, etapa o curso actual", "text", {
+        placeholder:
+          "Lactante menor, Medio Menor, Kínder, 1° Básico, No aplica…",
+      }),
       f("rnd_habilitado", "Mostrar credencial RND", "checkbox"),
     ],
   },
@@ -114,12 +194,25 @@ export const models = {
       f("fecha", "Fecha y hora", "datetime-local", { required: true }),
       f("medico_nombre", "Profesional", "text", { required: true }),
       f("especialidad", "Especialidad", "select-other", {
-        options: medicalSpecialties, otherLabel: "Otra especialidad",
-        customLabel: "Especifica la especialidad", maxLength: 180,
+        options: medicalSpecialties,
+        otherLabel: "Otra especialidad",
+        customLabel: "Especifica la especialidad",
+        maxLength: 180,
       }),
       f("acompanante", "Acompañante", "select-other", {
-        options: ["Madre", "Padre", "Ambos padres", "Abuelo/a", "Tutor/a", "Otro familiar", "Cuidador/a"],
-        otherLabel: "Otro", customLabel: "Especifica el acompañante", maxLength: 180, preserveIfMissing: true,
+        options: [
+          "Madre",
+          "Padre",
+          "Ambos padres",
+          "Abuelo/a",
+          "Tutor/a",
+          "Otro familiar",
+          "Cuidador/a",
+        ],
+        otherLabel: "Otro",
+        customLabel: "Especifica el acompañante",
+        maxLength: 180,
+        preserveIfMissing: true,
       }),
       f("motivo_consulta", "Motivo", "textarea"),
       f("diagnostico", "Diagnóstico informado", "textarea"),
@@ -138,19 +231,67 @@ export const models = {
       f("archivo_id", "Resultado o imagen", "file"),
     ],
   },
+  alimentacion: {
+    title: "Alimentación",
+    module: "salud",
+    fields: [
+      f("fecha", "Fecha y hora", "datetime-local", { required: true }),
+      f("via", "Vía de alimentación", "select-other", {
+        options: ["Oral", "Sonda", "Parenteral", "Suplemento"],
+        otherLabel: "Otra vía",
+        required: true,
+        maxLength: 180,
+      }),
+      f("tipo_comida", "Tipo de comida o preparación", "text", {
+        required: true,
+        maxLength: 250,
+      }),
+      f("textura", "Textura / consistencia", "select-other", {
+        options: [
+          "Habitual",
+          "Papilla",
+          "Puré",
+          "Picado",
+          "Líquido",
+          "Líquido espesado",
+        ],
+        otherLabel: "Otra consistencia",
+        maxLength: 180,
+      }),
+      f("cantidad", "Cantidad / volumen", "number", { min: 0, max: 10000 }),
+      f("unidad", "Unidad", "select", { options: ["ml", "%", "g", "Porción"] }),
+      f("aceptacion", "Aceptación y tolerancia sensorial", "textarea"),
+      f("reacciones", "Reacciones o síntomas posteriores", "textarea"),
+      f(
+        "observaciones",
+        "Observaciones / pauta indicada por su profesional",
+        "textarea",
+      ),
+    ],
+  },
   vacunas: {
-    title: "Carnet de vacunas", module: "salud",
+    title: "Carnet de vacunas",
+    module: "salud",
     fields: [
       f("catalogo_id", "Referencia", "text", { hidden: true, maxLength: 80 }),
-      f("referencia", "Calendario de referencia", "text", { hidden: true, maxLength: 100 }),
+      f("referencia", "Calendario de referencia", "text", {
+        hidden: true,
+        maxLength: 100,
+      }),
       f("nombre", "Vacuna", "text", { required: true, maxLength: 180 }),
       f("dosis", "Dosis / refuerzo", "text", { maxLength: 120 }),
-      f("etapa", "Etapa", "select", {options:["Particulares","0–6 meses","12–36 meses","Escolar"]}),
-      f("estado", "Estado", "select", {options:["Pendiente/Próxima","Administrada","Atrasada"]}),
-      f("fecha_aplicacion", "Fecha de aplicación", "date", {showWhen:{key:"estado",value:"Administrada"}}),
+      f("etapa", "Etapa", "select", {
+        options: ["Particulares", "0–6 meses", "12–36 meses", "Escolar"],
+      }),
+      f("estado", "Estado", "select", {
+        options: ["Pendiente/Próxima", "Administrada", "Atrasada"],
+      }),
+      f("fecha_aplicacion", "Fecha de aplicación", "date", {
+        showWhen: { key: "estado", value: "Administrada" },
+      }),
       f("fecha_prevista", "Fecha prevista (opcional)", "date"),
-      f("centro", "Centro o lugar de vacunación", "text", {maxLength:250}),
-      f("lote_marca", "Lote / marca (opcional)", "text", {maxLength:180}),
+      f("centro", "Centro o lugar de vacunación", "text", { maxLength: 250 }),
+      f("lote_marca", "Lote / marca (opcional)", "text", { maxLength: 180 }),
       f("notas", "Notas u observaciones", "textarea"),
     ],
   },
@@ -170,7 +311,11 @@ export const models = {
         "textarea",
       ),
       f("adecuaciones_json", "Adecuaciones vigentes (una por línea)", "lines"),
-      f("paec_json", "PAEC: apoyos emocionales y conductuales (uno por línea)", "lines"),
+      f(
+        "paec_json",
+        "PAEC: apoyos emocionales y conductuales (uno por línea)",
+        "lines",
+      ),
     ],
   },
   historial_colegios: {
@@ -216,6 +361,25 @@ export const models = {
     ],
   },
 };
+// Additive arrays preserve the original single-file fields and old clients.
+for (const model of Object.values(models))
+  model.fields.push(
+    f("adjuntos_json", "Archivos de este registro", "files", {
+      preserveIfMissing: true,
+    }),
+  );
+models.perfiles_escolares.fields.push(
+  f("adecuaciones_adjuntos_json", "Archivos PIE / PACI / PAEC", "files", {
+    preserveIfMissing: true,
+  }),
+);
+export const roleLabel = (role) =>
+  ({
+    superadmin: "Administrador de la familia",
+    editor: "Editor",
+    lector: "Solo lectura",
+    invitado: "Invitado",
+  })[role] || role;
 export const anamnesisSections = [
   [
     "identificacion",

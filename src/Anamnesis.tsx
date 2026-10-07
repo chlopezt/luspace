@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import { api, type Row } from "./lib";
 import { anamnesisSections } from "../shared/models.js";
-import { Attachments, ErrorNote } from "./components";
+import { ErrorNote, FileUploadEnabled } from "./components";
+import MultiFiles from "./RecordFiles";
 export default function Anamnesis({
   child,
   readonly,
@@ -11,12 +12,14 @@ export default function Anamnesis({
   readonly: boolean;
   onDirty: (v: boolean) => void;
 }) {
+  const uploadEnabled = useContext(FileUploadEnabled);
   const [doc, setDoc] = useState<Row>({}),
-    [step, setStep] = useState(0),
+    [uploads, setUploads] = useState<Record<string, boolean>>({}),
     [ready, setReady] = useState(false),
     [state, setState] = useState("Cargando…"),
     [error, setError] = useState(""),
     [dirty, setDirty] = useState(false);
+  const uploadBusy = Object.values(uploads).some(Boolean);
   const current = useRef<Row>({}),
     version = useRef(0),
     revision = useRef(0),
@@ -56,6 +59,7 @@ export default function Anamnesis({
       inflight.current ||
       !ready ||
       readonly ||
+      uploadBusy ||
       saved.current === revision.current
     )
       return;
@@ -83,17 +87,12 @@ export default function Anamnesis({
     if (!dirty || error) return;
     const t = setTimeout(() => void save(), 900);
     return () => clearTimeout(t);
-  }, [doc, dirty, error]);
+  }, [doc, dirty, error, uploadBusy]);
   useEffect(() => {
     if (!dirty || error) return;
     const timer = setInterval(() => void save(), 2500);
     return () => clearInterval(timer);
-  }, [dirty, error, ready]);
-  const [key, title, fields] = anamnesisSections[step] as [
-    string,
-    string,
-    string[],
-  ];
+  }, [dirty, error, ready, uploadBusy]);
   const completed = anamnesisSections.filter(([k, , fs]) =>
     (fs as string[]).some((_, i) => doc[k as string]?.[i]?.trim()),
   ).length;
@@ -108,76 +107,86 @@ export default function Anamnesis({
           </p>
         </div>
         {!readonly && (
-          <button className="secondary" onClick={() => void save()}>
+          <button
+            className="secondary"
+            disabled={uploadBusy}
+            onClick={() => void save()}
+          >
             Guardar ahora
           </button>
         )}
       </div>
       <progress value={completed} max={7} aria-label="Secciones completadas" />
-      <div className="wizard">
-        <nav aria-label="Secciones de anamnesis">
-          {anamnesisSections.map(([, label], i) => (
-            <button
-              key={i}
-              className={i === step ? "selected" : ""}
-              onClick={() => setStep(i)}
-              aria-current={i === step ? "step" : undefined}
-            >
-              {i + 1}. {label as string}
-            </button>
-          ))}
-        </nav>
-        <section className="card">
-          <h3>{title}</h3>
-          <ErrorNote error={error} />
-          {error && dirty && (
-            <p className="muted">
-              El texto sigue aquí. Puedes copiarlo antes de recargar o
-              reintentar el guardado.
-            </p>
-          )}
-          {ready &&
-            fields.map((label, i) => (
-              <label className="field" key={key + i}>
-                <span>{label}</span>
-                <textarea
-                  disabled={readonly}
-                  rows={4}
-                  maxLength={8000}
-                  value={doc[key]?.[i] || ""}
-                  onChange={(e) => {
-                    const next = {
-                      ...current.current,
-                      [key]: { ...current.current[key], [i]: e.target.value },
-                    };
-                    current.current = next;
-                    revision.current++;
-                    setDoc(next);
-                    setDirty(true);
-                    setState("Cambios pendientes");
-                  }}
-                />
-              </label>
-            ))}
-          <div className="form-actions">
-            <button
-              className="secondary"
-              disabled={step === 0}
-              onClick={() => setStep(step - 1)}
-            >
-              Anterior
-            </button>
-            <button
-              className="secondary"
-              disabled={step === 6}
-              onClick={() => setStep(step + 1)}
-            >
-              Siguiente
-            </button>
-          </div>
-        </section>
+      <ErrorNote error={error} />
+      <div className="anamnesis-sections">
+        {anamnesisSections.map(([sectionKey, title, sectionFields]) => {
+          const key = String(sectionKey),
+            fields = sectionFields as string[];
+          return (
+            <details className="card anamnesis-accordion" key={key}>
+              <summary>{String(title)}</summary>
+              <section className="anamnesis-body">
+                <ErrorNote error={error} />
+                {error && dirty && (
+                  <p className="muted">
+                    El texto sigue aquí. Puedes copiarlo antes de recargar o
+                    reintentar el guardado.
+                  </p>
+                )}
+                {ready &&
+                  fields.map((label, i) => (
+                    <label className="field" key={key + i}>
+                      <span>{label}</span>
+                      <textarea
+                        disabled={readonly}
+                        rows={4}
+                        maxLength={8000}
+                        value={doc[key]?.[i] || ""}
+                        onChange={(e) => {
+                          const next = {
+                            ...current.current,
+                            [key]: {
+                              ...current.current[key],
+                              [i]: e.target.value,
+                            },
+                          };
+                          current.current = next;
+                          revision.current++;
+                          setDoc(next);
+                          setDirty(true);
+                          setState("Cambios pendientes");
+                        }}
+                      />
+                    </label>
+                  ))}
+                {ready && (
+                  <MultiFiles
+                    child={child.id}
+                    module="anamnesis"
+                    label={"Archivos de " + String(title)}
+                    disabled={readonly || !uploadEnabled}
+                    value={doc[key]?.archivos || []}
+                    onBusy={(busy) =>
+                      setUploads((previous) => ({ ...previous, [key]: busy }))
+                    }
+                    onChange={(ids) => {
+                      const next = {
+                        ...current.current,
+                        [key]: { ...current.current[key], archivos: ids },
+                      };
+                      current.current = next;
+                      revision.current++;
+                      setDoc(next);
+                      setDirty(true);
+                      setState("Cambios pendientes");
+                    }}
+                  />
+                )}
+              </section>
+            </details>
+          );
+        })}
       </div>
-      <Attachments child={child} module="anamnesis" readonly={readonly} />
     </>
   );
 }

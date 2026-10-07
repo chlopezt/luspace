@@ -126,7 +126,7 @@ function entries(table: string, row: Row, excluded: string[] = []): Entry[] {
   return ((models as Row)[table]?.fields || [])
     .filter(
       (f: Row) =>
-        f.type !== "file" && !excluded.includes(f.key) && fieldVisible(f, row),
+        !["file", "files"].includes(f.type) && !excluded.includes(f.key) && fieldVisible(f, row),
     )
     .map((f: Row) => ({ label: f.label, value: fieldText(f, row[f.key]) }))
     .filter((e: Entry) => meaningful(e.value));

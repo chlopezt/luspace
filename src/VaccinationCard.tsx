@@ -10,6 +10,7 @@ import {
   vaccinationVersion,
 } from "../shared/vaccinations.js";
 import "./vaccinations.css";
+import { FileGallery, fileIds } from "./RecordFiles";
 
 export default function VaccinationCard({
   child,
@@ -125,31 +126,33 @@ export default function VaccinationCard({
                       row.fecha_prevista ||
                       vaccinationDue(child.fecha_nacimiento, row.meses);
                   return (
-                    <article
+                    <details
                       className="card vaccine-dose"
                       key={row.id || row.catalogo_id || i}
                     >
-                      <div className="vaccine-dose-top">
-                        <Syringe size={19} />
-                        <div>
-                          <h4>{row.nombre}</h4>
-                          <small>{row.dosis}</small>
+                      <summary>
+                        <div className="vaccine-dose-top">
+                          <Syringe size={19} />
+                          <div>
+                            <h4>{row.nombre}</h4>
+                            <small>{row.dosis}</small>
+                          </div>
+                          <span
+                            className={
+                              "vaccine-badge " +
+                              (state === "Administrada"
+                                ? "applied"
+                                : state === "Atrasada"
+                                  ? "overdue"
+                                  : state === "Por verificar"
+                                    ? "unverified"
+                                    : "pending")
+                            }
+                          >
+                            {state}
+                          </span>
                         </div>
-                        <span
-                          className={
-                            "vaccine-badge " +
-                            (state === "Administrada"
-                              ? "applied"
-                              : state === "Atrasada"
-                                ? "overdue"
-                                : state === "Por verificar"
-                                  ? "unverified"
-                                  : "pending")
-                          }
-                        >
-                          {state}
-                        </span>
-                      </div>
+                      </summary>
                       <p>
                         {state === "Administrada"
                           ? `Aplicada: ${dateLabel(row.fecha_aplicacion)}`
@@ -177,6 +180,13 @@ export default function VaccinationCard({
                       )}
                       {row.notas && (
                         <p className="vaccine-notes">{row.notas}</p>
+                      )}
+                      {row.id && (
+                        <FileGallery
+                          ids={fileIds(row.adjuntos_json)}
+                          child={child.id}
+                          module="salud"
+                        />
                       )}
                       <div className="actions">
                         {(row.id ? can("editar") : can("crear")) && (
@@ -212,7 +222,7 @@ export default function VaccinationCard({
                           </button>
                         )}
                       </div>
-                    </article>
+                    </details>
                   );
                 })}
             </div>
