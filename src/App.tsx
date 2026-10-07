@@ -29,6 +29,7 @@ import {
   Empty,
 } from "./components";
 import { modules } from "../shared/models.js";
+import { reportGroups, selectionModules, documentSelection } from '../shared/report-selection.js';
 import Dashboard from "./Dashboard";
 import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
@@ -306,9 +307,8 @@ function Export({
   resume: PdfResume | null;
 }) {
   const [selected, setSelected] = useState(
-      resume ? resume.selected.filter(m => allowed.includes(m)) : allowed.includes("anamnesis") ? ["anamnesis"] : allowed.slice(0, 1),
+      resume ? reportGroups.filter(g=>allowed.includes(g.module)).flatMap(g=>g.items.filter(i=>i.id===documentSelection ? false : i.id==='photo' ? !!child.foto_perfil_id&&(resume.photo||resume.selected.includes('photo')) : resume.selected.includes(i.id)||resume.selected.includes(g.module)).map(i=>i.id)).concat(resume.selected.includes(documentSelection)?[documentSelection]:[]) : reportGroups.filter(g=>g.module===(allowed.includes('anamnesis')?'anamnesis':allowed[0])).flatMap(g=>g.items.map(i=>i.id)).filter(id=>!['photo',documentSelection].includes(id)),
     ),
-    [includePhoto, setIncludePhoto] = useState(!!resume?.photo),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const alive = useRef(true);
@@ -320,33 +320,19 @@ function Export({
       close={close}
     >
       {resume && <p role="status" className="muted">LuSpace se actualizó. Conservamos tu selección; pulsa Descargar PDF para continuar.</p>}
-      <div className="check-grid">
-        {Object.entries(modules)
-          .filter(([k]) => allowed.includes(k))
-          .map(([k, label]) => (
-            <label className="check" key={k}>
-              <input
-                type="checkbox"
-                disabled={busy}
-                checked={selected.includes(k)}
-                onChange={(e) =>
-                  setSelected(
-                    e.target.checked
-                      ? [...selected, k]
-                      : selected.filter((v) => v !== k),
-                  )
-                }
-              />
-              {label}
-            </label>
-          ))}
+      <div className="report-selection">
+        {reportGroups.filter(g=>allowed.includes(g.module)).map(g=>{
+          const items=g.items.filter(i=>i.id!=='photo'||child.foto_perfil_id);
+          const ids=items.map(i=>i.id), count=ids.filter(id=>selected.includes(id)).length;
+          return <details key={g.module} open>
+            <summary>{g.label} <span className="muted">{count}/{ids.length}</span></summary>
+            <label className="check"><input type="checkbox" aria-label={g.label} disabled={busy} checked={count===ids.length} ref={el=>{if(el)el.indeterminate=count>0&&count<ids.length;}} onChange={e=>setSelected(old=>e.target.checked?[...new Set([...old,...ids])]:old.filter(id=>!ids.includes(id)))} />Seleccionar todo / desmarcar todo</label>
+            <div className="check-grid">{items.map(i=><label className="check" key={i.id}><input type="checkbox" disabled={busy} checked={selected.includes(i.id)} onChange={e=>setSelected(old=>e.target.checked?[...old,i.id]:old.filter(id=>id!==i.id))} />{i.label}</label>)}</div>
+          </details>;
+        })}
+        {!allowed.includes('rnd') && <label className="check"><input type="checkbox" disabled={busy} checked={selected.includes(documentSelection)} onChange={e=>setSelected(old=>e.target.checked?[...old,documentSelection]:old.filter(id=>id!==documentSelection))} />Lista / resumen de documentos adjuntos de los módulos seleccionados</label>}
+        <p className="muted">Se omiten datos vacíos. Los adjuntos se listan por nombre; no se incrustan. Si solo eliges documentos, se resumen todos los módulos permitidos. Las mediciones se incluyen en una tabla.</p>
       </div>
-      {child.foto_perfil_id && (
-        <label className="check">
-          <input type="checkbox" disabled={busy} checked={includePhoto} onChange={(e) => setIncludePhoto(e.target.checked)} />
-          Incluir foto de perfil
-        </label>
-      )}
       <ErrorNote error={error} />
       {busy && <p role="status" aria-live="polite">Generando informe…</p>}
       <button
@@ -358,10 +344,12 @@ function Export({
           try {
             const data = await api("export", "POST", {
               child: child.id,
-              modules: selected,
+              modules: selectionModules(selected).length ? selectionModules(selected) : selected.includes(documentSelection) ? allowed : [],
+              selection: selected,
             });
-            if (includePhoto && child.foto_perfil_id) {
+            if (selected.includes('photo') && child.foto_perfil_id) {
               const response = await fetch("/api/files/" + child.foto_perfil_id, { credentials: "same-origin" });
+              if (!response.ok) throw new Error('No se pudo cargar la foto seleccionada. Inténtalo nuevamente o desmarca Foto de perfil.');
               if (response.ok) {
                 const blob = await response.blob();
                 data.includePhoto = true;
@@ -378,7 +366,7 @@ function Export({
             close();
           } catch (e) {
             if (e instanceof PdfModuleError) {
-              if (await recoverPdfDeployment({ actor, child: child.id, selected, photo: includePhoto }, () => canReload && alive.current)) return;
+              if (await recoverPdfDeployment({ actor, child: child.id, selected, photo: selected.includes('photo') }, () => canReload && alive.current)) return;
               if (alive.current) setError(e.message);
             } else if (alive.current) setError((e as Error).message || 'No se pudo generar el informe. Inténtalo nuevamente.');
           } finally {

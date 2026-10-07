@@ -1,4 +1,46 @@
 import {test,expect} from '@playwright/test';
+test('new profiles submit an empty attachment array instead of an invalid string',async({page})=>{
+ await family(page);let submitted:any;
+ await page.route('**/api/children',r=>{
+   if(r.request().method()==='POST'){submitted=r.request().postDataJSON();return r.fulfill({json:{id:'new-qa-child'}});}
+   return r.fulfill({json:[]});
+ });
+ await page.goto('/');await page.getByRole('button',{name:'Crear primer perfil',exact:true}).click();
+ const modal=page.getByRole('dialog',{name:'Nuevo perfil',exact:true});
+ await modal.getByLabel('Nombre',{exact:true}).fill('Perfil ficticio');
+ await modal.getByLabel('Fecha de nacimiento',{exact:true}).fill('2020-01-02');
+ await modal.getByRole('button',{name:'Guardar cambios',exact:true}).click();
+ await expect.poll(()=>submitted?.primer_nombre).toBe('Perfil ficticio');
+ expect(submitted.adjuntos_json).toEqual([]);
+});
+test('granular payload produces a PDF with selected data and document summary',async({page})=>{
+ await family(page);await page.goto('/');
+ const download=page.waitForEvent('download');
+ await page.evaluate(async()=>{
+   const {filterReport}=await import(/* @vite-ignore */ '/shared/report-selection.js');
+   const {exportPdf}=await import(/* @vite-ignore */ '/src/report.tsx');
+   const data=filterReport({created:'2026-10-07T12:00:00Z',child:{primer_nombre:'Paciente',apellidos:'Ejemplo',fecha_nacimiento:'2020-01-01'},sections:{ninos:[{id:'n',alergias:'Alergia de ejemplo registrada',diagnostico:'NO_PUBLICAR_DIAGNOSTICO',rut:'NO_PUBLICAR_RUT'}],medicamentos:[{id:'m',nombre:'Tratamiento de ejemplo',dosis:'Dosis registrada',activo:1,fecha_inicio:'2026-10-01',frecuencia_horas:24}]},anamnesis:{embarazo:{0:'NO_PUBLICAR_ANTECEDENTE'}},documents:[{nombre:'Resultado de examen de ejemplo.pdf',module:'Salud',mime:'application/pdf',bytes:153600,created_at:'2026-10-05T12:00:00Z'}]},['allergies','medication_active','documents']);
+   await exportPdf(data);
+ });
+ const file=await download;const {mkdir}=await import('node:fs/promises');await mkdir('tmp/pdfs',{recursive:true});
+ await file.saveAs('tmp/pdfs/granular-selection.pdf');
+ expect(file.suggestedFilename()).toContain('Paciente_Ejemplo');
+});
+test('granular report groups toggle independently and fit narrow mobile screens',async({page})=>{
+ await family(page);await page.setViewportSize({width:375,height:812});await page.goto('/');
+ await page.locator('.page > header').getByRole('button',{name:'Descargar informe PDF',exact:true}).click();
+ const modal=page.getByRole('dialog',{name:'Descargar informe PDF',exact:true});
+ await modal.getByLabel('Anamnesis',{exact:true}).uncheck();
+ await expect(modal.getByLabel('Lenguaje y comunicación',{exact:true})).not.toBeChecked();
+ await modal.getByLabel('Perfil clínico',{exact:true}).check();
+ await modal.getByLabel('Diagnósticos / condiciones',{exact:true}).uncheck();
+ const partial=await modal.getByLabel('Perfil clínico',{exact:true}).evaluate((el:HTMLInputElement)=>el.indeterminate);
+ expect(partial).toBe(true);
+ await expect(modal.getByLabel('Alergias y advertencias médicas',{exact:true})).toBeChecked();
+ const bounds=await modal.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));expect(bounds.scroll).toBeLessThanOrEqual(bounds.width);
+ await page.screenshot({path:'../work/report-selection-mobile.png'});
+ await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'../work/report-selection-desktop.png'});
+});
 async function family(page:any){
  await page.route('**/api/**',(r:any)=>r.fulfill({json:[]}));
  await page.route('**/api/status',(r:any)=>r.fulfill({json:{setup:false,registration:true}}));

@@ -476,6 +476,15 @@ export function Report({ data }: { data: Row }) {
             </View>
           ) : null;
         })}
+        {data.documents?.length > 0 && <View>
+          <Band title="Resumen de documentos adjuntos" />
+          {data.documents.map((file: Row, index: number)=><Card key={index} items={[
+            {label:'Archivo',value:reportText(file.nombre)},
+            {label:'Módulo',value:reportText(file.module)},
+            {label:'Fecha de carga',value:reportDate(file.created_at)},
+            {label:'Formato / tamaño',value:`${file.mime || ''} · ${(Number(file.bytes || 0)/1024).toFixed(0)} KB`},
+          ]} />)}
+        </View>}
       </Page>
     </Document>
   );
