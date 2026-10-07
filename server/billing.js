@@ -141,10 +141,12 @@ async function syncRecord(env,record,sellerId){
   assertProviderSubscription(record,provider,sellerId);
   const updated=iso(provider.last_modified),url=provider.status==='pending'?checkoutUrl(provider.init_point):null;
   await sql(env.DB,'UPDATE billing_subscriptions SET state=?,checkout_url=?,provider_updated_at=?,updated_at=? WHERE id=? AND (provider_updated_at IS NULL OR provider_updated_at<=?)',provider.status,url,updated,now(),record.id,updated).run();
-  const invoices=await mp(env,'/authorized_payments/search?preapproval_id='+resource(record.provider_id)+'&limit=20&offset=0');
+  // This search endpoint documents subscription/payment filters, not custom pagination inputs.
+  const invoices=await mp(env,'/authorized_payments/search?preapproval_id='+resource(record.provider_id));
   // Bounded reconciliation; never silently declare a partial history complete.
-  if((invoices.paging?.total||0)>20)fail(409,'Esta suscripción requiere conciliación ampliada del historial.');
-  for(const invoice of invoices.results||[])await saveInvoice(env,record,invoice,sellerId);
+  if(!Array.isArray(invoices.results)||!Number.isSafeInteger(invoices.paging?.total)||invoices.paging.total<0)fail(502,'Mercado Pago no devolvió un historial de cuotas válido.');
+  if(invoices.paging.total>invoices.results.length)fail(409,'Esta suscripción requiere conciliación ampliada del historial.');
+  for(const invoice of invoices.results)await saveInvoice(env,record,invoice,sellerId);
 }
 export async function reconcileFamily(env,a){
   owner(a);requireTest(env);const sellerId=await seller(env);
@@ -189,8 +191,8 @@ export async function receiveBillingWebhook(req,env){
       record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment='test'",String(invoice.preapproval_id));
       if(record){const subscription=await mp(env,'/preapproval/'+resource(record.provider_id));assertProviderSubscription(record,subscription,sellerId);await saveInvoice(env,record,invoice,sellerId);}
     } else {
-      const invoices=await mp(env,'/authorized_payments/search?payment_id='+resource(message.resourceId)+'&limit=2');
-      if(invoices.results?.length===1){const invoice=invoices.results[0];record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment='test'",String(invoice.preapproval_id));}
+      const invoices=await mp(env,'/authorized_payments/search?payment_id='+resource(message.resourceId));
+      if(invoices.results?.length===1&&invoices.paging?.total===1){const invoice=invoices.results[0];record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment='test'",String(invoice.preapproval_id));}
     }
     // Unknown resources cannot grant access. Retry allows a creation transaction to finish.
     if(!record)fail(409,'La notificación todavía no corresponde a una suscripción registrada.');

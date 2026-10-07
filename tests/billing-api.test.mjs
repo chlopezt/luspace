@@ -35,6 +35,7 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
       result=contracts.get(url.pathname.split('/').pop());
       if(options.method==='PUT'){result={...result,...JSON.parse(options.body),last_modified:stamp()};contracts.set(result.id,result);}
     }else if(url.pathname==='/authorized_payments/search'){
+      assert.equal(url.searchParams.has('limit'),false);assert.equal(url.searchParams.has('offset'),false);
       const list=[...invoices.values()].filter(i=>url.searchParams.has('payment_id')?String(i.payment.id)===url.searchParams.get('payment_id'):i.preapproval_id===url.searchParams.get('preapproval_id'));
       result={results:list,paging:{total:list.length}};
     }else if(url.pathname.startsWith('/authorized_payments/'))result=invoices.get(url.pathname.split('/').pop());
