@@ -25,6 +25,7 @@ import {
   RecordDetails,
   Records,
   Attachments,
+  PdfPreview,
   Empty,
 } from "./components";
 import { modules } from "../shared/models.js";
@@ -257,11 +258,7 @@ function Rnd({ child, close, readonly = false, onChange }: { child: Row; close: 
             {documents.map((document) => (
                 <section key={document.id}>
                   <h3>{document.label}</h3>
-                  <iframe
-                    title={document.label}
-                    src={"/api/files/" + document.id}
-                    className="credential-frame"
-                  />
+                  {String(files.find(file=>file.id===document.id)?.mime||'').startsWith('image/')?<img className="credential-image" src={"/api/files/"+document.id} alt={document.label}/>:<PdfPreview name={files.find(file=>file.id===document.id)?.nombre||document.label} url={"/api/files/"+document.id}/>}
                   <a
                     className="secondary"
                     href={"/api/files/" + document.id + "?download=1"}

@@ -24,6 +24,7 @@ import {
   ImagePlus,
 } from "lucide-react";
 import "./profile-editor.css";
+import "./care-lists.css";
 import { api, dateLabel, today, type Row } from "./lib";
 import { models as definitions, fieldVisible } from "../shared/models.js";
 import { compressUploadImage } from "./imageCompression";
@@ -876,7 +877,9 @@ export function Records({
     [loading, setLoading] = useState(true),
     [edit, setEdit] = useState<Row | null>(null),
     [remove, setRemove] = useState<Row | null>(null),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [visitCategory, setVisitCategory] = useState('upcoming'),
+    [visitNow, setVisitNow] = useState(Date.now());
   const endpoint = `records/${table}?child=${child.id}`;
   async function reload() {
     setError("");
@@ -902,6 +905,21 @@ export function Records({
     onChange?.();
   }
   const config = models[table];
+  useEffect(()=>{
+    if(table!=='consultas_medicas') return;
+    setVisitNow(Date.now());
+    const timer=setInterval(()=>setVisitNow(Date.now()),60000);
+    return ()=>clearInterval(timer);
+  },[table,child.id]);
+  const isVisit=table==='consultas_medicas';
+  const upcoming=rows.filter(row=>Number.isFinite(Date.parse(row.fecha))&&Date.parse(row.fecha)>=visitNow);
+  const completed=rows.filter(row=>!Number.isFinite(Date.parse(row.fecha))||Date.parse(row.fecha)<visitNow);
+  const shownRows=isVisit?[...(visitCategory==='upcoming'?upcoming:completed)].sort((a,b)=>{
+    const da=Date.parse(a.fecha),db=Date.parse(b.fecha);
+    if(!Number.isFinite(da))return Number.isFinite(db)?1:0;
+    if(!Number.isFinite(db))return -1;
+    return visitCategory==='upcoming'?da-db:db-da;
+  }):rows;
   return (
     <section className="record-section">
       <div className="section-heading">
@@ -917,18 +935,25 @@ export function Records({
         )}
       </div>
       <ErrorNote error={error} />
+      {isVisit&&<div className="tabs consultation-categories" role="group" aria-label="Categoría de consultas">
+        <button aria-pressed={visitCategory==='upcoming'} className={visitCategory==='upcoming'?'selected':''} onClick={()=>setVisitCategory('upcoming')}>Por realizar ({upcoming.length})</button>
+        <button aria-pressed={visitCategory==='completed'} className={visitCategory==='completed'?'selected':''} onClick={()=>setVisitCategory('completed')}>Realizadas ({completed.length})</button>
+      </div>}
       {loading ? (
         <p role="status">Cargando registros…</p>
-      ) : !rows.length ? (
-        <Empty>Aún no hay información registrada.</Empty>
+      ) : !shownRows.length ? (
+        <Empty>{isVisit?(visitCategory==='upcoming'?'No hay consultas por realizar.':'No hay consultas realizadas.'):'Aún no hay información registrada.'}</Empty>
       ) : (
         <div
           className={
             table === "historial_colegios" ? "timeline" : "record-list"
           }
         >
-          {rows.map((row) => (
-            <article className="card record-card" key={row.id}>
+          {shownRows.map((row) => {
+            const Card=isVisit?'details':'article';
+            return <Card className={isVisit?'card record-card consultation-accordion':'card record-card'} key={row.id}>
+              {isVisit&&<summary className="consultation-summary"><time>{Number.isFinite(Date.parse(row.fecha))?dateLabel(row.fecha):'Fecha sin registrar'}</time><strong title={row.especialidad}>{row.especialidad||'Consulta médica'}</strong><span title={row.medico_nombre}>{row.medico_nombre||'Profesional por confirmar'}</span></summary>}
+              <div className={isVisit?'consultation-body':'record-card-body'}>
               {onlyFields ? (
                 <div>
                   <h3>
@@ -967,8 +992,9 @@ export function Records({
                   </>
                 )}
               </div>
-            </article>
-          ))}
+              </div>
+            </Card>;
+          })}
         </div>
       )}
       {edit && (
@@ -1021,6 +1047,9 @@ export function Records({
     </section>
   );
 }
+export function PdfPreview({url,name}:{url:string;name:string}){
+  return <div className="pdf-preview-card"><FileText size={30} aria-hidden="true"/><div><strong title={name}>{name}</strong><p>Documento PDF · Ábrelo en el visor de tu dispositivo o descárgalo.</p><div className="actions"><a className="secondary" href={url} target="_blank" rel="noopener noreferrer">Ver PDF</a><a className="secondary" href={url.startsWith('blob:')?url:url+'?download=1'} download={name}><Download size={16}/> Descargar PDF</a></div></div></div>;
+}
 function AttachmentPreview({ file }: { file: Row }) {
   const [open, setOpen] = useState(false),
     [url, setUrl] = useState(""),
@@ -1069,7 +1098,7 @@ function AttachmentPreview({ file }: { file: Row }) {
             }
           />
         ) : (
-          <iframe title={"Vista previa de " + file.nombre} src={url} />
+          <PdfPreview name={file.nombre} url={url}/>
         ))}
     </details>
   );

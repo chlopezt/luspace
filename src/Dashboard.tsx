@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, Calendar, CalendarHeart, CheckCircle2, ChevronRight, Clock3, GraduationCap, Pill, PencilLine, Ruler, Scale, Stethoscope } from "lucide-react";
+import { Activity, AlertTriangle, Calendar, CalendarHeart, CheckCircle2, ChevronRight, GraduationCap, Pill, PencilLine, Ruler, Scale, Stethoscope } from "lucide-react";
 import { api, age, today, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
 import Growth from "./Growth";
@@ -151,12 +151,11 @@ export default function Dashboard({
           </div>
           {activeMeds.length ? (
             <ul className="dashboard-list medication-list">
-              {activeMeds.map((med, index) => (
-                <li key={med.id} className={index === 0 && med.next ? "next-dose" : ""}>
+              {activeMeds.map((med) => (
+                <li key={med.id}>
                   <Pill size={17} aria-hidden="true" />
                   <button className="link-button" onClick={() => go("salud")}>{med.nombre}</button>
                   <span className="dose">{med.dosis || "Dosis sin registrar"}</span>
-                  {index === 0 && med.next && <span className="dose-badge"><Clock3 size={13} /> en {Math.max(0, Math.ceil((med.next - now) / 60000))} min</span>}
                   <time>{timeLabel(med.next)}</time>
                 </li>
               ))}
@@ -198,8 +197,8 @@ export default function Dashboard({
                 <li key={visit.id}>
                   {(() => { const date = visitDate(visit.fecha); return <>
                     <time className="calendar-block"><b>{date.month}</b><strong>{date.day}</strong><small>{date.time}</small></time>
-                    <div>
-                      <button className="link-button" onClick={() => go("salud")}>{visit.especialidad || "Consulta médica"} ↗</button>
+                    <div className="appointment-copy">
+                      <button className="link-button" title={visit.especialidad || "Consulta médica"} onClick={() => go("salud")}>{visit.especialidad || "Consulta médica"} ↗</button>
                       <p>{visit.medico_nombre || "Profesional por confirmar"}</p>
                       <small>Programado <ChevronRight size={14} /></small>
                     </div>
