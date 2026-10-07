@@ -25,9 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          D1_OUTPUT="$(npx wrangler d1 list --config /dev/null)"
-          D1_ID="$(printf '%s\n' "$D1_OUTPUT" | grep -oE '[0-9a-f-]{36}' | head -1)"
-          test -n "$D1_ID"
+          # Never select the first database: previews have independent databases.
+          D1_ID="853a2ab9-2950-4be8-8aec-4350cd7dd8a0"
           sed "s/REEMPLAZAR_CON_DATABASE_ID/$D1_ID/" wrangler.toml > wrangler.deploy.toml
           echo "D1_ID=$D1_ID"
           if ! npx wrangler r2 bucket info luspace-files && ! npx wrangler r2 bucket create luspace-files; then
