@@ -116,9 +116,11 @@ async function saveInvoice(env,record,invoice,sellerId){
   // A scheduled invoice without a payment has not been collected yet.
   if(!invoice.payment?.id)return;
   const payment=await mp(env,'/v1/payments/'+resource(invoice.payment.id));
-  if(String(payment.id)!==String(invoice.payment.id)||String(payment.collector_id)!==String(sellerId)
-     ||payment.live_mode!==false||payment.currency_id!=='CLP'||payment.transaction_amount!==record.amount_clp
-     ||payment.external_reference!==record.external_reference)fail(400,'El pago no coincide con la familia, el vendedor o el importe.');
+  if(String(payment.id)!==String(invoice.payment.id))fail(400,'El identificador del pago no coincide con la cuota consultada.');
+  if(String(payment.collector_id)!==String(sellerId))fail(400,'El vendedor del pago no coincide con el vendedor de pruebas verificado.');
+  if(payment.live_mode!==false)fail(400,'Mercado Pago informó el pago fuera del modo sandbox esperado. No se aplicó a la familia.');
+  if(payment.currency_id!=='CLP'||payment.transaction_amount!==record.amount_clp)fail(400,'La moneda o el importe del pago no coincide con la suscripción.');
+  if(payment.external_reference!==record.external_reference)fail(400,'La referencia del pago no coincide con la familia de la suscripción.');
   const states={approved:'approved',rejected:'rejected',cancelled:'cancelled',refunded:'refunded',charged_back:'charged_back',pending:'pending',in_process:'pending',authorized:'pending'};
   const state=states[payment.status];if(!state)fail(400,'Estado de pago no admitido.');
   const period=billingPeriod(invoice.debit_date),updated=iso(payment.date_last_updated),db=env.DB;
@@ -207,3 +209,4 @@ export async function platformBillingStatus(env){
   const inbox=await first(env.DB,"SELECT COUNT(*) AS pending FROM billing_webhook_inbox WHERE state!='processed'");
   return {mode:'test',enabled:testBilling(env).enabled,subscriptions:rows,pending_notifications:inbox.pending};
 }
+
