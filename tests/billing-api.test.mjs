@@ -20,14 +20,14 @@ test('monthly period clamps leap years and month-end without adding days from to
 
 test('isolated subscription flow: scope, checkout, approved payment, renewal, stale event, cancellation and refunds',async()=>{
   const env=localEnv(mkdtempSync(join(tmpdir(),'luspace-billing-')));let cookie='',sequence=0;
-  const contracts=new Map(),invoices=new Map(),payments=new Map();let unsafeSeller=false,createCount=0,providerClock=Date.now();
+  const contracts=new Map(),invoices=new Map(),payments=new Map();let unsafeSeller=false,buyerPublicOnly=false,createCount=0,providerClock=Date.now();
   const stamp=()=>new Date(providerClock+=1000).toISOString();
   Object.assign(env,{LUSPACE_BILLING_MODE:'test',MP_ACCESS_TOKEN:'FAKE',MP_WEBHOOK_SECRET:'fictitious-secret',LUSPACE_BILLING_AMOUNT_CLP:'5938',MP_TEST_SELLER_ID:'101',MP_TEST_BUYER_EMAIL:'testuser202@testuser.com',MP_BILLING_BACK_URL:'http://localhost:5173/login'});
   env.BILLING_TEST_FETCH=async(input,options={})=>{
     const url=new URL(input);let result;
     assert.equal(url.hostname,'api.mercadopago.com');
     if(url.pathname==='/users/me')result={id:101,site_id:'MLC',tags:unsafeSeller?[]:['test_user']};
-    else if(url.pathname==='/users/202')result={id:202,site_id:'MLC',tags:['test_user'],nickname:'TESTBUYER202',email:'test_user_202@testuser.com'};
+    else if(url.pathname==='/users/202')result={id:202,site_id:'MLC',nickname:'TESTBUYER202',...(buyerPublicOnly?{}:{tags:['test_user'],email:'test_user_202@testuser.com'})};
     else if(url.pathname==='/preapproval'&&options.method==='POST'){
       const data=JSON.parse(options.body);assert.equal(data.payer_email,'testuser202@testuser.com');assert.equal(data.status,'pending');assert.equal(data.auto_recurring.transaction_amount,5938);
       const id='contract'+(++createCount);result={...data,id,collector_id:101,last_modified:stamp(),init_point:'https://www.mercadopago.cl/subscriptions/checkout?preapproval_id='+id};contracts.set(id,result);
@@ -70,6 +70,11 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     assert.equal((await call('billing/connection')).body.buyer_configured,false);
     env.MP_TEST_BUYER_ID='202';env.MP_TEST_BUYER_USERNAME='TESTBUYER202';
     assert.equal((await call('billing/connection')).body.buyer_configured,true,'resolve the email returned by the provider without inventing it');
+    buyerPublicOnly=true;
+    assert.equal((await call('billing/connection')).body.buyer_configured,false,'a public response must not invent a buyer email');
+    env.MP_TEST_BUYER_EMAIL='test_user_202@testuser.com';
+    assert.equal((await call('billing/connection')).body.buyer_configured,true,'allow explicit fictional-profile email when public API omits private fields');
+    delete env.MP_TEST_BUYER_EMAIL;buyerPublicOnly=false;
     env.MP_TEST_BUYER_USERNAME='WRONG';assert.equal((await call('billing/connection')).status,503);
     delete env.MP_TEST_BUYER_ID;delete env.MP_TEST_BUYER_USERNAME;
     env.MP_TEST_BUYER_EMAIL='testuser202@testuser.com';

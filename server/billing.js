@@ -54,10 +54,9 @@ async function testBuyerEmail(env){
     const user=await mp(env,'/users/'+resource(env.MP_TEST_BUYER_ID));
     if(String(user.id)!==env.MP_TEST_BUYER_ID)fail(503,'Mercado Pago devolvió un identificador de comprador distinto.');
     if(user.site_id!=='MLC')fail(503,'Mercado Pago no confirmó que el comprador sea de Chile.');
-    if(!user.tags?.includes('test_user'))fail(503,'La consulta pública de Mercado Pago no confirmó la marca de cuenta de prueba del comprador.');
     if(user.nickname?.toUpperCase()!==env.MP_TEST_BUYER_USERNAME?.toUpperCase())fail(503,'El nombre de usuario comprador no coincide con el registrado en la configuración de pruebas.');
     // Never invent an email from the nickname or ID. Some public user responses omit it.
-    if(isTestBuyerEmail(user.email))return user.email;
+    if(user.tags?.includes('test_user')&&isTestBuyerEmail(user.email))return user.email;
   }
   return isTestBuyerEmail(env.MP_TEST_BUYER_EMAIL)?env.MP_TEST_BUYER_EMAIL:null;
 }
@@ -202,4 +201,3 @@ export async function platformBillingStatus(env){
   const inbox=await first(env.DB,"SELECT COUNT(*) AS pending FROM billing_webhook_inbox WHERE state!='processed'");
   return {mode:'test',enabled:testBilling(env).enabled,subscriptions:rows,pending_notifications:inbox.pending};
 }
-

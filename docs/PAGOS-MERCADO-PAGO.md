@@ -60,7 +60,8 @@ Variables del servidor, nunca VITE_*:
 - LUSPACE_BILLING_ISOLATED=true (preview remoto con D1 independiente; no necesario en LOCAL_DEV)
 - LUSPACE_BILLING_AMOUNT_CLP: monto de simulación entero, pendiente precio final aprobado.
 - MP_TEST_SELLER_ID: ID de vendedor ficticio chileno; se comprueba contra /users/me y test_user.
-- MP_TEST_BUYER_EMAIL: correo real de la cuenta ficticia compradora, no el correo de la familia.
+- MP_TEST_BUYER_ID y MP_TEST_BUYER_USERNAME: identificadores de la cuenta ficticia compradora. Se consulta /users/{id} y se comprueban ID, sitio MLC, marca test_user y usuario antes de aceptar su correo. Nunca se deduce un correo a partir del ID.
+- MP_TEST_BUYER_EMAIL: correo de la cuenta ficticia compradora cuando la consulta pública omite ese dato; no el correo de la familia. Admite testuserNUMERO@testuser.com y test_user_NUMERO@testuser.com. La tabla de cuentas de prueba no muestra el correo; no solicitar contraseñas ni códigos en el chat.
 - MP_BILLING_BACK_URL: URL fija del preview + /login, sin query ni fragmentos.
 - MP_ACCESS_TOKEN y MP_WEBHOOK_SECRET: secretos privados del entorno de pruebas.
 
