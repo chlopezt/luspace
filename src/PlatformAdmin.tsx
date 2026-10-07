@@ -32,6 +32,7 @@ import PlatformFamilyManager from "./PlatformFamilyManager";
 import StorageMigration from "./StorageMigration";
 import PlatformConsumption from './PlatformConsumption';
 import PlatformBackups from './PlatformBackups';
+import {PlatformBilling} from './Billing';
 export const platformSections = [
   ["overview", "Resumen"],
   ["families", "Familias"],
@@ -468,6 +469,7 @@ export default function PlatformAdmin({
             </div>
           )}
           {section === "storage" && <StorageMigration />}
+          {section === "subscriptions" && <PlatformBilling/>}
           {["overview", "subscriptions"].includes(section) && (
             <div className="platform-chart-grid">
               <Donut title="Estado de las familias" items={familyStatus} />

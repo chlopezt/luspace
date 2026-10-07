@@ -8,6 +8,7 @@ import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
+import {billingStatus,createCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus} from './billing.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -321,6 +322,8 @@ export async function handle(req, env) {
     const url = new URL(req.url),
       path = url.pathname.replace(/^\/api\/?/, ""),
       method = req.method;
+    // Only the signed provider callback bypasses browser Origin checks, never family mutations.
+    if(path==='billing/webhook' && method==='POST')return json(await receiveBillingWebhook(req,env));
     if (
       !["GET", "HEAD"].includes(method) &&
       req.headers.get("origin") !== url.origin
@@ -567,7 +570,21 @@ export async function handle(req, env) {
       const controls=await first(db,"SELECT modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled FROM plataforma_controles_familia WHERE familia_id=?",a.familia_id);
       a.platform_controls={blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0};
     }
-    const familySubscription = a.familia_id ? await subscription(db,a.familia_id) : null;
+    const familySubscription = a.familia_id ? await subscription(db,a.familia_id,env) : null;
+    if(path==='billing' && method==='GET')return json(await billingStatus(env,a));
+    if(path==='billing/checkout' && method==='POST'){
+      await limit(db,'billing-checkout:'+a.id);
+      return json(await createCheckout(env,a),201);
+    }
+    if(path==='billing/refresh' && method==='POST'){
+      await limit(db,'billing-refresh:'+a.id);
+      return json(await reconcileFamily(env,a));
+    }
+    const cancelBilling=path.match(/^billing\/([^/]+)\/cancel$/);
+    if(cancelBilling && method==='POST'){
+      await limit(db,'billing-cancel:'+a.id);
+      return json(await cancelSubscription(env,a,cancelBilling[1]));
+    }
     if (familySubscription && !familySubscription.can_write && ['POST','PUT','PATCH'].includes(method) && /^(children|records|anamnesis|files|consultation|family|guests)(\/|$)/.test(path))
       fail(403,'Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.');
     if(path==='subscription' && method==='GET') return json(familySubscription);
@@ -576,6 +593,7 @@ export async function handle(req, env) {
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
       if(path==='platform/consumption' && method==='GET') return json(await consumption(env));
       if(path==='platform/backups' && method==='GET') return json(await backupStatus(env));
+      if(path==='platform/billing' && method==='GET')return json(await platformBillingStatus(env));
       if(path==='platform/notifications' && method==='GET') return json(await notifications(env,a.id));
       if(path==='platform/notifications/read' && method==='POST') {
         const b=await body(req),current=await notifications(env,a.id);

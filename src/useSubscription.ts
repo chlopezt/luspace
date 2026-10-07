@@ -8,7 +8,8 @@ export function useSubscription(initial?:Row|null,guest=false) {
     const refresh=()=>{setNow(Date.now());void api('subscription').then(setValue).catch(()=>{});};
     const timer=setInterval(refresh,60000);
     const focus=()=>refresh();window.addEventListener('focus',focus);
-    return ()=>{clearInterval(timer);window.removeEventListener('focus',focus);};
+    window.addEventListener('luspace-subscription-refresh',refresh);
+    return ()=>{clearInterval(timer);window.removeEventListener('focus',focus);window.removeEventListener('luspace-subscription-refresh',refresh);};
   },[initial,guest]);
   const trial=value?.subscription_status==='trial' && !value?.commercial_exempt;
   const remaining=Math.max(0,Date.parse(value?.trial_ends_at||'')-now);

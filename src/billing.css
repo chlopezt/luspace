@@ -1,0 +1,10 @@
+.billing-panel {display:grid;gap:16px;min-width:0}
+.billing-test-notice {display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px;color:var(--text);font-size:13px}
+.billing-test-notice svg,.billing-price svg {flex-shrink:0;color:var(--teal,#0d9488)}
+.billing-price {display:flex;align-items:center;gap:16px;padding:16px;background:var(--soft);border-radius:14px}
+.billing-price div {display:grid;gap:5px}.billing-price strong {font-size:22px}.billing-price span {font-size:12px}
+.billing-consent {display:flex;align-items:flex-start;gap:10px;font-size:13px}.billing-consent input {width:20px;height:20px;flex-shrink:0}
+.billing-actions {display:flex;gap:10px;flex-wrap:wrap}.billing-history {list-style:none;display:grid;gap:8px;margin:0;padding:0}
+.billing-history li {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px;border:1px solid var(--line);border-radius:12px;overflow-wrap:anywhere}
+.billing-history small {grid-column:1/-1;color:var(--muted)}.billing-panel h2 {display:flex;align-items:center;gap:10px}
+@media(max-width:480px){.billing-history li{grid-template-columns:minmax(0,1fr)}.billing-actions button {width:100%}.billing-price strong{font-size:20px}}

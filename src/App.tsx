@@ -37,6 +37,7 @@ import Landing from './Landing';
 import Theme from './ThemeControl';
 import './auth-access.css';
 import { useSubscription } from './useSubscription';
+import Billing from './Billing';
 import Anamnesis from "./Anamnesis";
 import {useStartupLoading} from './StartupScreen';
 import { Audit, Guests, Users, ProfileAccess } from "./Administration";
@@ -406,7 +407,7 @@ export default function App() {
   return location.pathname === "/admin" || location.pathname.startsWith("/admin/") ? <AdminPortal /> : <FamilyApp />;
 }
 function FamilyApp() {
-  const [subscriptionInfo,setSubscriptionInfo]=useState(false);
+  const [subscriptionInfo,setSubscriptionInfo]=useState(()=>{const returned=sessionStorage.getItem('luspace-billing-return')==='1';sessionStorage.removeItem('luspace-billing-return');return returned;});
   const [profileAccess,setProfileAccess]=useState(false);
   const [pdfResume, setPdfResume] = useState<PdfResume | null>(() => takePdfResume());
   const [me, setMe] = useState<Row | null>(null),
@@ -608,6 +609,7 @@ function FamilyApp() {
             ))}
         </nav>
         {!me.guest && subscription.trial && <div className="subscription-badge"><span>Prueba gratis: Te quedan {subscription.daysLeft} días</span><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
+        {!me.guest && !subscription.trial && <button onClick={()=>setSubscriptionInfo(true)}>Mi suscripción</button>}
         <div className="profile">
           <span>{me.nombre.slice(0, 1)}</span>
           <div>
@@ -820,7 +822,7 @@ function FamilyApp() {
           )}
         </main>
       </div>
-      {subscriptionInfo && <Modal title="Activar suscripción" close={()=>setSubscriptionInfo(false)}><p>La contratación y los pagos aún no están habilitados. No se realizará ningún cobro desde esta ventana.</p><p>Tu información seguirá disponible para consulta y descarga.</p>{subscription.value && <p>Almacenamiento: {(subscription.value.storage_used_bytes/1048576).toFixed(1)} MB de {(subscription.value.storage_limit_bytes/1048576).toFixed(0)} MB.</p>}</Modal>}
+      {subscriptionInfo && <Billing close={()=>setSubscriptionInfo(false)}/>}
       {profile && (
         <Modal
           title={profile.id ? "Editar perfil" : "Nuevo perfil"}
