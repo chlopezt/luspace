@@ -20,7 +20,14 @@ async function mp(env,path,method='GET',data,key) {
   const transport=env.LOCAL_DEV===true && env.BILLING_TEST_FETCH ? env.BILLING_TEST_FETCH : fetch;
   let response;
   try {response=await transport('https://api.mercadopago.com'+path,{method,redirect:'error',signal:AbortSignal.timeout(12000),headers:{Authorization:'Bearer '+env.MP_ACCESS_TOKEN,'Content-Type':'application/json',...(key?{'X-Idempotency-Key':key}:{})},...(data?{body:JSON.stringify(data)}:{})});}
-  catch{fail(502,'No se pudo confirmar la respuesta de Mercado Pago. Actualiza el estado antes de reintentar.');}
+  catch(error){
+    // Never expose provider URLs, authorization headers or raw exception details.
+    const detail=String(error?.message||'');
+    if(/header|ByteString|character/i.test(detail))fail(503,'La clave de Mercado Pago contiene caracteres no válidos. Revisa que hayas pegado solo el Access Token, sin espacios ni saltos de línea.');
+    if(/illegal invocation|receiver|this/i.test(detail))fail(502,'La conexión de pagos encontró un error de compatibilidad del servidor. No se realizó ningún cobro.');
+    if(error?.name==='TimeoutError'||error?.name==='AbortError')fail(502,'Mercado Pago no respondió a tiempo. Reintenta la comprobación de conexión; no se realizó ningún cobro.');
+    fail(502,'No se pudo confirmar la respuesta de Mercado Pago. Actualiza el estado antes de reintentar.');
+  }
   if(!response.ok)fail(502,'Mercado Pago no confirmó la operación. No se modificó el acceso de la familia.');
   try{return await response.json();}catch{fail(502,'Mercado Pago devolvió una respuesta inválida.');}
 }
@@ -178,3 +185,4 @@ export async function platformBillingStatus(env){
   const inbox=await first(env.DB,"SELECT COUNT(*) AS pending FROM billing_webhook_inbox WHERE state!='processed'");
   return {mode:'test',enabled:testBilling(env).enabled,subscriptions:rows,pending_notifications:inbox.pending};
 }
+
