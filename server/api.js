@@ -8,7 +8,7 @@ import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
-import {billingStatus,createCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus} from './billing.js';
+import {billingStatus,billingConnection,createCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus} from './billing.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -572,6 +572,10 @@ export async function handle(req, env) {
     }
     const familySubscription = a.familia_id ? await subscription(db,a.familia_id,env) : null;
     if(path==='billing' && method==='GET')return json(await billingStatus(env,a));
+    if(path==='billing/connection' && method==='GET'){
+      await limit(db,'billing-connection:'+a.id,10,900);
+      return json(await billingConnection(env,a));
+    }
     if(path==='billing/checkout' && method==='POST'){
       await limit(db,'billing-checkout:'+a.id);
       return json(await createCheckout(env,a),201);

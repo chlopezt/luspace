@@ -39,6 +39,13 @@ function checkoutUrl(value){
 }
 const owner=a=>{if(a.guest||a.rol!=='superadmin')fail(403,'Solo el Administrador de la familia puede gestionar la suscripción.');};
 
+// Read-only provider check: never create contracts, charges or payment records.
+export async function billingConnection(env,a){
+  owner(a);requireTest(env);
+  await seller(env);
+  return {seller_verified:true,mode:'test',buyer_configured:/^testuser\d+@testuser\.com$/i.test(env.MP_TEST_BUYER_EMAIL||'')};
+}
+
 export async function billingStatus(env,a){
   if(a.guest)fail(403,'El invitado no tiene acceso a los pagos de la familia.');
   const config=testBilling(env);

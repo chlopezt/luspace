@@ -7,8 +7,10 @@ const labels:Record<string,string>={pending:'Pendiente',authorized:'Autorizada',
 const money=(n:number)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n);
 export default function Billing({close}:{close:()=>void}){
   const [data,setData]=useState<Row|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false);
+  const [connection,setConnection]=useState<Row|null>(null);
   const load=async()=>{setError('');try{setData(await api('billing'));}catch(e){setError((e as Error).message);}};
   useEffect(()=>{void load();},[]);
+  async function checkConnection(){setBusy(true);setError('');setConnection(null);try{setConnection(await api('billing/connection'));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   async function act(path:string){setBusy(true);setError('');try{
     const result=await api(path,'POST',{});
     if(result.url){const url=new URL(result.url);if(url.protocol!=='https:'||url.hostname!=='www.mercadopago.cl')throw new Error('Enlace de pago no autorizado.');sessionStorage.setItem('luspace-billing-return','1');location.assign(url.href);}
@@ -23,6 +25,8 @@ export default function Billing({close}:{close:()=>void}){
       {!data.enabled?<p>Los pagos todavía no están habilitados. Tu información sigue disponible para consulta y descarga.</p>:<>
         <div className="billing-price"><CreditCard size={26}/><div><strong>{money(data.amount)} / mes</strong><span>Monto de simulación en pesos chilenos</span></div></div>
         {data.can_manage?<>
+          <button disabled={busy} onClick={()=>void checkConnection()}><ShieldCheck size={17}/>{busy?'Comprobando…':'Comprobar conexión (sin cobros)'}</button>
+          {connection&&<p role="status">Vendedor ficticio de Chile verificado. {connection.buyer_configured?'Correo de prueba del comprador configurado.':'Falta configurar el correo del comprador ficticio.'}</p>}
           {!open&&<><label className="billing-consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>Quiero simular una suscripción mensual. No usaré una tarjeta real.</label><button className="primary" disabled={busy||!consent} onClick={()=>void act('billing/checkout')}><ExternalLink size={17}/>{busy?'Procesando…':'Continuar en Mercado Pago (prueba)'}</button></>}
           {open&&<div className="billing-actions">
             {open.state==='pending'&&<button disabled={busy} onClick={()=>void act('billing/checkout')}>Continuar suscripción pendiente</button>}

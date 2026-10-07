@@ -56,7 +56,13 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     assert.equal((await call('setup','POST',{nombre:'Owner',familia:'One',correo:'owner@example.test',password:'Password!2026qa'})).status,201);
     const one=(await call('me')).body,ownerCookie=cookie;
     await env.DB.prepare("UPDATE familias SET trial_ends_at='2000-01-01T00:00:00Z' WHERE id=?").bind(one.familia_id).run();
-    unsafeSeller=true;assert.equal((await call('billing/checkout','POST',{})).status,503);assert.equal(createCount,0);unsafeSeller=false;
+    unsafeSeller=true;assert.equal((await call('billing/connection')).status,503);assert.equal((await call('billing/checkout','POST',{})).status,503);assert.equal(createCount,0);unsafeSeller=false;
+    assert.deepEqual((await call('billing/connection')).body,{seller_verified:true,mode:'test',buyer_configured:true});
+    assert.equal(createCount,0,'connection check must not create a subscription');
+    assert.equal((await call('billing')).body.subscriptions.length,0);
+    delete env.MP_TEST_BUYER_EMAIL;
+    assert.equal((await call('billing/connection')).body.buyer_configured,false);
+    env.MP_TEST_BUYER_EMAIL='testuser202@testuser.com';
     const checkout=await call('billing/checkout','POST',{amount:1,familia_id:'other'});assert.equal(checkout.status,201);assert.ok(checkout.body.url);
     const row=(await env.DB.prepare('SELECT * FROM billing_subscriptions WHERE familia_id=?').bind(one.familia_id).all()).results[0];
     assert.equal(row.amount_clp,5938);assert.equal((await call('billing/checkout','POST',{})).body.existing,true);assert.equal(createCount,1);
@@ -83,6 +89,7 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     const editor=await call('users','POST',{nombre:'Editor',correo:'editor@example.test',password:'Password!2026qa',rol:'editor'});
     assert.equal(editor.status,201);
     await call('login','POST',{correo:'editor@example.test',password:'Password!2026qa'});
+    assert.equal((await call('billing/connection')).status,403);
     assert.equal((await call('billing/checkout','POST',{})).status,403);assert.equal((await call('billing/refresh','POST',{})).status,403);assert.equal((await call('billing/'+row.id+'/cancel','POST',{})).status,403);
     cookie=ownerCookie;
     assert.equal((await call('billing/'+row.id+'/cancel','POST',{})).status,200);
