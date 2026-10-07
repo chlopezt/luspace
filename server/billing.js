@@ -17,9 +17,9 @@ export function testBilling(env) {
 function requireTest(env){const config=testBilling(env);if(!config.enabled)fail(503,'Los pagos de prueba todavía no están configurados. No se realizó ningún cobro.');return config;}
 async function mp(env,path,method='GET',data,key) {
   requireTest(env);
-  const transport=env.LOCAL_DEV===true && env.BILLING_TEST_FETCH ? env.BILLING_TEST_FETCH : fetch;
+  const transport=env.LOCAL_DEV===true && env.BILLING_TEST_FETCH ? env.BILLING_TEST_FETCH : globalThis.fetch.bind(globalThis);
   let response;
-  try {response=await transport('https://api.mercadopago.com'+path,{method,redirect:'error',signal:AbortSignal.timeout(12000),headers:{Authorization:'Bearer '+env.MP_ACCESS_TOKEN,'Content-Type':'application/json',...(key?{'X-Idempotency-Key':key}:{})},...(data?{body:JSON.stringify(data)}:{})});}
+  try {response=await transport('https://api.mercadopago.com'+path,{method,redirect:'manual',signal:AbortSignal.timeout(12000),headers:{Authorization:'Bearer '+env.MP_ACCESS_TOKEN,'Content-Type':'application/json',...(key?{'X-Idempotency-Key':key}:{})},...(data?{body:JSON.stringify(data)}:{})});}
   catch(error){
     // Never expose provider URLs, authorization headers or raw exception details.
     const detail=String(error?.message||'');
@@ -28,6 +28,7 @@ async function mp(env,path,method='GET',data,key) {
     if(error?.name==='TimeoutError'||error?.name==='AbortError')fail(502,'Mercado Pago no respondió a tiempo. Reintenta la comprobación de conexión; no se realizó ningún cobro.');
     fail(502,'No se pudo confirmar la respuesta de Mercado Pago. Actualiza el estado antes de reintentar.');
   }
+  if(response.status>=300&&response.status<400)fail(502,'Mercado Pago respondió con una redirección no autorizada. Por seguridad, no se envió la clave a otro destino.');
   if(!response.ok)fail(502,'Mercado Pago no confirmó la operación. No se modificó el acceso de la familia.');
   try{return await response.json();}catch{fail(502,'Mercado Pago devolvió una respuesta inválida.');}
 }
