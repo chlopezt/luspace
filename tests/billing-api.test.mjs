@@ -81,6 +81,11 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     const checkout=await call('billing/checkout','POST',{amount:1,familia_id:'other'});assert.equal(checkout.status,201);assert.ok(checkout.body.url);
     const row=(await env.DB.prepare('SELECT * FROM billing_subscriptions WHERE familia_id=?').bind(one.familia_id).all()).results[0];
     assert.equal(row.amount_clp,5938);assert.equal((await call('billing/checkout','POST',{})).body.existing,true);assert.equal(createCount,1);
+    const heldContract=contracts.get(row.provider_id);contracts.delete(row.provider_id);
+    const unavailable=await call('billing/refresh','POST',{});
+    assert.equal(unavailable.status,502);assert.match(unavailable.body.error,/consulta de suscripción \(HTTP 404\)/);
+    assert.equal((await call('billing')).body.subscriptions[0].state,'pending');
+    assert.equal(createCount,1,'failed reconciliation never creates a duplicate contract');contracts.set(row.provider_id,heldContract);
     assert.equal((await call('subscription')).body.can_write,false);
     contracts.get(row.provider_id).status='authorized';contracts.get(row.provider_id).last_modified=stamp();
     assert.equal((await webhook(row.provider_id,'subscription_preapproval')).status,200);

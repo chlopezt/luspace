@@ -29,7 +29,11 @@ async function mp(env,path,method='GET',data,key) {
     fail(502,'No se pudo confirmar la respuesta de Mercado Pago. Actualiza el estado antes de reintentar.');
   }
   if(response.status>=300&&response.status<400)fail(502,'Mercado Pago respondió con una redirección no autorizada. Por seguridad, no se envió la clave a otro destino.');
-  if(!response.ok)fail(502,'Mercado Pago no confirmó la operación. No se modificó el acceso de la familia.');
+  if(!response.ok){
+    // Static operation labels and HTTP status only: no provider body, URL, token or payer data.
+    const operation=path.startsWith('/users/')?'verificación de cuenta':path.startsWith('/authorized_payments')?'consulta de cuotas':path.startsWith('/v1/payments/')?'consulta de pago':method==='GET'?'consulta de suscripción':'gestión de suscripción';
+    fail(502,`Mercado Pago rechazó la ${operation} (HTTP ${response.status}). No se confirmó ningún pago ni se creó otra suscripción.`);
+  }
   try{return await response.json();}catch{fail(502,'Mercado Pago devolvió una respuesta inválida.');}
 }
 async function seller(env){
