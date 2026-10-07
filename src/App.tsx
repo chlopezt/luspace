@@ -308,7 +308,7 @@ function Export({
   resume: PdfResume | null;
 }) {
   const [selected, setSelected] = useState(
-      resume ? reportGroups.filter(g=>allowed.includes(g.module)).flatMap(g=>g.items.filter(i=>i.id==='photo' ? !!child.foto_perfil_id&&(resume.photo||resume.selected.includes('photo')) : resume.selected.includes(i.id)||resume.selected.includes(g.module)).map(i=>i.id)).concat(resume.selected.includes(documentSelection)?[documentSelection]:[]) : reportGroups.filter(g=>g.module===(allowed.includes('anamnesis')?'anamnesis':allowed[0])).flatMap(g=>g.items.map(i=>i.id)).filter(id=>id!=='photo'),
+      resume ? reportGroups.filter(g=>allowed.includes(g.module)).flatMap(g=>g.items.filter(i=>i.id===documentSelection ? false : i.id==='photo' ? !!child.foto_perfil_id&&(resume.photo||resume.selected.includes('photo')) : resume.selected.includes(i.id)||resume.selected.includes(g.module)).map(i=>i.id)).concat(resume.selected.includes(documentSelection)?[documentSelection]:[]) : reportGroups.filter(g=>g.module===(allowed.includes('anamnesis')?'anamnesis':allowed[0])).flatMap(g=>g.items.map(i=>i.id)).filter(id=>!['photo',documentSelection].includes(id)),
     ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
