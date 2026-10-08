@@ -46,7 +46,7 @@ test('SOS, emergency and routine CRUD, attachment ownership, readonly and family
  const list=await call(`records/${table}?child=${child}`);assert.equal(list.status,200);
  for(const method of ['POST','PUT','DELETE'])assert.equal((await call(`records/${table}${method==='POST'?'':'/'+list.body[0].id}?child=${child}`,method,row)).status,403);
  }
- await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v2',nombre:'Other',familia:'Other',correo:'other-care@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'});
+ await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v3',nombre:'Other',familia:'Other',correo:'other-care@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'});
  for(const table of Object.keys(data))assert.equal((await call(`records/${table}?child=${child}`)).status,404);
  cookie=owner;await env.DB.prepare("UPDATE usuarios SET rol='superadmin' WHERE id=?").bind(me.id).run();
  for(const table of Object.keys(data)){const rows=(await call(`records/${table}?child=${child}`)).body;assert.equal((await call(`records/${table}/${rows[0].id}?child=${child}`,'DELETE')).status,200);}

@@ -27,7 +27,7 @@ test('legacy inline JPG stays readable, migrates without losing bytes and never 
   await assert.rejects(()=>readFileBytes(env,{...file,r2_key:crypto.randomUUID()+'/'+child+'/'+id}),/ubicación/);
   await assert.rejects(()=>readFileBytes(env,{...file,bytes:bytes.length+1}),/tamaño/);
   await removeR2(env,file);
-  assert.equal((await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v2',nombre:'Other',familia:'Other',correo:'legacy-other@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'})).status,201);
+  assert.equal((await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v3',nombre:'Other',familia:'Other',correo:'legacy-other@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'})).status,201);
   assert.equal((await call('files/'+id)).status,404);assert.equal((await call('files/'+id,'DELETE')).status,404);
   cookie=ownCookie;
   // Apply the exact production repair twice to verify it is scoped and idempotent.

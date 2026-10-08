@@ -169,7 +169,7 @@ test("contextual attachments, nutrition, ownership, legacy compatibility and per
     assert.equal(
       (
         await call("register", "POST", {
-          legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v2',
+          legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v3',
           nombre: "B",
           familia: "B",
           correo: "other-context@example.test",

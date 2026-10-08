@@ -49,7 +49,7 @@ test('therapy, expenses and handovers preserve family isolation, files, reader R
    assert.equal((await call(`records/${table}/${ids[table]}?child=${child}`,'PUT',row)).status,403);
    assert.equal((await call(`records/${table}/${ids[table]}?child=${child}`,'DELETE')).status,403);
  }
- await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v2',nombre:'QA B',familia:'B',correo:'team-b@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'});
+ await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v3',nombre:'QA B',familia:'B',correo:'team-b@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'});
  for(const table of Object.keys(data))assert.equal((await call(`records/${table}?child=${child}`)).status,404);
  assert.equal((await call('files/'+file)).status,404);
  cookie=owner;
