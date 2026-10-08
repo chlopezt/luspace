@@ -7,6 +7,8 @@ import {randomBytes} from 'node:crypto';
 import {localEnv} from '../server/local.js';
 import {handle} from '../server/api.js';
 import {registerManualPayment,reviewManualPayment} from '../server/manual-payments.js';
+import {beginMfa,enableMfa,totp,openSecret} from '../server/platform-mfa.js';
+import {password as hashPassword} from '../server/security.js';
 import {createArchive,restoreArchive,encrypt,decrypt,verifyDatabase,databaseSummary} from '../scripts/backup-core.mjs';
 
 function dump(db){
@@ -31,11 +33,17 @@ test('encrypted backups restore two isolated families and reject tampering, miss
   }
   // A third attachment remains in D1 to test old formats and binary exports.
   const manualRecords=[];
+  const mfaRecords=[];
   for(let i=0;i<2;i++){
    const me=await (await request(env,'me','GET',undefined,[ca,cb][i])).res.json();
    await env.DB.prepare('INSERT INTO administradores_plataforma(usuario_id) VALUES(?)').bind(me.id).run();
    const p=await registerManualPayment(env.DB,{id:me.id},{familia_id:me.familia_id,tipo:'transferencia',monto_clp:5938,fecha_pago:'2026-01-01',referencia:'BANK-QA-'+i,notas:'Pago QA familia '+i,dias_cortesia:0,cuota_bytes:0,request_key:'backup-payment-key-'+i});
    manualRecords.push(await reviewManualPayment(env.DB,{id:me.id},p.id,{estado:'confirmado',bank_verified:true,notas:'Ingreso QA verificado'}));
+   const adminPassword='BackupAdminPassword!2026';
+   await env.DB.prepare('INSERT INTO credenciales_plataforma(usuario_id,correo,password_hash) VALUES(?,?,?)').bind(me.id,'backup-mfa-'+i+'@example.test',await hashPassword(adminPassword)).run();
+   const setup=await beginMfa(env.DB,me.id,'backup-mfa-'+i+'@example.test',adminPassword);
+   await enableMfa(env.DB,me.id,adminPassword,await totp(setup.secret),'fixture-session');
+   mfaRecords.push({id:me.id,secret:setup.secret,password:adminPassword,sealed:(await env.DB.prepare('SELECT secreto_cifrado FROM plataforma_mfa WHERE usuario_id=?').bind(me.id).first()).secreto_cifrado});
   }
   env.LUSPACE_R2_ENABLED='false';const legacy=new FormData();legacy.append('file',new Blob(['%PDF-1.4 Legacy'],{type:'application/pdf'}),'antiguo.pdf');assert.equal((await request(env,'files?child='+children[0]+'&module=salud','POST',legacy,ca)).res.status,201);
   original=new DatabaseSync(resolve(root,'luspace.sqlite'));const before=databaseSummary(original),sql=dump(original),key=randomBytes(32).toString('hex');
@@ -46,6 +54,7 @@ test('encrypted backups restore two isolated families and reject tampering, miss
   const restored=restoreArchive(archive.objects,key);try{
    assert.equal(restored.summary.families,2);assert.equal(restored.db.prepare('SELECT COUNT(*) AS n FROM sesiones').get().n,0);
    for(const p of manualRecords){const restoredPayment=restored.db.prepare('SELECT * FROM pagos_manuales WHERE id=?').get(p.id);assert.equal(restoredPayment.familia_id,p.familia_id);assert.equal(restoredPayment.periodo_fin,p.periodo_fin);assert.equal(restoredPayment.notas,p.notas);assert.equal(restored.db.prepare('SELECT manual_paid_until FROM familias WHERE id=?').get(p.familia_id).manual_paid_until,p.periodo_fin);}
+   for(const m of mfaRecords){const saved=restored.db.prepare('SELECT * FROM plataforma_mfa WHERE usuario_id=?').get(m.id);assert.equal(saved.activo,1);assert.equal(saved.secreto_cifrado,m.sealed);assert.equal(await openSecret(saved.secreto_cifrado,m.password,m.id),m.secret);assert.equal(restored.db.prepare('SELECT COUNT(*) AS n FROM plataforma_mfa_recuperacion WHERE usuario_id=? AND usado_at IS NULL').get(m.id).n,10);}
    assert.equal((await request(restored.env,'children','GET',undefined,ca)).res.status,401);
    const ra=await request(restored.env,'login','POST',{correo:'backup-a@example.test',password});assert.equal(ra.res.status,200);
    const rb=await request(restored.env,'login','POST',{correo:'backup-b@example.test',password});assert.equal(rb.res.status,200);
@@ -74,3 +83,4 @@ test('backup operational summaries are platform-admin only and do not include cl
  try{const setup=await call('setup','POST',{nombre:'QA',familia:'QA',correo:'backup-status@example.test',password:'FamilyPassword!2026'});const session=setup.cookie,me=(await call('me','GET',undefined,session)).data;assert.equal((await call('platform/backups','GET',undefined,session)).status,401);await env.DB.prepare('INSERT INTO administradores_plataforma(usuario_id) VALUES(?)').bind(me.id).run();await call('platform/enroll','POST',{correo:'backup-platform@example.test',current_password:'FamilyPassword!2026',password:'PlatformPassword!2026'},session);const login=await call('platform/login','POST',{correo:'backup-platform@example.test',password:'PlatformPassword!2026'});assert.equal(login.status,200);const report=await call('platform/backups','GET',undefined,login.cookie);assert.equal(report.status,200);assert.equal(report.data.state,'pending');assert.equal(JSON.stringify(report.data).includes('password_hash'),false);assert.equal((await call('platform/backups','POST',{},login.cookie)).status,404);
  }finally{env.close();}
 });
+

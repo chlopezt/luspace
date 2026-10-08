@@ -5,6 +5,7 @@ import { uid, token, hash, password, verify, cookie } from "./security.js";
 import { consultationContext, basicDraft } from "./consultation.js";
 import { subscription } from "./subscription.js";
 import {manualPaymentOverview,registerManualPayment,reviewManualPayment} from './manual-payments.js';
+import {mfaStatus,beginMfa,enableMfa,proveMfa,refreshMfa,disableMfa} from './platform-mfa.js';
 import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google-auth.js';
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 import {consumption,notifications} from './platform-consumption.js';
@@ -558,18 +559,33 @@ export async function handle(req, env) {
       const u=await first(db,"SELECT c.* FROM credenciales_plataforma c JOIN administradores_plataforma a ON a.usuario_id=c.usuario_id JOIN usuarios u ON u.id=a.usuario_id WHERE c.correo=? AND a.activo=1 AND u.activo=1",mail);
       const valid=await verify(typeof b.password==='string'?b.password.slice(0,128):'',u?.password_hash || '00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000');
       if(!u || !valid) fail(401,"Correo o contraseña administrativos incorrectos.");
+      const mfa=await mfaStatus(db,u.usuario_id);
+      if(mfa.enabled&&!b.mfa_code)return json({mfa_required:true},200,{"Set-Cookie":platformCookie('',0)});
+      let verifiedAt=0;
+      if(mfa.enabled){try{await proveMfa(db,u.usuario_id,b.password,b.mfa_code);verifiedAt=Date.now();}catch(error){await stmt(db,'INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)',uid(),u.usuario_id,'MFA_FAILED','Segundo factor administrativo rechazado; sin códigos ni claves.').run();throw error;}}
       const raw=token();
-      await db.batch([stmt(db,"INSERT INTO sesiones_plataforma(id,usuario_id,expira_at) VALUES(?,?,?)",await hash(raw),u.usuario_id,new Date(Date.now()+3600000).toISOString()),stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)",uid(),u.usuario_id,"LOGIN","Inicio de sesión administrativo independiente")]);
+      await db.batch([stmt(db,"INSERT INTO sesiones_plataforma(id,usuario_id,expira_at,mfa_verified_at) VALUES(?,?,?,?)",await hash(raw),u.usuario_id,new Date(Date.now()+3600000).toISOString(),verifiedAt),stmt(db,"INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)",uid(),u.usuario_id,"LOGIN",mfa.enabled?'Inicio administrativo con segundo factor':'Inicio de sesión administrativo independiente')]);
       return json({ok:true},200,{"Set-Cookie":platformCookie(raw)});
     }
     let a;
     if(path.startsWith("platform/")) {
       const raw=req.headers.get("cookie")?.match(/(?:^|;\s*)luspace_platform=([a-f0-9]{64})(?:;|$)/)?.[1];
       if(!raw) fail(401,"Ingresa por el acceso administrativo.");
-      a=await first(db,"SELECT u.id,u.nombre FROM sesiones_plataforma s JOIN administradores_plataforma a ON a.usuario_id=s.usuario_id JOIN usuarios u ON u.id=a.usuario_id WHERE s.id=? AND s.expira_at>? AND a.activo=1 AND u.activo=1",await hash(raw),new Date().toISOString());
+      a=await first(db,"SELECT u.id,u.nombre,s.id AS session_id,s.mfa_verified_at,COALESCE(m.activo,0) AS mfa_enabled FROM sesiones_plataforma s JOIN administradores_plataforma a ON a.usuario_id=s.usuario_id JOIN usuarios u ON u.id=a.usuario_id LEFT JOIN plataforma_mfa m ON m.usuario_id=u.id WHERE s.id=? AND s.expira_at>? AND a.activo=1 AND u.activo=1 AND (COALESCE(m.activo,0)=0 OR s.mfa_verified_at>0)",await hash(raw),new Date().toISOString());
       if(!a) fail(401,"Sesión administrativa vencida o revocada.");
-      if(path==='platform/me' && method==='GET') return json(a);
+      if(path==='platform/me' && method==='GET') return json({id:a.id,nombre:a.nombre,mfa_enabled:!!a.mfa_enabled,mfa_verified_at:a.mfa_verified_at});
       if(path==='platform/logout' && method==='POST') {await stmt(db,"DELETE FROM sesiones_plataforma WHERE id=?",await hash(raw)).run();return json({ok:true},200,{"Set-Cookie":platformCookie('',0)});}
+      if(path==='platform/mfa'&&method==='GET')return json(await mfaStatus(db,a.id));
+      if(/^platform\/mfa\/(setup|enable|verify|disable)$/.test(path)&&method==='POST'){
+        await limit(db,'platform-mfa:'+a.id);
+        const b=await body(req),credential=await first(db,'SELECT correo,password_hash FROM credenciales_plataforma WHERE usuario_id=?',a.id);
+        if(!credential||!await verify(text(b.admin_password||'',128),credential.password_hash))fail(401,'Contraseña administrativa incorrecta.');
+        if(path.endsWith('/setup'))return json(await beginMfa(db,a.id,credential.correo,b.admin_password));
+        if(path.endsWith('/enable'))return json(await enableMfa(db,a.id,b.admin_password,b.code,a.session_id));
+        if(path.endsWith('/disable'))return json(await disableMfa(db,a.id,b.admin_password,b.code,a.session_id));
+        return json(await refreshMfa(db,a.id,b.admin_password,b.code,a.session_id));
+      }
+      if(a.mfa_enabled&&['POST','PUT','PATCH','DELETE'].includes(method)&&path!=='platform/notifications/read'&&Date.now()-a.mfa_verified_at>900000)fail(403,'Confirma nuevamente el 2FA en Seguridad de mi cuenta para realizar cambios administrativos.');
     } else {
       a=await actor(req, db);
       const controls=await first(db,"SELECT modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled FROM plataforma_controles_familia WHERE familia_id=?",a.familia_id);
