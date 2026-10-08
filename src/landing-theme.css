@@ -30,3 +30,35 @@ html[data-theme="dark"] .lp { --lp-bg:#0d2224; --lp-card:#15302f; --lp-ink:#e1ef
  .lp .lp-actions .lp-button { order:2; }
  .lp .theme-control button { min-width:40px; min-height:40px; }
 }
+
+/* Mobile-only public navigation: two compact action rows, then section links. */
+@media(max-width:768px){
+ .lp .lp-nav { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; padding:10px 16px; }
+ .lp .lp-nav > a { grid-column:1; grid-row:1; min-width:0; }
+ .lp .lp-nav > .lp-actions { display:contents; }
+ .lp .lp-actions .lp-login { grid-column:2; grid-row:1; margin:0; min-height:44px; white-space:nowrap; justify-self:end; }
+ .lp .lp-actions .theme-control { grid-column:1; grid-row:2; margin:0; justify-self:start; gap:0; padding:3px; width:fit-content; }
+ .lp .theme-control button { width:36px; min-width:36px; height:44px; min-height:44px; padding:8px; }
+ .lp .lp-actions .lp-button { grid-column:2; grid-row:2; order:initial; width:auto; max-width:100%; min-height:44px; padding:8px 12px; font-size:12px; line-height:1.4; text-align:center; }
+ .lp .lp-actions .lp-button svg { flex:0 0 16px; }
+ .lp .lp-nav nav { grid-column:1/-1; grid-row:3; order:initial; width:100%; min-width:0; justify-content:space-between; gap:12px; overflow-x:auto; font-size:11px; padding:2px 0; }
+ .lp .lp-nav nav a { flex:0 0 auto; white-space:nowrap; min-height:32px; display:flex; align-items:center; }
+ .lp .lp-nav .brand { margin:0; gap:7px; font-size:20px; white-space:nowrap; }
+ .lp .lp-nav .brand > img { width:26px; height:26px; flex:0 0 26px; }
+ .lp .lp-section { scroll-margin-top:160px; }
+ .lp .lp-final { padding:28px 20px; margin-bottom:32px; }
+ .lp .lp-final h2 { font-size:26px; line-height:1.35; letter-spacing:-.7px; }
+ .lp .lp-final .lp-button { max-width:100%; padding:12px 16px; font-size:14px; }
+ .lp .lp-footer { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); justify-items:center; align-items:center; gap:8px 12px; padding-top:24px; padding-bottom:24px; text-align:center; }
+ .lp .lp-footer > .brand { grid-column:1/-1; margin:0; }
+ .lp .lp-footer > p { grid-column:1/-1; flex:initial; order:initial; margin:0 0 4px; font-size:12px; }
+ .lp .lp-footer > a { margin:0; min-width:0; min-height:36px; display:flex; align-items:center; justify-content:center; overflow-wrap:anywhere; font-size:12px; }
+ .lp .lp-footer > a[href^="mailto:"],.lp .lp-footer > a[href="/login"] { grid-column:1/-1; }
+}
+@media(max-width:360px){
+ .lp .lp-nav { padding-inline:12px; gap:6px 8px; }
+ .lp .lp-nav .brand { font-size:18px; gap:5px; }
+ .lp .lp-actions .lp-button { font-size:11px; padding:8px; gap:5px; }
+ .lp .lp-nav nav { gap:12px; font-size:10px; }
+ .lp .lp-final h2 { font-size:24px; }
+}
