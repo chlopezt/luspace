@@ -1,5 +1,17 @@
 import {test,expect} from '@playwright/test';
 
+test('legal documents are public, dismiss startup loading and fit mobile',async({page})=>{
+  for(const path of ['/terminos','/privacidad']){
+    await page.goto(path);
+    await expect(page.locator('.legal-document h1')).toBeVisible();
+    await expect(page.getByRole('status',{name:'Cargando LuSpace'})).toHaveCount(0);
+    for(const width of [320,375,414,1280]){
+      await page.setViewportSize({width,height:900});
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    }
+  }
+});
+
 test('Google button, return navigation and trial CTA work on narrow login and signup screens',async({page})=>{
   await page.route('**/api/status',route=>route.fulfill({json:{setup:false,registration:true,google:true}}));
   await page.route('**/api/me',route=>route.fulfill({status:401,json:{error:'Inicia sesión'}}));

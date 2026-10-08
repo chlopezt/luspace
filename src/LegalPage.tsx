@@ -1,10 +1,12 @@
 import {Brand} from './components';
 import Theme from './ThemeControl';
+import {useStartupLoading} from './StartupScreen';
 import {LEGAL_CONTACT,LEGAL_VERSION} from '../shared/legal.js';
 import {terms,privacy} from '../shared/legal-content-v1.js';
 import './legal.css';
 
 export default function LegalPage({kind}:{kind:'terms'|'privacy'}) {
+  useStartupLoading(false);
   const title=kind==='terms'?'Términos y condiciones':'Política de privacidad';
   return <div className="legal-page"><header className="legal-header"><a href="/presentacion" aria-label="Volver al inicio de LuSpace"><Brand/></a><Theme/></header>
     <main className="legal-document"><a href="/registro">← Volver al registro</a><h1>{title}</h1><p className="muted">Versión {LEGAL_VERSION} · 8 de octubre de 2026</p>
