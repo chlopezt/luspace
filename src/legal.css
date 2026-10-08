@@ -4,6 +4,6 @@
 .legal-document h1{font-size:clamp(26px,5vw,36px);line-height:1.2}.legal-document h2{font-size:19px;margin-top:26px}.legal-document p{line-height:1.75}
 .legal-document nav{display:flex;flex-wrap:wrap;gap:16px;margin:24px 0}.legal-document a{color:var(--accent)}
 .legal-draft{background:var(--input);border:1px solid var(--line);border-radius:12px;padding:16px;line-height:1.5}
-.auth-minimal .legal-consent{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;align-items:start;font-size:12px;line-height:1.55;margin:16px 0}
-.auth-minimal .legal-consent input{width:20px;min-height:20px;height:20px;margin:2px 0;accent-color:var(--accent)}
-.legal-consent a{color:var(--accent);text-decoration:underline}.legal-consent small{display:block;color:var(--muted);margin-top:4px}
+.auth-minimal .registration-notice{font-size:12px;line-height:1.65;margin:12px 0 16px;color:var(--muted);text-align:center;overflow-wrap:anywhere}
+.registration-notice a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.registration-notice a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}

@@ -47,6 +47,9 @@ import {useStartupLoading} from './StartupScreen';
 import { Audit, Guests, Users, ProfileAccess } from "./Administration";
 import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, type PdfResume } from './pdfRecovery';
 
+function RegistrationNotice({google = false}: {google?: boolean}) {
+  return <p className="registration-notice">Al {google ? 'continuar con Google' : 'crear tu cuenta'}, aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">Política de privacidad</a> de LuSpace.</p>;
+}
 function Auth({
   setup,
   local,
@@ -68,14 +71,13 @@ function Auth({
     [recoveryOpen, setRecoveryOpen] = useState(false);
   const register = !setup && !guestToken && registration && location.pathname === "/registro";
   const createAccount = setup || register;
-  const [accepted,setAccepted]=useState(false);
-  const legalInput = {legal_accepted:accepted,legal_version:LEGAL_VERSION};
   async function continueGoogle(button: HTMLButtonElement) {
     const form = button.closest('form');
     const data = form ? Object.fromEntries(new FormData(form)) : {};
     setBusy(true); setError('');
     try {
-      if(register && !accepted) throw new Error('Acepta los términos y la política de privacidad antes de continuar.');
+      // Acceptance is submitted only after this registration action, never on page load.
+      const legalInput = {legal_accepted:true,legal_version:LEGAL_VERSION};
       const result = await api('auth/google/start', 'POST', {nombre:data.nombre, familia:data.familia, mode:register ? 'register' : 'login',...(register?legalInput:{})});
       location.assign(result.url);
     } catch(e) {setError((e as Error).message); setBusy(false);}
@@ -86,6 +88,7 @@ function Auth({
     setError("");
     try {
       const b = Object.fromEntries(new FormData(e.currentTarget));
+      const legalInput = {legal_accepted:true,legal_version:LEGAL_VERSION};
       await api(
         guestToken ? "guest/exchange" : register ? "register" : setup ? "setup" : "login",
         "POST",
@@ -120,6 +123,7 @@ function Auth({
           <fieldset disabled={busy}>
             {!setup && !guestToken && <>
               <button className="google-signin" type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/> <span>Continuar con Google</span></button>
+              {register && <RegistrationNotice google/>}
               {!google && <p className="auth-hint">Google no está disponible todavía.</p>}
               <div className="auth-divider"><span>o continúa con tu correo</span></div>
             </>}
@@ -197,7 +201,7 @@ function Auth({
                     ? register ? "Comenzar prueba GRATIS de 14 días" : "Crear mi familia"
                     : "Iniciar sesión"}
             </button>
-            {register && <label className="legal-consent"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)} required/><span>Acepto los <a href="/terminos" target="_blank" rel="noopener noreferrer">términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">política de privacidad</a>.</span></label>}
+            {register && <RegistrationNotice/>}
           </fieldset>
         </form>
         {!createAccount && !guestToken && (
