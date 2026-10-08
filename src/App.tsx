@@ -130,11 +130,11 @@ function Auth({
               <>
                 <label className="field">
                   Tu nombre
-                  <input name="nombre" required autoComplete="name" />
+                  <input name="nombre" required autoComplete="name" placeholder="Ej. Mateo Rivera" />
                 </label>
                 <label className="field">
                   Nombre de la familia
-                  <input name="familia" required />
+                  <input name="familia" required placeholder="Ej. Familia Rivera" />
                 </label>
                 {setup && !local && (
                   <label className="field">
@@ -153,6 +153,7 @@ function Auth({
                     type="email"
                     required
                     autoComplete="username"
+                    placeholder={register ? "tunombre@email.com" : undefined}
                   />
                 </label>
                 <label className="field">
@@ -165,6 +166,7 @@ function Auth({
                       minLength={createAccount ? 12 : undefined}
                       maxLength={128}
                       autoComplete={createAccount ? "new-password" : "current-password"}
+                      placeholder={register ? "••••••••••••" : undefined}
                     />
                     <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -174,7 +176,7 @@ function Auth({
                 {register && <>
                   <p className="auth-hint">Usa letras y números.</p>
                   <label className="field">Confirmar contraseña
-                    <input name="password_confirmation" type={showPassword ? "text" : "password"} required minLength={12} maxLength={128} autoComplete="new-password" />
+                    <input name="password_confirmation" type={showPassword ? "text" : "password"} required minLength={12} maxLength={128} autoComplete="new-password" placeholder="••••••••••••" />
                   </label>
                 </>}
               </>
