@@ -7,6 +7,8 @@ import ThemeControl from './ThemeControl';
 import './landing-theme.css';
 import {useSiteConfig} from './useSiteConfig';
 import {BannerView} from './SiteBanner';
+import {useLandingMotion} from './useLandingMotion';
+import './landing-motion.css';
 
 const features = [
   {icon:FileHeart,title:'Su historia de salud, organizada',text:'Reúne consultas, tratamientos, exámenes y recetas. Encuentra lo que necesitas antes de la próxima consulta.'},
@@ -16,7 +18,8 @@ const features = [
 ];
 export default function Landing() {
   const config=useSiteConfig();
-  return <div className="lp">
+  const motionRoot=useLandingMotion();
+  return <div className="lp" ref={motionRoot}>
     <a className="lp-skip" href="#contenido">Ir al contenido</a>
     <header className="lp-header"><div className="lp-nav">
       <a href="/presentacion" aria-label="LuSpace, presentación"><Brand /></a>

@@ -1,0 +1,20 @@
+/* Short welcome movement, not a perpetual animation. No layout shifts. */
+@media(prefers-reduced-motion:no-preference){
+ .lp .lp-illustration { animation:lp-gentle-float 4.5s ease-in-out 1; }
+ .lp .lp-motion-card { transition:opacity .5s ease-out,translate .5s ease-out; }
+ .lp .lp-motion-pending { opacity:0; translate:0 10px; }
+}
+@keyframes lp-gentle-float {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-5px); }
+}
+@media(max-width:768px){
+ @keyframes lp-gentle-float {
+   0%,100% { transform:translateY(0); }
+   50% { transform:translateY(-3px); }
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ .lp .lp-illustration { animation:none; }
+ .lp .lp-motion-card { opacity:1; translate:none; transition:none; }
+}
