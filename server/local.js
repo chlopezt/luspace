@@ -68,6 +68,10 @@ export function localEnv(directory = process.env.LUSPACE_DATA_DIR || ".local") {
   if(!sqlite.prepare('SELECT name FROM schema_migrations WHERE name=?').get(termsOnlyMigration)){
     sqlite.exec('BEGIN');try{sqlite.exec(readFileSync(new URL('../db/'+termsOnlyMigration,import.meta.url),'utf8'));sqlite.prepare('INSERT INTO schema_migrations(name) VALUES(?)').run(termsOnlyMigration);sqlite.exec('COMMIT');}catch(e){sqlite.exec('ROLLBACK');throw e;}
   }
+  const cmsMigration='migrations/0030_site_cms.sql';
+  if(!sqlite.prepare('SELECT name FROM schema_migrations WHERE name=?').get(cmsMigration)){
+    sqlite.exec('BEGIN');try{sqlite.exec(readFileSync(new URL('../db/'+cmsMigration,import.meta.url),'utf8'));sqlite.prepare('INSERT INTO schema_migrations(name) VALUES(?)').run(cmsMigration);sqlite.exec('COMMIT');}catch(e){sqlite.exec('ROLLBACK');throw e;}
+  }
   const prepared = (sql, args = []) => ({
     sql,
     args,

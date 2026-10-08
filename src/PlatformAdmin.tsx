@@ -34,6 +34,7 @@ import PlatformConsumption from './PlatformConsumption';
 import PlatformBackups from './PlatformBackups';
 import PlatformPayments from './PlatformPayments';
 import PlatformMfa from './PlatformMfa';
+import SiteCMS from './SiteCMS';
 export const platformSections = [
   ["overview", "Resumen"],
   ["families", "Familias"],
@@ -44,6 +45,7 @@ export const platformSections = [
   ["backups", "Respaldos y recuperación"],
   ["payments", "Pagos y acceso"],
   ["account-security", "Seguridad de mi cuenta"],
+  ["site-config", "Configuración del sitio / CMS"],
 ] as const;
 const colors = ["#14b8a6", "#8b5cf6", "#60a5fa", "#f59e0b", "#ef7183"];
 const labels: Record<string, string> = {
@@ -160,7 +162,7 @@ export default function PlatformAdmin({
     [status, setStatus] = useState(""),
     [days, setDays] = useState(30);
   useEffect(() => {
-    if(['consumption','backups','payments','account-security'].includes(section)) return;
+    if(['consumption','backups','payments','account-security','site-config'].includes(section)) return;
     let live = true;
     setBusy(true);
     setError("");
@@ -196,6 +198,7 @@ export default function PlatformAdmin({
   if(section === 'backups') return <PlatformBackups/>;
   if(section === 'payments') return <PlatformPayments/>;
   if(section === 'account-security') return <PlatformMfa/>;
+  if(section === 'site-config') return <SiteCMS/>;
   const t = data?.totals;
   const familyList = (data?.families || []).filter(
     (f: Row) =>

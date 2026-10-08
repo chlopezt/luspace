@@ -35,6 +35,7 @@ import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
+import SiteBanner from './SiteBanner';
 import LegalPage from './LegalPage';
 import {LEGAL_VERSION} from '../shared/legal.js';
 import './legal.css';
@@ -674,6 +675,7 @@ function FamilyApp() {
           )}
           <Theme />
         </header>
+        <SiteBanner/>
         <main id="main" className="content" key={childId}>
           {!me.guest && !subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.</p><p>Puedes consultar y descargar tu información. No se han eliminado tus datos.</p><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
           <ErrorNote error={error} />

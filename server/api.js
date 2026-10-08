@@ -1,4 +1,5 @@
 import { models, modules, anamnesisSections } from "../shared/models.js";
+import {readSiteConfig,saveSiteConfig} from './site-config.js';
 import { careValidation } from '../shared/care.js';
 import { reportGroups, filterReport, selectionModules, documentSelection } from '../shared/report-selection.js';
 import { uid, token, hash, password, verify, cookie } from "./security.js";
@@ -343,6 +344,7 @@ export async function handle(req, env) {
     );
     const ipAddress = req.headers.get("CF-Connecting-IP") || (env.LOCAL_DEV === true ? "127.0.0.1" : null);
     const audit = (db, a, action, detail, ip) => auditStatement(db, a, action, detail, ip, ipAddress);
+    if(path==='site-config' && method==='GET')return json(await readSiteConfig(db));
     if (path === "status" && method === "GET") {
       const count = await first(db, "SELECT count(*) AS n FROM usuarios");
       return json({ setup: count.n === 0, local: env.LOCAL_DEV === true, registration: count.n > 0 && env.LUSPACE_REGISTRATION_ENABLED === "true", google: googleEnabled(env) });
@@ -604,6 +606,11 @@ export async function handle(req, env) {
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
+      if(path==='platform/site-config' && method==='GET')return json(await readSiteConfig(db));
+      if(path==='platform/site-config' && method==='PUT'){
+        await limit(db,'site-config:'+a.id);
+        return json(await saveSiteConfig(db,a,await body(req)));
+      }
       if(path==='platform/consumption' && method==='GET') return json(await consumption(env));
       if(path==='platform/backups' && method==='GET') return json(await backupStatus(env));
       if(path==='platform/manual-payments' && method==='GET')return json(await manualPaymentOverview(db));
