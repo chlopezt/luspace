@@ -1,0 +1,17 @@
+.auth-page.operator-auth-page { padding: 40px 16px; min-height: 100dvh; }
+.auth-card.operator-auth-card { width: min(440px, 100%); min-width: 0; padding: 28px; color: var(--ink); }
+.operator-auth-card .brand { justify-content: center; margin: 0 0 24px; }
+.operator-auth-card h1 { display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 24px; line-height: 1.3; margin: 0 0 10px; }
+.operator-auth-card h1 svg { flex-shrink: 0; color: var(--accent); }
+.operator-auth-card .operator-intro { text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+.operator-auth-card fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.operator-auth-card .field { display: grid; gap: 8px; margin: 0 0 16px; font-size: 14px; }
+.operator-auth-card input { width: 100%; min-width: 0; min-height: 48px; font-size: 16px; }
+.operator-auth-card .password-field { display: block; position: relative; }
+.operator-auth-card .password-toggle { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); box-shadow: none; }
+.operator-auth-card .primary { width: 100%; min-height: 48px; margin: 8px 0 0; }
+@media (max-width: 480px) {
+  .auth-page.operator-auth-page { padding: 24px 14px; }
+  .auth-card.operator-auth-card { padding: 24px 20px; border-radius: 22px; }
+  .operator-auth-card h1 { font-size: 22px; }
+}
