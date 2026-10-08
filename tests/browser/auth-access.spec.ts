@@ -24,6 +24,12 @@ test('Google button, return navigation and trial CTA work on narrow login and si
   await expect(page).toHaveURL(/oauth-test-return$/);
   expect(posted).toEqual({mode:'login'});
   await page.goto('/registro');
+  await expect(page.getByRole('checkbox')).toHaveCount(2);
+  await expect(page.getByRole('checkbox').first()).not.toBeChecked();
+  await page.getByRole('button',{name:'Continuar con Google'}).click();
+  await expect(page).toHaveURL(/registro$/);
+  await page.getByRole('checkbox').nth(0).check();
+  await page.getByRole('checkbox').nth(1).check();
   await expect(page.getByLabel('Confirmar contraseña')).toBeVisible();
   for(const width of [320,375,414,1280]){
     await page.setViewportSize({width,height:900});
@@ -35,5 +41,5 @@ test('Google button, return navigation and trial CTA work on narrow login and si
   await page.getByLabel('Contraseña (mínimo 12 caracteres)',{exact:true}).fill('NoEnviarEstaClave2026');
   await page.getByRole('button',{name:'Continuar con Google'}).click();
   await expect(page).toHaveURL(/oauth-test-return$/);
-  expect(posted).toEqual({mode:'register',nombre:'Familia QA',familia:'Ejemplo'});
+  expect(posted).toEqual({mode:'register',nombre:'Familia QA',familia:'Ejemplo',legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v1'});
 });

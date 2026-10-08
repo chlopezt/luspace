@@ -347,7 +347,7 @@ test('household, hospital history and consultation companion persist without era
   const owner=cookie;assert.equal((await call('login','POST',{correo:'fields-reader@example.test',password:'ReaderPassword!2026'})).status,200);
   assert.equal((await call('children/'+id,'PUT',base)).status,403);assert.equal((await call(endpoint,'PUT',visit)).status,403);
   cookie=owner;
-  assert.equal((await call('register','POST',{nombre:'Other',familia:'Other',correo:'fields-other@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'})).status,201);
+  assert.equal((await call('register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v1',nombre:'Other',familia:'Other',correo:'fields-other@example.test',password:'OtherPassword!2026',password_confirmation:'OtherPassword!2026'})).status,201);
   assert.deepEqual((await call('children')).body,[]);assert.equal((await call(endpoint)).status,404);
  }finally{env.close();}
 });

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { localEnv } from '../server/local.js';
 import { handle } from '../server/api.js';
+import {LEGAL_VERSION} from '../shared/legal.js';
 
 test('family registration is atomic, gated and isolated with a server-owned trial', async () => {
   const env = localEnv(mkdtempSync(join(tmpdir(), 'luspace-registration-')));
@@ -19,7 +20,7 @@ test('family registration is atomic, gated and isolated with a server-owned tria
     return { status: response.status, body: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] };
   }
   const form = (correo) => ({ nombre: 'Administrador QA', familia: 'Familia QA', correo,
-    password: 'RegistroSeguro2026!', password_confirmation: 'RegistroSeguro2026!' });
+    password: 'RegistroSeguro2026!', password_confirmation: 'RegistroSeguro2026!',legal_accepted:true,care_authorized:true,legal_version:LEGAL_VERSION });
   try {
     assert.equal((await call('register', 'POST', form('first@example.test'))).status, 403);
     const setup = await call('setup', 'POST', { ...form('owner@example.test') });
@@ -29,6 +30,10 @@ test('family registration is atomic, gated and isolated with a server-owned tria
     assert.equal((await call('register', 'POST', form('closed@example.test'))).status, 403);
     env.LUSPACE_REGISTRATION_ENABLED = 'true';
     assert.equal((await call('status')).body.registration, true);
+    for(const overrides of [{legal_accepted:false},{legal_accepted:'true'},{care_authorized:false},{legal_version:'old'}]){
+      assert.equal((await call('register','POST',{...form('no-consent@example.test'),...overrides})).status,400);
+      assert.equal(await env.DB.prepare("SELECT id FROM usuarios WHERE correo='no-consent@example.test'").first(),null);
+    }
     assert.equal((await call('register', 'POST', { ...form('wrong@example.test'), password_confirmation: 'DifferentPassword123' })).status, 400);
     assert.equal((await call('register', 'POST', { ...form('weak@example.test'), password: 'abcdefghijkl', password_confirmation: 'abcdefghijkl' })).status, 400);
 
@@ -37,6 +42,8 @@ test('family registration is atomic, gated and isolated with a server-owned tria
     assert.equal(registration.status, 201);
     const me = (await call('me', 'GET', undefined, registration.cookie)).body;
     assert.equal(me.rol, 'superadmin');
+    const consent=await env.DB.prepare('SELECT * FROM consentimientos_registro WHERE usuario_id=?').bind(me.id).first();
+    assert.equal(consent.familia_id,me.familia_id);assert.equal(consent.version_legal,LEGAL_VERSION);assert.equal(consent.canal,'correo');assert.ok(Date.parse(consent.aceptado_at));
     assert.equal(me.subscription.subscription_status, 'trial');
     assert.equal(me.subscription.storage_limit_bytes, 52428800);
     assert.equal(me.subscription.commercial_exempt, 0);
@@ -69,6 +76,7 @@ test('family registration is atomic, gated and isolated with a server-owned tria
     assert.equal((await call('register', 'POST', form('rollback@example.test'))).status, 500);
     assert.equal((await env.DB.prepare('SELECT count(*) AS n FROM familias').first()).n, before + 1);
     assert.equal(await env.DB.prepare("SELECT id FROM usuarios WHERE correo='rollback@example.test'").first(), null);
+    assert.equal((await env.DB.prepare('SELECT count(*) n FROM consentimientos_registro').first()).n,before);
     await env.DB.prepare('DROP TRIGGER fail_registration').run();
     for (let attempt = 0; attempt < 10; attempt++) await call('register', 'POST', { ...form('limited@example.test'), nombre: '' }, '', 'fixed-register-ip');
     assert.equal((await call('register', 'POST', form('limited@example.test'), '', 'fixed-register-ip')).status, 429);

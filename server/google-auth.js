@@ -1,4 +1,5 @@
 import { token, hash } from './security.js';
+import {requireConsent} from './legal-consent.js';
 
 export const googleEnabled = env => !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI);
 export const googleCookie = (req, value, age = 600) => `luspace_google=${value}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=${age}${new URL(req.url).protocol === 'https:' ? '; Secure' : ''}`;
@@ -7,6 +8,7 @@ const query = (db, sql, ...args) => db.prepare(sql).bind(...args);
 export async function startGoogle(req, env, input) {
   if (!googleEnabled(env)) reject('El acceso con Google aún no está configurado. Usa correo y contraseña.');
   const mode = input.mode === 'register' ? 'register' : 'login';
+  const legalVersion = mode === 'register' ? requireConsent(input) : null;
   const name = typeof input.nombre === 'string' ? input.nombre.trim() : '';
   const family = typeof input.familia === 'string' ? input.familia.trim() : '';
   if (name.length > 120 || family.length > 120) reject('El nombre y la familia pueden tener hasta 120 caracteres.');
@@ -14,7 +16,7 @@ export async function startGoogle(req, env, input) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
   const challenge = btoa(String.fromCharCode(...digest)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   await query(env.DB, 'DELETE FROM oauth_google_estados WHERE expira_at<=?', new Date().toISOString()).run();
-  await query(env.DB, 'INSERT INTO oauth_google_estados(id,navegador_hash,verifier,modo,nombre,familia,expira_at) VALUES(?,?,?,?,?,?,?)', await hash(state), await hash(browser), verifier, mode, name, family, new Date(Date.now() + 600000).toISOString()).run();
+  await query(env.DB, 'INSERT INTO oauth_google_estados(id,navegador_hash,verifier,modo,nombre,familia,expira_at,version_legal) VALUES(?,?,?,?,?,?,?,?)', await hash(state), await hash(browser), verifier, mode, name, family, new Date(Date.now() + 600000).toISOString(), legalVersion).run();
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.search = new URLSearchParams({client_id: env.GOOGLE_CLIENT_ID, redirect_uri: env.GOOGLE_REDIRECT_URI, response_type: 'code', scope: 'openid email profile', state, code_challenge: challenge, code_challenge_method: 'S256', prompt: 'select_account'}).toString();
   return {url: url.href, cookie: googleCookie(req, browser)};

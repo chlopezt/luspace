@@ -24,7 +24,7 @@ test('encrypted backups restore two isolated families and reject tampering, miss
  let original;try{
   const password='BackupPassword!2026';
   const a=await request(env,'setup','POST',{nombre:'Admin A',familia:'Familia A',correo:'backup-a@example.test',password});assert.equal(a.res.status,201);const ca=a.cookie;
-  const b=await request(env,'register','POST',{nombre:'Admin B',familia:'Familia B',correo:'backup-b@example.test',password,password_confirmation:password});assert.equal(b.res.status,201);const cb=b.cookie;
+  const b=await request(env,'register','POST',{legal_accepted:true,care_authorized:true,legal_version:'2026-10-08-v1',nombre:'Admin B',familia:'Familia B',correo:'backup-b@example.test',password,password_confirmation:password});assert.equal(b.res.status,201);const cb=b.cookie;
   const children=[];for(const session of [ca,cb]){const c=await request(env,'children','POST',{primer_nombre:'Niño QA',fecha_nacimiento:'2020-01-01'},session);assert.equal(c.res.status,201);children.push((await c.res.json()).id);}
   const files=[];for(let i=0;i<2;i++){const form=new FormData();form.append('file',new Blob(['%PDF-1.4 Familia '+i],{type:'application/pdf'}),'privado.pdf');const f=await request(env,'files?child='+children[i]+'&module=salud','POST',form,[ca,cb][i]);assert.equal(f.res.status,201);files.push((await f.res.json()).id);}
   for(let i=0;i<2;i++){
@@ -53,6 +53,8 @@ test('encrypted backups restore two isolated families and reject tampering, miss
   for(const encrypted of archive.objects.values())assert.equal(encrypted.includes(Buffer.from('backup-a@example.test')),false);
   const restored=restoreArchive(archive.objects,key);try{
    assert.equal(restored.summary.families,2);assert.equal(restored.db.prepare('SELECT COUNT(*) AS n FROM sesiones').get().n,0);
+   const savedConsent=restored.db.prepare('SELECT c.*,u.correo FROM consentimientos_registro c JOIN usuarios u ON u.id=c.usuario_id AND u.familia_id=c.familia_id').all();
+   assert.equal(savedConsent.length,1);assert.equal(savedConsent[0].correo,'backup-b@example.test');assert.equal(savedConsent[0].version_legal,'2026-10-08-v1');assert.equal(savedConsent[0].canal,'correo');
    for(const p of manualRecords){const restoredPayment=restored.db.prepare('SELECT * FROM pagos_manuales WHERE id=?').get(p.id);assert.equal(restoredPayment.familia_id,p.familia_id);assert.equal(restoredPayment.periodo_fin,p.periodo_fin);assert.equal(restoredPayment.notas,p.notas);assert.equal(restored.db.prepare('SELECT manual_paid_until FROM familias WHERE id=?').get(p.familia_id).manual_paid_until,p.periodo_fin);}
    for(const m of mfaRecords){const saved=restored.db.prepare('SELECT * FROM plataforma_mfa WHERE usuario_id=?').get(m.id);assert.equal(saved.activo,1);assert.equal(saved.secreto_cifrado,m.sealed);assert.equal(await openSecret(saved.secreto_cifrado,m.password,m.id),m.secret);assert.equal(restored.db.prepare('SELECT COUNT(*) AS n FROM plataforma_mfa_recuperacion WHERE usuario_id=? AND usado_at IS NULL').get(m.id).n,10);}
    assert.equal((await request(restored.env,'children','GET',undefined,ca)).res.status,401);
@@ -83,4 +85,3 @@ test('backup operational summaries are platform-admin only and do not include cl
  try{const setup=await call('setup','POST',{nombre:'QA',familia:'QA',correo:'backup-status@example.test',password:'FamilyPassword!2026'});const session=setup.cookie,me=(await call('me','GET',undefined,session)).data;assert.equal((await call('platform/backups','GET',undefined,session)).status,401);await env.DB.prepare('INSERT INTO administradores_plataforma(usuario_id) VALUES(?)').bind(me.id).run();await call('platform/enroll','POST',{correo:'backup-platform@example.test',current_password:'FamilyPassword!2026',password:'PlatformPassword!2026'},session);const login=await call('platform/login','POST',{correo:'backup-platform@example.test',password:'PlatformPassword!2026'});assert.equal(login.status,200);const report=await call('platform/backups','GET',undefined,login.cookie);assert.equal(report.status,200);assert.equal(report.data.state,'pending');assert.equal(JSON.stringify(report.data).includes('password_hash'),false);assert.equal((await call('platform/backups','POST',{},login.cookie)).status,404);
  }finally{env.close();}
 });
-

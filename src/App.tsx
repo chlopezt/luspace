@@ -35,6 +35,9 @@ import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
+import LegalPage from './LegalPage';
+import {LEGAL_VERSION,LEGAL_DECLARATION} from '../shared/legal.js';
+import './legal.css';
 import Theme from './ThemeControl';
 import './auth-access.css';
 import { useSubscription } from './useSubscription';
@@ -64,12 +67,15 @@ function Auth({
     [recoveryOpen, setRecoveryOpen] = useState(false);
   const register = !setup && !guestToken && registration && location.pathname === "/registro";
   const createAccount = setup || register;
+  const [accepted,setAccepted]=useState(false), [authorized,setAuthorized]=useState(false);
+  const legalInput = {legal_accepted:accepted,care_authorized:authorized,legal_version:LEGAL_VERSION};
   async function continueGoogle(button: HTMLButtonElement) {
     const form = button.closest('form');
     const data = form ? Object.fromEntries(new FormData(form)) : {};
     setBusy(true); setError('');
     try {
-      const result = await api('auth/google/start', 'POST', {nombre:data.nombre, familia:data.familia, mode:register ? 'register' : 'login'});
+      if(register && (!accepted || !authorized)) throw new Error('Acepta los documentos y confirma tu autorización antes de continuar.');
+      const result = await api('auth/google/start', 'POST', {nombre:data.nombre, familia:data.familia, mode:register ? 'register' : 'login',...(register?legalInput:{})});
       location.assign(result.url);
     } catch(e) {setError((e as Error).message); setBusy(false);}
   }
@@ -82,7 +88,7 @@ function Auth({
       await api(
         guestToken ? "guest/exchange" : register ? "register" : setup ? "setup" : "login",
         "POST",
-        guestToken ? { ...b, token: guestToken } : b,
+        guestToken ? { ...b, token: guestToken } : register ? {...b,...legalInput} : b,
       );
       if (guestToken || register) history.replaceState(null, "", "/");
       onDone();
@@ -112,6 +118,10 @@ function Auth({
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
             {!setup && !guestToken && <>
+              {register && <>
+                <label className="legal-consent"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)} required/><span>Acepto los <a href="/terminos" target="_blank" rel="noopener noreferrer">términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">política de privacidad</a>.<small>Versión {LEGAL_VERSION}</small></span></label>
+                <label className="legal-consent"><input type="checkbox" checked={authorized} onChange={e=>setAuthorized(e.target.checked)} required/><span>{LEGAL_DECLARATION}</span></label>
+              </>}
               <button className="google-signin" type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/> <span>Continuar con Google</span></button>
               {!google && <p className="auth-hint">Google no está disponible todavía.</p>}
               <div className="auth-divider"><span>o continúa con tu correo</span></div>
@@ -391,6 +401,8 @@ const navigation = [
   ["auditoria", "Auditoría", ShieldCheck],
 ] as const;
 export default function App() {
+  if(location.pathname==='/terminos') return <LegalPage kind="terms"/>;
+  if(location.pathname==='/privacidad') return <LegalPage kind="privacy"/>;
   return location.pathname === "/admin" || location.pathname.startsWith("/admin/") ? <AdminPortal /> : <FamilyApp />;
 }
 function FamilyApp() {

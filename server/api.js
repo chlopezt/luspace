@@ -7,6 +7,7 @@ import { subscription } from "./subscription.js";
 import {manualPaymentOverview,registerManualPayment,reviewManualPayment} from './manual-payments.js';
 import {mfaStatus,beginMfa,enableMfa,proveMfa,refreshMfa,disableMfa} from './platform-mfa.js';
 import { googleEnabled, startGoogle, finishGoogle, googleCookie } from './google-auth.js';
+import {requireConsent,consentStatement} from './legal-consent.js';
 import {r2Enabled,objectKey,putVerified,readFileBytes,removeR2,copyNextFile,migrationStatus} from './file-storage.js';
 import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
@@ -366,6 +367,8 @@ export async function handle(req, env) {
           await audit(db, user, 'LOGIN', 'Inicio de sesión con Google', ip).run();
         } else {
           if (await first(db, 'SELECT id FROM usuarios WHERE correo=?', mail)) fail(409, 'Ese correo ya tiene una cuenta. Ingresa con tu contraseña de LuSpace; no se vinculó automáticamente con Google.');
+          if (identity.flow.modo !== 'register' || !identity.flow.version_legal)
+            throw Object.assign(new Error('Para crear tu cuenta, entra a Registrarse y acepta los términos y la política de privacidad.'),{status:400,registrationRequired:true});
           if (env.LUSPACE_REGISTRATION_ENABLED !== 'true' || !(await first(db, 'SELECT count(*) AS n FROM usuarios')).n) fail(403, 'El registro todavía no está habilitado.');
           const family = uid(), id = uid(); raw = token();
           const name = identity.flow.nombre || identity.name || 'Administrador familiar';
@@ -374,6 +377,7 @@ export async function handle(req, env) {
           await db.batch([
             stmt(db, "INSERT INTO familias(id,nombre,created_at,subscription_status,storage_limit_bytes,commercial_exempt) VALUES(?,?,?,'trial',52428800,0)", family, familyName, new Date().toISOString()),
             stmt(db, "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,'superadmin')", id, family, name, mail),
+            consentStatement(db,id,family,identity.flow.version_legal,'google'),
             stmt(db, 'INSERT INTO identidades_google(subject,usuario_id) VALUES(?,?)', identity.subject, id),
             stmt(db, 'INSERT INTO familia_configuracion(familia_id) VALUES(?)', family),
             stmt(db, 'INSERT INTO sesiones(id,usuario_id,expira_at) VALUES(?,?,?)', await hash(raw), id, new Date(Date.now()+28800000).toISOString()),
@@ -386,7 +390,7 @@ export async function handle(req, env) {
         return new Response(null, {status:303, headers});
       } catch (e) {
         const message = e.status ? e.message : 'No se pudo completar el acceso con Google. Vuelve a intentarlo.';
-        return new Response(null, {status:303, headers:{'Location':'/login?google_error='+encodeURIComponent(message), 'Cache-Control':'no-store', 'Referrer-Policy':'no-referrer', 'Set-Cookie':googleCookie(req, '', 0)}});
+        return new Response(null, {status:303, headers:{'Location':(e.registrationRequired?'/registro':'/login')+'?google_error='+encodeURIComponent(message), 'Cache-Control':'no-store', 'Referrer-Policy':'no-referrer', 'Set-Cookie':googleCookie(req, '', 0)}});
       }
     }
     if (path === "register" && method === "POST") {
@@ -394,6 +398,7 @@ export async function handle(req, env) {
         fail(403, "El registro de nuevas familias todavía no está habilitado.");
       await limit(db, "register:" + ip);
       const b = await body(req);
+      const legalVersion = requireConsent(b);
       const name = text(b.nombre, 120), familyName = text(b.familia, 120), mail = email(b.correo);
       if (!name || !familyName) fail(400, "Completa tu nombre y el nombre de la familia.");
       const secret = pass(b.password);
@@ -406,6 +411,7 @@ export async function handle(req, env) {
         await db.batch([
           stmt(db, "INSERT INTO familias(id,nombre,created_at,subscription_status,storage_limit_bytes,commercial_exempt) VALUES(?,?,?,'trial',52428800,0)", family, familyName, now),
           stmt(db, "INSERT INTO usuarios(id,familia_id,nombre,correo,rol) VALUES(?,?,?,?,'superadmin')", id, family, name, mail),
+          consentStatement(db,id,family,legalVersion,'correo',now),
           stmt(db, "INSERT INTO credenciales_usuario(usuario_id,password_hash) VALUES(?,?)", id, pw),
           stmt(db, "INSERT INTO familia_configuracion(familia_id) VALUES(?)", family),
           stmt(db, "INSERT INTO sesiones(id,usuario_id,expira_at) VALUES(?,?,?)", sessionHash, id, new Date(Date.now() + 28800000).toISOString()),
