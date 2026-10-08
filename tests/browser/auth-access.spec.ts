@@ -52,6 +52,6 @@ test('Google button, return navigation and trial CTA work on narrow login and si
   await page.getByLabel('Contraseña (mínimo 12 caracteres)',{exact:true}).fill('NoEnviarEstaClave2026');
   await page.getByRole('button',{name:'Continuar con Google'}).click();
   await expect(page).toHaveURL(/oauth-test-return$/);
-  expect(posted).toEqual({mode:'register',nombre:'Familia QA',familia:'Ejemplo',legal_accepted:true,legal_version:'2026-10-08-v1'});
+  expect(posted).toEqual({mode:'register',nombre:'Familia QA',familia:'Ejemplo',legal_accepted:true,legal_version:'2026-10-08-v2'});
 });
 

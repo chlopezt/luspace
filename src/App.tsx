@@ -48,7 +48,7 @@ import { Audit, Guests, Users, ProfileAccess } from "./Administration";
 import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, type PdfResume } from './pdfRecovery';
 
 function RegistrationNotice() {
-  return <p className="registration-notice">Al crear tu cuenta, aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">Política de privacidad</a> de LuSpace.</p>;
+  return <p className="registration-notice">Al crear tu cuenta, aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos de servicio y Privacidad</a> de LuSpace.</p>;
 }
 function Auth({
   setup,
@@ -213,6 +213,7 @@ function Auth({
           : registration
             ? <div className="auth-trial"><p>¿Tu familia aún no tiene cuenta?</p><a href="/registro">Probar LuSpace durante 14 días</a><span>$0 durante la prueba · Sin tarjeta</span></div>
             : location.pathname === "/registro" && <p className="muted">El registro de nuevas familias todavía no está habilitado. <a href="/login">Volver al inicio de sesión</a></p>)}
+        {!register && !setup && !guestToken && <p className="auth-legal-link"><a href="/terminos" target="_blank" rel="noopener noreferrer">Términos de servicio y Privacidad</a></p>}
       </main>
       {recoveryOpen && <Modal title="Ayuda de acceso" description="Si olvidaste tu contraseña, pide al administrador de tu familia que restablezca tu acceso." close={() => setRecoveryOpen(false)}><button type="button" className="primary" onClick={() => setRecoveryOpen(false)}>Entendido</button></Modal>}
     </div>
@@ -880,4 +881,3 @@ function FamilyApp() {
     </div></FileUploadEnabled.Provider>
   );
 }
-
