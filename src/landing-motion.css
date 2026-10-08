@@ -1,9 +1,20 @@
 /* Short welcome movement, not a perpetual animation. No layout shifts. */
 @media(prefers-reduced-motion:no-preference){
  .lp .lp-illustration { animation:lp-gentle-float 4.5s ease-in-out 1; }
- .lp .lp-motion-card { transition:opacity .5s ease-out,translate .5s ease-out; }
+ .lp .lp-motion-card { transition:opacity .5s ease-out,translate .5s ease-out,background-color .18s ease,color .18s ease,border-color .18s ease; }
  .lp .lp-motion-pending { opacity:0; translate:0 10px; }
+ .lp .lp-chart-pending .lp-curve-line { stroke-dasharray:1; stroke-dashoffset:1; }
+ .lp .lp-chart-pending .lp-curve-area { opacity:0; }
+ .lp .lp-chart-drawn .lp-curve-line { stroke-dasharray:1; animation:lp-draw-curve 1.5s ease-out 1 both; }
+ .lp .lp-chart-drawn .lp-curve-area { animation:lp-fill-curve 1.5s ease-out 1 both; }
+ .lp { transition:background-color .18s ease,color .18s ease; }
+ .lp :where(.lp-header,.lp-footer,.lp-preview,.lp-floating,.lp-features article,.lp-audience-card,.lp-price,.lp-final,.lp-security,.testimonial-card,details,.theme-control,.theme-control button) { transition:background-color .18s ease,color .18s ease,border-color .18s ease; }
+ .lp .lp-button { transition:transform .12s ease,background-color .18s ease; }
+ .lp .lp-button:active { transform:scale(.98); }
 }
+@keyframes lp-draw-curve { from{stroke-dashoffset:1}to{stroke-dashoffset:0} }
+@keyframes lp-fill-curve { 0%,65%{opacity:0}100%{opacity:.6} }
+.lp .lp-nav nav a[aria-current="location"] { color:var(--lp-accent); text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:6px; }
 @keyframes lp-gentle-float {
   0%,100% { transform:translateY(0); }
   50% { transform:translateY(-5px); }
@@ -17,4 +28,6 @@
 @media(prefers-reduced-motion:reduce){
  .lp .lp-illustration { animation:none; }
  .lp .lp-motion-card { opacity:1; translate:none; transition:none; }
+ .lp .lp-curve-line { animation:none!important; stroke-dashoffset:0!important; }
+ .lp .lp-curve-area { animation:none!important; opacity:.6!important; }
 }
