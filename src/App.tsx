@@ -47,8 +47,8 @@ import {useStartupLoading} from './StartupScreen';
 import { Audit, Guests, Users, ProfileAccess } from "./Administration";
 import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, type PdfResume } from './pdfRecovery';
 
-function RegistrationNotice({google = false}: {google?: boolean}) {
-  return <p className="registration-notice">Al {google ? 'continuar con Google' : 'crear tu cuenta'}, aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">Política de privacidad</a> de LuSpace.</p>;
+function RegistrationNotice() {
+  return <p className="registration-notice">Al crear tu cuenta, aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">Política de privacidad</a> de LuSpace.</p>;
 }
 function Auth({
   setup,
@@ -123,7 +123,6 @@ function Auth({
           <fieldset disabled={busy}>
             {!setup && !guestToken && <>
               <button className="google-signin" type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/> <span>Continuar con Google</span></button>
-              {register && <RegistrationNotice google/>}
               {!google && <p className="auth-hint">Google no está disponible todavía.</p>}
               <div className="auth-divider"><span>o continúa con tu correo</span></div>
             </>}
@@ -879,3 +878,4 @@ function FamilyApp() {
     </div></FileUploadEnabled.Provider>
   );
 }
+
