@@ -14,6 +14,7 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  Files,
 } from "lucide-react";
 import { api, type Row } from "./lib";
 import {
@@ -35,6 +36,7 @@ import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
+import MyFiles from './MyFiles';
 import SiteBanner from './SiteBanner';
 import LegalPage from './LegalPage';
 import {LEGAL_VERSION} from '../shared/legal.js';
@@ -402,6 +404,7 @@ const navigation = [
   ["rnd", "Credencial RND", ShieldCheck],
   ["invitados", "Invitados", Link],
   ["usuarios", "Familia y accesos", UsersIcon],
+  ["archivos", "Mis archivos", Files],
   ["auditoria", "Auditoría", ShieldCheck],
 ] as const;
 export default function App() {
@@ -600,9 +603,10 @@ function FamilyApp() {
         <nav>
           {navigation
             .filter(([k]) => !me.platform_controls?.blocked_modules?.includes(k))
+            .filter(([k]) => k !== 'archivos' || !me.guest)
             .filter(([k]) =>
               readonly
-                ? available.includes(k)
+                ? available.includes(k) || (k === 'archivos' && !me.guest)
                 : k !== "auditoria" || (me.rol === "superadmin" && !!me.audit_visible),
             )
             .map(([key, label, Icon]) => (
@@ -828,6 +832,7 @@ function FamilyApp() {
                 />
               )}
               {view === "auditoria" && me.rol === "superadmin" && !!me.audit_visible && <Audit />}
+              {view === "archivos" && !me.guest && <MyFiles children={children}/>}
             </>
           )}
         </main>

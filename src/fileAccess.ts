@@ -1,6 +1,6 @@
 // Never save a JSON error response as if it were the requested photograph.
-export async function fetchAttachment(id: string, signal?: AbortSignal) {
-  const response = await fetch('/api/files/' + encodeURIComponent(id), {
+export async function fetchAttachment(id: string, signal?: AbortSignal, download = false) {
+  const response = await fetch('/api/files/' + encodeURIComponent(id) + (download ? '?download=1' : ''), {
     credentials: 'same-origin', signal,
   });
   if (!response.ok) {
@@ -13,7 +13,7 @@ export async function fetchAttachment(id: string, signal?: AbortSignal) {
   return response.blob();
 }
 export async function downloadAttachment(id: string, name: string) {
-  const blob = await fetchAttachment(id);
+  const blob = await fetchAttachment(id, undefined, true);
   const url = URL.createObjectURL(blob), link = document.createElement('a');
   link.href = url; link.download = name; document.body.append(link);
   link.click(); link.remove();

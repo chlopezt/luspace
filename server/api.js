@@ -14,6 +14,7 @@ import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
+import {fileCatalog} from './file-catalog.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -150,7 +151,7 @@ function admin(a) {
 }
 const fullEditorAccess = () => ({
   modules: Object.keys(modules),
-  acciones: ["ver", "crear", "editar", "eliminar"],
+  acciones: ["ver", "crear", "editar", "eliminar", "descargar", "adjuntar"],
 });
 function permissions(a) {
   if (a.rol === "superadmin") return fullEditorAccess();
@@ -1475,18 +1476,23 @@ export async function handle(req, env) {
       ).run();
       return json(b.selection ? filterReport(data, b.selection) : data);
     }
+    if (path === 'file-index' && method === 'GET') {
+      if(a.guest)fail(403,'El índice familiar no está disponible para invitados.');
+      const visible=Object.keys(modules).filter(m=>!a.platform_controls?.blocked_modules.includes(m)&&(a.rol==='superadmin'||permissions(a).modules?.includes(m)));
+      const rows=await fileCatalog(db,a,permissions(a),visible);
+      const search=(url.searchParams.get('q')||'').slice(0,200).toLocaleLowerCase('es');
+      const childId=url.searchParams.get('child'),module=url.searchParams.get('module'),type=url.searchParams.get('type');
+      const filtered=rows.filter(f=>(!childId||f.nino_id===childId)&&(!module||f.modulo===module)&&(!type||(type==='pdf'?f.mime==='application/pdf':type==='image'&&f.mime.startsWith('image/')))&&(!search||[f.nombre,f.origen,f.nino_nombre].join(' ').toLocaleLowerCase('es').includes(search)));
+      const page=Math.max(1,Math.min(100000,parseInt(url.searchParams.get('page')||'1',10)||1)),size=30;
+      return json({items:filtered.slice((page-1)*size,page*size),total:filtered.length,page,page_size:size});
+    }
     if (path === "files" && method === "GET") {
       const n = url.searchParams.get("child"),
         m = url.searchParams.get("module");
       await child(db, a, n);
       allowed(a, m);
       return json(
-        await all(
-          db,
-          "SELECT id,nombre,mime,bytes,created_at FROM archivos WHERE nino_id=? AND modulo=?",
-          n,
-          m,
-        ),
+        (await fileCatalog(db,a,permissions(a),[m])).filter(f=>f.nino_id===n),
       );
     }
     if (path === "files" && method === "POST") {
@@ -1603,6 +1609,9 @@ export async function handle(req, env) {
       if (!f) fail(404, "Archivo no encontrado.");
       await child(db, a, f.nino_id);
       allowed(a, f.modulo);
+      const entry=(await fileCatalog(db,a,permissions(a),[f.modulo])).find(x=>x.id===f.id);
+      if(!entry)fail(403,'Tu cuenta no tiene permiso para consultar este documento.');
+      if(url.searchParams.has('download')&&!entry.can_download)fail(403,'Tu cuenta no tiene permiso para descargar documentos.');
       const bytes=await readFileBytes(env,f);
       await audit(
         db,
