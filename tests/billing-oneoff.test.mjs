@@ -11,7 +11,7 @@ import {LEGAL_VERSION} from '../shared/legal.js';
 test('single month: no recurring contract, trusted approval only, isolation, replay, refund, expiration and manual coexistence (mock provider)',async()=>{
   const env=localEnv(mkdtempSync(join(tmpdir(),'luspace-oneoff-')));
   Object.assign(env,{LUSPACE_BILLING_MODE:'production',LUSPACE_BILLING_LIVE_APPROVED:'true',MP_SELLER_ID:'101',MP_APPLICATION_ID:'303',MP_BILLING_BACK_URL:'https://luspace.cl/login',MP_ACCESS_TOKEN:'FAKE',MP_WEBHOOK_SECRET:'FAKE',LUSPACE_BILLING_JOB_KEY:'fictional-job-secret'.repeat(3),LUSPACE_BILLING_AMOUNT_CLP:'5938'});
-  let cookie='',creates=0,preference,payment,clock=Date.now(),searchRows=[];const preferences=new Map();
+  let cookie='',creates=0,preference,payment,clock=Date.now(),searchRows=[],wrongMerchantPreference=false;const preferences=new Map();
   const stamp=()=>new Date(clock+=1000).toISOString();
   env.BILLING_TEST_FETCH=async(input,options)=>{
     const url=new URL(input);let result;
@@ -26,7 +26,7 @@ test('single month: no recurring contract, trusted approval only, isolation, rep
     }else if(url.pathname.startsWith('/checkout/preferences/'))result=preferences.get(url.pathname.split('/').at(-1));
     else if(url.pathname==='/v1/payments/search')result={results:searchRows,paging:{total:searchRows.length}};
     else if(url.pathname==='/v1/payments/payonce')result=payment;
-    else if(url.pathname==='/merchant_orders/merchant1')result={id:'merchant1',collector:{id:101},preference_id:[...preferences.values()].find(p=>p.external_reference===payment.external_reference).id,external_reference:payment.external_reference,payments:[{id:'payonce'}]};
+    else if(url.pathname==='/merchant_orders/merchant1')result={id:'merchant1',application_id:'hosted-checkout',collector:{id:101},preference_id:wrongMerchantPreference?'another-preference':[...preferences.values()].find(p=>p.external_reference===payment.external_reference).id,external_reference:payment.external_reference,payments:[{id:'payonce'}]};
     else throw new Error('Unexpected provider request: '+url.pathname);
     return new Response(JSON.stringify(result),{status:result?200:404});
   };
@@ -62,6 +62,8 @@ test('single month: no recurring contract, trusted approval only, isolation, rep
     payment.transaction_amount=5938;payment.live_mode=false;assert.equal(await webhook(),400);
     payment.live_mode=true;payment.collector_id=999;assert.equal(await webhook(),400);
     payment.collector_id=101;payment.date_last_updated=stamp();
+    wrongMerchantPreference=true;assert.equal(await webhook(),400,'reject another preference even when the seller and reference match');wrongMerchantPreference=false;
+    const correctPrice=preference.items[0].unit_price;preference.items[0].unit_price=1;assert.equal(await webhook(),400,'re-fetch exact preference and verify its server-owned amount');preference.items[0].unit_price=correctPrice;
     assert.equal(await job(),200,'scheduled polling recovers a lost webhook without making a charge');
     assert.equal((await call('subscription')).body.can_write,true);
     const period=(await call('billing')).body.payments[0];assert.equal(period.kind,'oneoff');

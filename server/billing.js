@@ -179,7 +179,13 @@ async function saveOneoffPayment(env,order,payment,sellerId){
   if(payment.order?.type!=='mercadopago'||!payment.order.id)fail(400,'Falta la orden comercial del pago.');
   const commercial=await mp(env,'/merchant_orders/'+resource(payment.order.id));
   if(String(commercial.id)!==String(payment.order.id)||String(commercial.collector?.id)!==String(sellerId)||commercial.external_reference!==order.external_reference||commercial.preference_id!==order.preference_id||!commercial.payments?.some(p=>String(p.id)===String(payment.id)))fail(400,'La orden comercial no corresponde al pago único registrado.');
-  if(commercial.application_id!==undefined&&String(commercial.application_id)!==expectedApp(env))fail(400,'La orden comercial no corresponde a la aplicación configurada.');
+  // Checkout Pro merchant-order application_id is not a reliable match for the
+  // developer application used by recurring preapprovals (it can be empty or
+  // identify the hosted checkout). Bind to the exact preference we created,
+  // fetched with our token, verified seller, opaque reference and priced item.
+  // Do not change the separate application check for recurring subscriptions.
+  const preference=await mp(env,'/checkout/preferences/'+resource(order.preference_id));
+  assertPreference(order,preference,sellerId);
   const saved=await first(env.DB,'SELECT * FROM billing_order_payments WHERE order_id=?',order.id);
   if(saved&&saved.provider_payment_id!==String(payment.id)){
     if(payment.status==='approved')fail(409,'Se detectó un segundo pago para la misma orden. Requiere revisión del operador.');
