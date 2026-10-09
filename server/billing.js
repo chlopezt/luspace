@@ -41,7 +41,7 @@ async function mp(env,path,method='GET',data,key) {
   if(!response.ok){
     // Static operation labels and HTTP status only: no provider body, URL, token or payer data.
     const operation=path.startsWith('/users/')?'verificación de cuenta':path.startsWith('/authorized_payments')?'consulta de cuotas':path.startsWith('/v1/payments/')?'consulta de pago':method==='GET'?'consulta de suscripción':'gestión de suscripción';
-    fail(502,`Mercado Pago rechazó la ${operation} (HTTP ${response.status}). No se confirmó ningún pago ni se creó otra suscripción.`);
+    throw Object.assign(new Error(`Mercado Pago rechazó la ${operation} (HTTP ${response.status}). No se confirmó ningún pago ni se creó otra suscripción.`),{status:502,provider_status:response.status});
   }
   try{return await response.json();}catch{fail(502,'Mercado Pago devolvió una respuesta inválida.');}
 }
@@ -249,7 +249,12 @@ export async function receiveBillingWebhook(req,env){
     await syncRecord(env,record,sellerId);
     await sql(db,"UPDATE billing_webhook_inbox SET state='processed',lease_until=NULL WHERE id=?",event.id).run();
     return {ok:true};
-  }catch(error){await sql(db,"UPDATE billing_webhook_inbox SET state='failed',lease_until=NULL WHERE id=?",event.id).run();throw error;}
+  }catch(error){
+    // A correctly signed notification for a resource the provider says does not
+    // exist (e.g. its simulator) must never grant access or poison reconciliation.
+    if(error.provider_status===404){await sql(db,"UPDATE billing_webhook_inbox SET state='processed',lease_until=NULL WHERE id=?",event.id).run();return {ok:true,ignored:true};}
+    await sql(db,"UPDATE billing_webhook_inbox SET state='failed',lease_until=NULL WHERE id=?",event.id).run();throw error;
+  }
 }
 
 export async function platformBillingStatus(env){
