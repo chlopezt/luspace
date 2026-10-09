@@ -75,8 +75,11 @@ export function validateBillingNotification(req, payload, mode, fictionalEnv) {
     invalid('Notificación de pago inválida.');
   const pinnedFictional=mode==='test'&&fictionalEnv&&fictionalAccounts(fictionalEnv)
     &&String(payload.user_id)===fictionalEnv.MP_TEST_SELLER_ID;
-  if (typeof payload.live_mode!=='boolean' || (payload.live_mode!==(mode==='production')&&!pinnedFictional))
+  const subscriptionEnvelopeWithoutMode=mode==='production'&&payload.type.startsWith('subscription_')&&payload.live_mode===undefined;
+  if (!subscriptionEnvelopeWithoutMode && (typeof payload.live_mode!=='boolean' || (payload.live_mode!==(mode==='production')&&!pinnedFictional)))
     invalid('La notificación no corresponde al entorno de pagos.');
+  if(mode==='production'&&payload.application_id!==undefined&&String(payload.application_id)!==fictionalEnv?.MP_APPLICATION_ID)
+    invalid('La notificación no corresponde a la aplicación configurada.');
   // Store identifiers, not the untrusted raw body or customer/clinical information.
   return {topic:payload.type,resourceId:id,requestId:req.headers.get('x-request-id')};
 }
@@ -97,4 +100,5 @@ export function assertProviderSubscription(record, provider, expectedSellerId, e
   // Authorization alone is NOT proof of an approved payment.
   return provider.status;
 }
+
 

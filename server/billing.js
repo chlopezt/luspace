@@ -220,7 +220,7 @@ export async function receiveBillingWebhook(req,env){
   const raw=await req.text();if(raw.length>20000)fail(413,'Notificación demasiado grande.');
   let payload;try{payload=JSON.parse(raw);}catch{fail(400,'Notificación inválida.');}
   const mode=billingMode(env),message=validateBillingNotification(req,payload,mode,env),db=env.DB;
-  if(mode==='production' && String(payload.user_id)!==env.MP_SELLER_ID)fail(400,'El vendedor de la notificación no coincide.');
+  if(mode==='production' && payload.user_id!==undefined && String(payload.user_id)!==env.MP_SELLER_ID)fail(400,'El vendedor de la notificación no coincide.');
   const ts=req.headers.get('x-signature').split(',').find(part=>part.trim().startsWith('ts=')).trim().slice(3);
   await sql(db,"INSERT INTO billing_webhook_inbox(id,environment,topic,resource_id,request_id,signature_ts) VALUES(?,?,?,?,?,?) ON CONFLICT(environment,topic,resource_id,request_id,signature_ts) DO NOTHING",uid(),mode,message.topic,message.resourceId,message.requestId,ts).run();
   const event=await first(db,"SELECT * FROM billing_webhook_inbox WHERE environment=? AND topic=? AND resource_id=? AND request_id=? AND signature_ts=?",mode,message.topic,message.resourceId,message.requestId,ts);
