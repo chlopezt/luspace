@@ -626,7 +626,7 @@ function FamilyApp() {
               </button>
             ))}
         </nav>
-        {!me.guest && subscription.trial && <TrialCard daysLeft={subscription.daysLeft} onActivate={()=>setSubscriptionInfo(true)}/>}
+        {!me.guest && (subscription.trial || subscription.confirmedPaidUntil) && <TrialCard daysLeft={subscription.daysLeft} paidUntil={subscription.confirmedPaidUntil} onActivate={()=>setSubscriptionInfo(true)}/>}
         <div className="profile">
           <span>{me.nombre.slice(0, 1)}</span>
           <div>

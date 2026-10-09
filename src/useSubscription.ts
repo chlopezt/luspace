@@ -15,8 +15,9 @@ export function useSubscription(initial?:Row|null,guest=false) {
   const trial=value?.subscription_status==='trial' && !value?.commercial_exempt;
   const remaining=Math.max(0,Date.parse(value?.trial_ends_at||'')-now);
   const daysLeft=Number.isFinite(remaining)?Math.ceil(remaining/86400000):0;
+  const confirmedPaidUntil=Date.parse(value?.confirmed_paid_until)>now?value!.confirmed_paid_until:null;
   const canWrite=!value || !!value.commercial_exempt || (value.can_write && (!trial || remaining>0));
   const canRead=!value || !!value.commercial_exempt || (value.can_read!==false && (!value.read_access_ends_at || Date.parse(value.read_access_ends_at)>now || canWrite));
-  return {value,trial,daysLeft,canWrite,canRead};
+  return {value,trial,daysLeft,canWrite,canRead,confirmedPaidUntil};
 }
 

@@ -28,6 +28,9 @@ try {
     assert.match(html,new RegExp(`width:${daysLeft/14*100}%`));
     assert.match(html,daysLeft===0?/Tu prueba ha terminado/:daysLeft===1?/Te queda 1 día/:new RegExp(`Te quedan ${daysLeft} días`));
   }
+  const paidHtml=renderToStaticMarkup(React.createElement(TrialCard,{daysLeft:14,paidUntil:'2026-11-22T22:25:00Z',onActivate:()=>{}}));
+  assert.match(paidHtml,/Mes pagado/);assert.match(paidHtml,/Ver mi plan/);
+  assert.match(paidHtml,/Acceso hasta/);assert.doesNotMatch(paidHtml,/Activar plan|Prueba gratis|Te quedan/);
   for(const table of ['ninos','perfiles_escolares']) {
     assert.equal(models[table].fields.find(f=>f.key==='colegio_actual').label,'Institución o modalidad de cuidado');
     assert.match(models[table].fields.find(f=>['curso','curso_actual'].includes(f.key)).label,/Nivel, etapa o curso/);

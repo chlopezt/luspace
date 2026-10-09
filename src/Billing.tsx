@@ -8,7 +8,7 @@ const money=(n:number)=>new Intl.NumberFormat('es-CL',{style:'currency',currency
 export default function Billing({close}:{close:()=>void}){
   const [data,setData]=useState<Row|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false);
   const [connection,setConnection]=useState<Row|null>(null);
-  const load=async()=>{setError('');try{setData(await api('billing'));}catch(e){setError((e as Error).message);}};
+  const load=async()=>{setError('');try{setData(await api('billing'));window.dispatchEvent(new Event('luspace-subscription-refresh'));}catch(e){setError((e as Error).message);}};
   useEffect(()=>{void load();},[]);
   async function checkConnection(){setBusy(true);setError('');setConnection(null);try{setConnection(await api('billing/connection'));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   async function act(path:string){setBusy(true);setError('');try{
