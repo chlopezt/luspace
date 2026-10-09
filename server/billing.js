@@ -211,6 +211,9 @@ export async function cancelSubscription(env,a,id){
 }
 
 export async function receiveBillingWebhook(req,env){
+  // Closing new checkout must not drop signed notifications for existing payments.
+  // This context only retrieves provider resources, never creates contracts.
+  if(env.LUSPACE_BILLING_MODE==='production')env={...env,LUSPACE_BILLING_LIVE_APPROVED:'true',BILLING_READ_ONLY:true};
   requireTest(env);
   if(Number(req.headers.get('content-length'))>20000)fail(413,'Notificación demasiado grande.');
   if(!await verifyBillingSignature(req,env.MP_WEBHOOK_SECRET))fail(401,'Firma de notificación inválida.');
@@ -226,7 +229,13 @@ export async function receiveBillingWebhook(req,env){
   if(!claim.meta.changes)fail(503,'Notificación en proceso; reintenta más tarde.');
   try{
     const sellerId=await seller(env);let record;
-    if(message.topic==='subscription_preapproval')record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment=?",message.resourceId,mode);
+    if(message.topic==='subscription_preapproval'){
+      record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment=?",message.resourceId,mode);
+      // A signed notification can belong to a contract not created by LuSpace,
+      // including the provider's simulator. Acknowledge without granting access.
+      // Uncertain local reservations are recovered independently by the job.
+      if(!record){await sql(db,"UPDATE billing_webhook_inbox SET state='processed',lease_until=NULL WHERE id=?",event.id).run();return {ok:true,ignored:true};}
+    }
     else if(message.topic==='subscription_authorized_payment'){
       const invoice=await mp(env,'/authorized_payments/'+resource(message.resourceId));
       record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment=?",String(invoice.preapproval_id),mode);
@@ -310,4 +319,5 @@ export async function reconcileBillingJob(req,env){
   if(failures)fail(503,'La verificación automática encontró operaciones pendientes de revisar.');
   return {ok:true,processed};
 }
+
 

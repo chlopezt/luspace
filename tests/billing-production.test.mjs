@@ -49,13 +49,14 @@ test('production semantics with mocked provider only: consent, signed webhook, s
     const ts=String(Math.floor(Date.now()/1000)),sig=createHmac('sha256',env.LUSPACE_BILLING_JOB_KEY).update('billing-reconcile:'+ts).digest('hex');
     const r=await handle(new Request('https://luspace.cl/api/billing/reconcile-job',{method:'POST',headers:{'x-luspace-job-ts':ts,'x-luspace-job-signature':valid?sig:'0'.repeat(64)}}),env);return r.status;
   }
-  async function webhook(live=true,sellerId=101){
-    const ts=String(Math.floor(Date.now()/1000)),sig=createHmac('sha256',env.MP_WEBHOOK_SECRET).update(`id:invoice1;request-id:event1;ts:${ts};`).digest('hex');
-    const r=await handle(new Request('https://luspace.cl/api/billing/webhook?data.id=invoice1',{method:'POST',headers:{'x-request-id':'event1','x-signature':`ts=${ts},v1=${sig}`},body:JSON.stringify({type:'subscription_authorized_payment',data:{id:'invoice1'},live_mode:live,user_id:sellerId})}),env);return r.status;
+  async function webhook(live=true,sellerId=101,topic='subscription_authorized_payment',id='invoice1'){
+    const ts=String(Math.floor(Date.now()/1000)),sig=createHmac('sha256',env.MP_WEBHOOK_SECRET).update(`id:${id};request-id:event1;ts:${ts};`).digest('hex');
+    const r=await handle(new Request('https://luspace.cl/api/billing/webhook?data.id='+id,{method:'POST',headers:{'x-request-id':'event1','x-signature':`ts=${ts},v1=${sig}`},body:JSON.stringify({type:topic,data:{id},live_mode:live,user_id:sellerId})}),env);return r.status;
   }
   try{
     assert.equal((await call('setup','POST',{nombre:'Owner',familia:'Live fixture',correo:'owner@example.test',password:'Password!2026qa'})).status,201);
     const ownerCookie=cookie,me=(await call('me')).body;
+    env.LUSPACE_BILLING_LIVE_APPROVED='false';assert.equal(await webhook(true,101,'subscription_preapproval','unregistered-simulator'),200,'signed notifications are validated while checkout is closed, without granting access');env.LUSPACE_BILLING_LIVE_APPROVED='true';assert.equal(creates,0);
     assert.equal((await call('users','POST',{nombre:'Editor',correo:'editor@example.test',password:'Password!2026qa',rol:'editor'})).status,201);
     await env.DB.prepare("UPDATE familias SET trial_ends_at='2000-01-01T00:00:00Z' WHERE id=?").bind(me.familia_id).run();
     assert.equal((await call('billing/checkout','POST',{})).status,400);assert.equal(creates,0);
@@ -87,4 +88,5 @@ test('production semantics with mocked provider only: consent, signed webhook, s
     await env.DB.prepare('UPDATE familias SET manual_paid_until=? WHERE id=?').bind(new Date(Date.now()+86400000).toISOString(),me.familia_id).run();assert.equal((await call('subscription')).body.can_write,true,'manual access remains independent');
   }finally{env.close();}
 });
+
 
