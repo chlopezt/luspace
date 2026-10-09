@@ -15,6 +15,7 @@ import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js'
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
 import {fileCatalog} from './file-catalog.js';
+import {billingStatus,billingConnection,createCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus,reconcileBillingJob} from './billing.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -333,6 +334,9 @@ export async function handle(req, env) {
     const url = new URL(req.url),
       path = url.pathname.replace(/^\/api\/?/, ""),
       method = req.method;
+    // These server-to-server routes authenticate independently; never exempt other writes from CSRF.
+    if(path==='billing/webhook' && method==='POST')return json(await receiveBillingWebhook(req,env));
+    if(path==='billing/reconcile-job' && method==='POST')return json(await reconcileBillingJob(req,env));
     if (
       !["GET", "HEAD"].includes(method) &&
       req.headers.get("origin") !== url.origin
@@ -600,10 +604,28 @@ export async function handle(req, env) {
       const controls=await first(db,"SELECT modulos_bloqueados_json,ai_enabled,uploads_enabled,reports_enabled FROM plataforma_controles_familia WHERE familia_id=?",a.familia_id);
       a.platform_controls={blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0};
     }
-    const familySubscription = a.familia_id ? await subscription(db,a.familia_id) : null;
+    const familySubscription = a.familia_id ? await subscription(db,a.familia_id,env) : null;
     if (familySubscription && !familySubscription.can_write && ['POST','PUT','PATCH'].includes(method) && /^(children|records|anamnesis|files|consultation|family|guests)(\/|$)/.test(path))
       fail(403,'Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.');
     if(path==='subscription' && method==='GET') return json(familySubscription);
+    if(path==='billing' && method==='GET')return json(await billingStatus(env,a));
+    if(path==='billing/connection' && method==='GET'){
+      await limit(db,'billing-connection:'+a.id,10,900);
+      return json(await billingConnection(env,a));
+    }
+    if(path==='billing/checkout' && method==='POST'){
+      await limit(db,'billing-checkout:'+a.id);
+      return json(await createCheckout(env,a,await req.json()),201);
+    }
+    if(path==='billing/refresh' && method==='POST'){
+      await limit(db,'billing-refresh:'+a.id);
+      return json(await reconcileFamily(env,a));
+    }
+    const cancelBilling=path.match(/^billing\/([a-zA-Z0-9-]+)\/cancel$/);
+    if(cancelBilling && method==='POST'){
+      await limit(db,'billing-cancel:'+a.id);
+      return json(await cancelSubscription(env,a,cancelBilling[1]));
+    }
     if (path.startsWith("platform/")) {
       if (a.guest || !await first(db, "SELECT usuario_id FROM administradores_plataforma WHERE usuario_id=? AND activo=1", a.id))
         fail(403, "Este espacio es exclusivo de la administración de LuSpace.");
@@ -614,6 +636,11 @@ export async function handle(req, env) {
       }
       if(path==='platform/consumption' && method==='GET') return json(await consumption(env));
       if(path==='platform/backups' && method==='GET') return json(await backupStatus(env));
+      if(path==='platform/billing' && method==='GET')return json(await platformBillingStatus(env));
+      if(path==='platform/billing/connection' && method==='GET'){
+        await limit(db,'platform-billing-connection:'+a.id,10,900);
+        return json(await billingConnection(env,{rol:'superadmin'}));
+      }
       if(path==='platform/manual-payments' && method==='GET')return json(await manualPaymentOverview(db));
       const manualReview=path.match(/^platform\/manual-payments\/([a-zA-Z0-9-]+)\/review$/);
       if((path==='platform/manual-payments'||manualReview)&&method==='POST'){

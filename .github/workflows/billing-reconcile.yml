@@ -1,0 +1,24 @@
+name: Verificar pagos LuSpace
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: billing-reconcile
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Conciliar pagos aprobados sin crear cobros
+        env:
+          LUSPACE_BILLING_JOB_KEY: ${{ secrets.LUSPACE_BILLING_JOB_KEY }}
+        run: node scripts/reconcile-billing.mjs
+

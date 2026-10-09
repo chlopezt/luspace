@@ -9,6 +9,13 @@ binding = "AI"
 LUSPACE_AI_ENABLED = "true"
 LUSPACE_R2_ENABLED = "true"
 LUSPACE_REGISTRATION_ENABLED = "true"
+LUSPACE_BILLING_MODE = "production"
+# Keep checkout disabled until real credentials, webhook and scheduled verification are checked.
+LUSPACE_BILLING_LIVE_APPROVED = "false"
+LUSPACE_BILLING_AMOUNT_CLP = "5938"
+MP_SELLER_ID = "146906297"
+MP_APPLICATION_ID = "3897124361346197"
+MP_BILLING_BACK_URL = "https://luspace.cl/login"
 
 [[d1_databases]]
 binding = "DB"
@@ -19,3 +26,4 @@ migrations_dir = "db/migrations"
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "luspace-files"
+
