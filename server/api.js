@@ -859,6 +859,48 @@ export async function handle(req, env) {
         projected_days_to_limit: projectedDays,
       });
     }
+    if(path==='reminders' || /^reminders\/[^/]+$/.test(path)) {
+      if(a.guest)fail(403,'Los recordatorios son privados de la familia.');
+      allowed(a,'recordatorios');
+      const id=path.split('/')[1],p=permissions(a);
+      if(method==='GET'&&!id){
+        const rows=await all(db,'SELECT r.*,n.primer_nombre AS nino_nombre,u.nombre AS responsable_nombre FROM recordatorios r LEFT JOIN ninos n ON n.id=r.nino_id LEFT JOIN usuarios u ON u.id=r.responsable_id WHERE r.familia_id=? ORDER BY r.completado,CASE WHEN r.fecha IS NULL THEN 1 ELSE 0 END,r.fecha,r.created_at,r.id',a.familia_id);
+        const members=await all(db,'SELECT id,nombre FROM usuarios WHERE familia_id=? AND activo=1 ORDER BY nombre',a.familia_id);
+        return json({rows,members,actions:p.acciones||[]});
+      }
+      if(!['POST','PUT','PATCH','DELETE'].includes(method))fail(405,'Método no permitido.');
+      member(a,'recordatorios',method==='POST'?'crear':method==='DELETE'?'eliminar':'editar');
+      if(method==='POST'&&id)fail(405,'Método no permitido.');
+      const existing=id?await first(db,'SELECT * FROM recordatorios WHERE id=? AND familia_id=?',id,a.familia_id):null;
+      if(method!=='POST'&&!existing)fail(404,'Recordatorio no encontrado.');
+      const b=await body(req);
+      if(existing&&(!Number.isInteger(b.version)||b.version!==existing.version))fail(409,'El recordatorio cambió. Actualiza la lista antes de intentarlo de nuevo.');
+      if(method==='DELETE'){
+        const result=await stmt(db,'DELETE FROM recordatorios WHERE id=? AND familia_id=? AND version=?',id,a.familia_id,b.version).run();
+        if(!result.meta.changes)fail(409,'El recordatorio cambió. Actualiza la lista.');
+        await audit(db,a,'DELETE','Recordatorio eliminado',ip).run();return json({ok:true});
+      }
+      if(method==='PATCH'){
+        if(typeof b.completado!=='boolean')fail(400,'Estado de recordatorio inválido.');
+        const result=await stmt(db,'UPDATE recordatorios SET completado=?,completado_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND familia_id=? AND version=?',b.completado?1:0,b.completado?new Date().toISOString():null,id,a.familia_id,b.version).run();
+        if(!result.meta.changes)fail(409,'El recordatorio cambió. Actualiza la lista.');
+      }else{
+        const title=text(b.titulo||'',180),notes=text(b.notas||'',4000),category=text(b.categoria||'Otro',40);
+        if(!title||!['Salud','Educación','Cuidado','Otro'].includes(category))fail(400,'Revisa el título y la categoría.');
+        const childId=b.nino_id?text(b.nino_id,128):null,responsible=b.responsable_id?text(b.responsable_id,128):null;
+        if(childId)await child(db,a,childId);
+        if(responsible&&!await first(db,'SELECT id FROM usuarios WHERE id=? AND familia_id=? AND activo=1',responsible,a.familia_id))fail(400,'El responsable no pertenece a tu familia o está inactivo.');
+        const date=b.fecha?text(b.fecha,40):null;
+        if(date&&(!/^\d{4}-\d{2}-\d{2}T/.test(date)||!Number.isFinite(Date.parse(date))))fail(400,'Fecha inválida.');
+        const canonical=date?new Date(date).toISOString():null;
+        if(method==='POST'){
+          const newId=uid();await db.batch([stmt(db,'INSERT INTO recordatorios(id,familia_id,nino_id,responsable_id,titulo,categoria,fecha,notas) VALUES(?,?,?,?,?,?,?,?)',newId,a.familia_id,childId,responsible,title,category,canonical,notes),audit(db,a,'CREATE','Recordatorio creado',ip)]);return json({id:newId},201);
+        }
+        const result=await stmt(db,'UPDATE recordatorios SET nino_id=?,responsable_id=?,titulo=?,categoria=?,fecha=?,notas=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND familia_id=? AND version=?',childId,responsible,title,category,canonical,notes,id,a.familia_id,b.version).run();
+        if(!result.meta.changes)fail(409,'El recordatorio cambió. Actualiza la lista.');
+      }
+      await audit(db,a,'UPDATE','Recordatorio actualizado',ip).run();return json({ok:true});
+    }
     if (path === "admin/dashboard" && method === "GET") {
       admin(a);
       const now = new Date().toISOString();
@@ -1406,6 +1448,7 @@ export async function handle(req, env) {
         "SELECT * FROM audit_logs WHERE familia_id=?",
         a.familia_id,
       );
+      result.recordatorios=await all(db,'SELECT * FROM recordatorios WHERE familia_id=?',a.familia_id);
       result.tokens_invitados = await all(
         db,
         "SELECT t.id,t.nino_id,t.destino_nombre,t.modulos_json,t.expira_at,t.contador_accesos,t.activo FROM tokens_invitados t JOIN ninos n ON n.id=t.nino_id WHERE n.familia_id=?",

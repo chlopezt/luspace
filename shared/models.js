@@ -5,6 +5,7 @@ const f = (key, label, type = "text", extra = {}) => ({
   ...extra,
 });
 export const modules = {
+  recordatorios: "Recordatorios",
   perfil: "Perfil clínico",
   salud: "Salud",
   escolar: "Escolar",

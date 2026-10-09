@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Files,
+  ListTodo,
 } from "lucide-react";
 import { api, type Row } from "./lib";
 import {
@@ -32,6 +33,7 @@ import {
 import { modules } from "../shared/models.js";
 import { reportGroups, selectionModules, documentSelection } from '../shared/report-selection.js';
 import Dashboard from "./Dashboard";
+import Reminders from './Reminders';
 import ChildAvatar from './ChildAvatar';
 import TrialCard from './TrialCard';
 import ConsultationPrep from "./ConsultationPrep";
@@ -400,6 +402,7 @@ function Export({
 }
 const navigation = [
   ["inicio", "Inicio", Activity],
+  ["recordatorios", "Recordatorios", ListTodo],
   ["perfil", "Perfil", UserRound],
   ["salud", "Salud", HeartPulse],
   ["escolar", "Escolar", BookOpen],
@@ -541,6 +544,8 @@ function FamilyApp() {
     roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
     readonly = roleReadonly || !subscription.canWrite,
     available = (me?.guest ? me.modules : Object.keys(modules)).filter((m:string)=>!me?.platform_controls?.blocked_modules?.includes(m));
+  const reminderPermissions=JSON.parse(me?.permisos_json || '{}');
+  const remindersEnabled=!!me&&!me.guest&&available.includes('recordatorios')&&(me.rol==='superadmin'||reminderPermissions.modules?.includes('recordatorios')||(me.rol==='editor'&&!reminderPermissions.modules?.length));
   useEffect(() => {
     if (loading || !me || !pdfResume) return;
     if (pdfResume.actor === me.id && children.some(n => n.id === pdfResume.child) && me.platform_controls?.reports_enabled !== false) {
@@ -609,6 +614,7 @@ function FamilyApp() {
           {navigation
             .filter(([k]) => !me.platform_controls?.blocked_modules?.includes(k))
             .filter(([k]) => k !== 'archivos' || !me.guest)
+            .filter(([k]) => k !== 'recordatorios' || remindersEnabled)
             .filter(([k]) =>
               readonly
                 ? available.includes(k) || (k === 'archivos' && !me.guest)
@@ -695,7 +701,7 @@ function FamilyApp() {
         <main id="main" className="content" key={childId}>
           {!subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu período terminó. Activa tu plan para continuar.</p><p>{subscription.canRead ? `Puedes consultar y descargar tu información hasta ${new Date(subscription.value?.read_access_ends_at).toLocaleString('es-CL')}. Realiza el pago para mantener el acceso o descarga un respaldo antes de esa fecha.` : 'El plazo de 14 días para consultar y descargar terminó. Tus datos no se han eliminado automáticamente.'}</p>{!me.guest && <button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button>} <a href="mailto:contacto@luspace.cl">Solicitar recuperación de datos</a></div>}
           <ErrorNote error={error} />
-          {!subscription.canRead ? <section className="card"><h1>Reactiva tu plan</h1><p>El acceso a los módulos está bloqueado. Puedes gestionar el pago o solicitar recuperación de tus datos.</p></section> : !child ? (
+          {!subscription.canRead ? <section className="card"><h1>Reactiva tu plan</h1><p>El acceso a los módulos está bloqueado. Puedes gestionar el pago o solicitar recuperación de tus datos.</p></section> : view==='recordatorios'&&remindersEnabled ? <Reminders children={children} readonly={readonly}/> : !child ? (
             <section className="card welcome">
               <h1>Comencemos con su perfil</h1>
               <p className="muted">
@@ -715,7 +721,7 @@ function FamilyApp() {
                   <span className="badge">Solo lectura</span>
                 </div>
               )}
-              {view === "inicio" && <Dashboard child={child} go={go} readonly={readonly} />}{" "}
+              {view === "inicio" && <Dashboard child={child} go={go} readonly={readonly} remindersEnabled={remindersEnabled} />}{" "}
               {view === "perfil" && (
                 <>
                   <div className="section-heading">

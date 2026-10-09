@@ -5,6 +5,7 @@ import { ErrorNote } from "./components";
 import Growth from "./Growth";
 import { todaySchedule } from '../shared/care.js';
 import SosReminders from './SosReminders';
+import Reminders from './Reminders';
 export function nextDose(m: Row, now: number) {
   if (
     !m.activo ||
@@ -26,10 +27,12 @@ export default function Dashboard({
   child,
   go,
   readonly=false,
+  remindersEnabled=false,
 }: {
   child: Row;
   go: (v: string) => void;
   readonly?: boolean;
+  remindersEnabled?: boolean;
 }) {
   const [growth, setGrowth] = useState<Row[]>([]),
     [meds, setMeds] = useState<Row[]>([]),
@@ -235,6 +238,7 @@ export default function Dashboard({
           </button>
         </article>
       </section>
+      {remindersEnabled&&<Reminders compact selectedChild={child.id} readonly={readonly} onViewAll={()=>go('recordatorios')}/>}
     </>
   );
 }
