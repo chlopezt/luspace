@@ -888,6 +888,7 @@ export async function handle(req, env) {
       if (method === "PUT") {
         const b = await body(req);
         const activeModules = Array.isArray(b.modulos_activos_json) ? b.modulos_activos_json.filter((m) => modules[m]) : Object.keys(modules);
+        if(b.nino_principal_id)await child(db,a,text(b.nino_principal_id,128));
         await db.batch([
           stmt(db, "UPDATE familias SET nombre=? WHERE id=?", text(b.nombre, 120), a.familia_id),
           stmt(db, "INSERT INTO familia_configuracion(familia_id,logo_archivo_id,nino_principal_id,modulos_activos_json,rnd_visible,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(familia_id) DO UPDATE SET logo_archivo_id=excluded.logo_archivo_id,nino_principal_id=excluded.nino_principal_id,modulos_activos_json=excluded.modulos_activos_json,rnd_visible=excluded.rnd_visible,updated_at=CURRENT_TIMESTAMP", a.familia_id, text(b.logo_archivo_id || "", 128), text(b.nino_principal_id || "", 128), JSON.stringify(activeModules), b.rnd_visible ? 1 : 0),
@@ -911,7 +912,7 @@ export async function handle(req, env) {
     if (path === "children" && method === "GET") {
       const rows = await all(
         db,
-        "SELECT * FROM ninos WHERE familia_id=? ORDER BY created_at",
+        "SELECT * FROM ninos WHERE familia_id=? ORDER BY CASE WHEN id=(SELECT nino_principal_id FROM familia_configuracion WHERE familia_id=ninos.familia_id) THEN 0 ELSE 1 END,created_at,id",
         a.familia_id,
       );
       return json(
@@ -1668,6 +1669,7 @@ export async function handle(req, env) {
       allowed(a, f.modulo);
       const entry=(await fileCatalog(db,a,permissions(a),[f.modulo])).find(x=>x.id===f.id);
       if(!entry)fail(403,'Tu cuenta no tiene permiso para consultar este documento.');
+      if(path===`files/${f.id}/metadata`)return json(entry);
       if(url.searchParams.has('download')&&!entry.can_download)fail(403,'Tu cuenta no tiene permiso para descargar documentos.');
       const bytes=await readFileBytes(env,f);
       await audit(

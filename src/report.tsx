@@ -314,20 +314,22 @@ function Vaccines({
   rows,
   birth,
   at,
+  intro=true,
 }: {
   rows: Row[];
   birth: string;
   at: string;
+  intro?: boolean;
 }) {
   const sorted = [...rows].sort((a, b) =>
     (b.fecha_aplicacion || "").localeCompare(a.fecha_aplicacion || ""),
   );
   return (
     <>
-      <Text style={{ marginBottom: 7, color: "#64748b" }}>
+      {intro && <Text style={{ marginBottom: 7, color: "#64748b" }}>
         Registro familiar de inmunizaciones. No constituye certificado MINSAL.
         Aplicadas recientes y dosis con seguimiento pendiente.
-      </Text>
+      </Text>}
       {sorted.map((r, i) => (
         <View
           key={r.id || i}
@@ -361,6 +363,12 @@ function Vaccines({
       ))}
     </>
   );
+}
+function RecordBlock({table,row,child,created,first}:{table:string;row:Row;child:Row;created:string;first:boolean}) {
+  if(table==='vacunas')return <Vaccines rows={[row]} birth={child.fecha_nacimiento} at={created.slice(0,10)} intro={first}/>;
+  if(['medicamentos','registros_crecimiento'].includes(table))return <Table table={table} rows={[row]}/>;
+  if(table==='bitacora_escolar_diaria')return <Log row={row}/>;
+  return <Card items={entries(table,row,table==='ninos'?['primer_nombre','apellidos','fecha_nacimiento','alergias','grupo_sanguineo']:[])}/>;
 }
 export function Report({ data }: { data: Row }) {
   const child = data.child || {},
@@ -431,55 +439,17 @@ export function Report({ data }: { data: Row }) {
                   ).length,
               ),
           )
-          .map(([table, rows]) => (
-            <View
-              key={table}
-              wrap={
-                (rows as Row[]).length > 1 ||
-                JSON.stringify(rows).length > 2200 ||
-                (rows as Row[]).some((r) => longItems(entries(table, r)))
-              }
-            >
-              <Band title={(models as Row)[table].title} />
-              {table === "vacunas" ? (
-                <Vaccines
-                  rows={rows as Row[]}
-                  birth={child.fecha_nacimiento}
-                  at={String(data.created || "").slice(0, 10)}
-                />
-              ) : ["medicamentos", "registros_crecimiento"].includes(table) ? (
-                <Table table={table} rows={rows as Row[]} />
-              ) : (
-                (rows as Row[]).map((r, i) =>
-                  table === "bitacora_escolar_diaria" ? (
-                    <Log key={r.id || i} row={r} />
-                  ) : (
-                    <Card
-                      key={r.id || i}
-                      items={entries(
-                        table,
-                        r,
-                        table === "ninos"
-                          ? [
-                              "primer_nombre",
-                              "apellidos",
-                              "fecha_nacimiento",
-                              "alergias",
-                              "grupo_sanguineo",
-                            ]
-                          : [],
-                      )}
-                    />
-                  ),
-                )
-              )}
-            </View>
-          ))}
-        {data.anamnesis &&
-          anamnesisSections.some(([key]) =>
-            Object.values(data.anamnesis[key as string] || {}).some(meaningful),
-          ) && <Band title="Anamnesis pediátrica" />}
-        {anamnesisSections.map(([key, title, fields]) => {
+          .map(([table, rows]) => {
+            const records=(rows as Row[]).filter(r=>entries(table,r,table==='ninos'?['primer_nombre','apellidos','fecha_nacimiento','alergias','grupo_sanguineo']:[]).length);
+            if(table==='vacunas')records.sort((a,b)=>(b.fecha_aplicacion||'').localeCompare(a.fecha_aplicacion||''));
+            return <View key={table}>
+              {records.map((row,i)=><View key={row.id||i} wrap={i!==0 || longItems(entries(table,row))}>
+                {i===0 && <Band title={(models as Row)[table].title}/>}
+                <RecordBlock table={table} row={row} child={child} created={String(data.created||'')} first={i===0}/>
+              </View>)}
+            </View>;
+          })}
+        {anamnesisSections.filter(([key,,fields])=>(fields as string[]).some((_,i)=>meaningful(reportText(data.anamnesis?.[key as string]?.[i])))).map(([key, title, fields],index) => {
           const items = (fields as string[])
             .map((label, i) => ({
               label,
@@ -488,18 +458,20 @@ export function Report({ data }: { data: Row }) {
             .filter((e) => meaningful(e.value));
           return items.length ? (
             <View key={String(key)} wrap={longItems(items)}>
+              {index===0 && <Band title="Anamnesis pediátrica"/>}
               <Card items={items} title={String(title)} />
             </View>
           ) : null;
         })}
         {data.documents?.length > 0 && <View>
-          <Band title="Resumen de documentos adjuntos" />
-          {data.documents.map((file: Row, index: number)=><Card key={index} items={[
+          {data.documents.map((file: Row, index: number)=><View key={index} wrap={index!==0 || String(file.nombre||'').length>1000}>
+          {index===0 && <Band title="Resumen de documentos adjuntos"/>}
+          <Card items={[
             {label:'Archivo',value:reportText(file.nombre)},
             {label:'Módulo',value:reportText(file.module)},
             {label:'Fecha de carga',value:reportDate(file.created_at)},
             {label:'Formato / tamaño',value:`${file.mime || ''} · ${(Number(file.bytes || 0)/1024).toFixed(0)} KB`},
-          ]} />)}
+          ]} /></View>)}
         </View>}
       </Page>
     </Document>

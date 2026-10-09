@@ -84,6 +84,14 @@ test("contextual attachments, nutrition, ownership, legacy compatibility and per
       b = await upload(child, "salud", "consulta-b.pdf"),
       wrongChild = await upload(child2, "salud", "otro-perfil.pdf"),
       school = await upload(child, "escolar", "escolar.pdf");
+    const config=(await call('family/settings')).body;
+    assert.equal((await call('family/settings','PUT',{...config,nino_principal_id:child2})).status,200);
+    assert.equal((await call('family/settings')).body.nino_principal_id,child2);
+    assert.equal((await call('children')).body[0].id,child2);
+    const metadata=(await call('files/'+a+'/metadata')).body;
+    assert.equal(metadata.nombre,'consulta-a.pdf');
+    assert.equal(metadata.nino_id,child);
+    assert.equal(metadata.r2_key,undefined);
     const visit = {
       fecha: "2026-10-20T12:00:00Z",
       medico_nombre: "Profesional QA",
@@ -195,6 +203,9 @@ test("contextual attachments, nutrition, ownership, legacy compatibility and per
       400,
     );
     assert.equal((await call("files/" + a)).status, 404);
+    assert.equal((await call('files/'+a+'/metadata')).status,404);
+    const otherSettings=(await call('family/settings')).body;
+    assert.equal((await call('family/settings','PUT',{...otherSettings,nino_principal_id:child})).status,404);
     cookie = owner;
     await env.DB.prepare(
       "UPDATE usuarios SET rol='editor',permisos_json=? WHERE id=?",

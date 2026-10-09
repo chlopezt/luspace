@@ -49,6 +49,7 @@ function FileItem({ file, remove }: { file: Row; remove?: () => void }) {
           type="button"
           className="secondary"
           aria-label={"Descargar " + (file.nombre || "archivo")}
+          disabled={!!file.metadata_pending}
           onClick={() =>
             void downloadAttachment(file.id, file.nombre || "Documento").catch(
               (e) => setError(e.message),
@@ -119,11 +120,16 @@ export function FileGallery({
       setFiles([]);
       return;
     }
-    api(`files?child=${child}&module=${module}`)
-      .then((rows) => {
+    setFiles([]);setError('');
+    api(`files?child=${encodeURIComponent(child)}&module=${encodeURIComponent(module)}`)
+      .then(async (rows) => {
+        const missing=ids.filter(id=>!rows.some((row:Row)=>row.id===id));
+        const results=await Promise.allSettled(missing.map(id=>api(`files/${encodeURIComponent(id)}/metadata`)));
+        const extra=results.flatMap(result=>result.status==='fulfilled'?[result.value]:[]);
         if (live) {
-          setFiles(rows.filter((row: Row) => ids.includes(row.id)));
-          setError("");
+          setFiles([...rows,...extra].filter((row: Row) => ids.includes(row.id) && row.nino_id===child));
+          const failed=results.find(result=>result.status==='rejected');
+          setError(failed?.status==='rejected'?failed.reason.message:'');
         }
       })
       .catch((e) => {
@@ -143,7 +149,8 @@ export function FileGallery({
           file={
             files.find((file) => file.id === id) || {
               id,
-              nombre: "Archivo adjunto",
+              nombre: error ? "Documento no disponible" : "Cargando nombre del archivo…",
+              metadata_pending:true,
             }
           }
           remove={remove ? () => remove(id) : undefined}

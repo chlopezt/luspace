@@ -375,7 +375,8 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
     [busy, setBusy] = useState(false),
     [reset, setReset] = useState<Row | null>(null),
     [permissionsFor, setPermissionsFor] = useState<Row | null>(null),
-    [settings, setSettings] = useState<Row | null>(null);
+    [settings, setSettings] = useState<Row | null>(null),
+    [profiles,setProfiles]=useState<Row[]>([]);
   async function load() {
     if (me.rol === "superadmin")
       try {
@@ -389,8 +390,8 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
   }, []);
   useEffect(() => {
     if (me.rol === "superadmin")
-      api("family/settings")
-        .then(setSettings)
+      Promise.all([api("family/settings"),api("children")])
+        .then(([config,children])=>{setSettings(config);setProfiles(children);})
         .catch((e) => setError(e.message));
   }, [me.rol]);
   async function submit(
@@ -468,6 +469,7 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
                       (m) => values["module_" + m] === "on",
                     ),
                   });
+                  setSettings(await api('family/settings'));
                   setOk("Configuración familiar actualizada.");
                 } catch (e) {
                   setError((e as Error).message);
@@ -484,13 +486,9 @@ export function Users({ me, onLogout }: { me: Row; onLogout: () => void }) {
                 </label>
                 <label className="field">
                   Niño/a principal
-                  <select name="nino_principal_id">
+                  <select name="nino_principal_id" value={settings.nino_principal_id||''} onChange={e=>setSettings({...settings,nino_principal_id:e.target.value})}>
                     <option value="">Seleccionar después</option>
-                    <option value={settings.nino_principal_id}>
-                      {settings.nino_principal_id
-                        ? "Perfil principal actual"
-                        : "Sin perfil seleccionado"}
-                    </option>
+                    {profiles.map(n=><option key={n.id} value={n.id}>{[n.primer_nombre,n.apellidos].filter(Boolean).join(' ')}</option>)}
                   </select>
                 </label>
                 <label className="check">
