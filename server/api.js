@@ -605,8 +605,11 @@ export async function handle(req, env) {
       a.platform_controls={blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0};
     }
     const familySubscription = a.familia_id ? await subscription(db,a.familia_id,env) : null;
-    if (familySubscription && !familySubscription.can_write && ['POST','PUT','PATCH'].includes(method) && /^(children|records|anamnesis|files|consultation|family|guests)(\/|$)/.test(path))
-      fail(403,'Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.');
+    const accessAccountPath=/^(me|subscription|logout|password|billing(?:\/.*)?)$/.test(path);
+    if(familySubscription && !familySubscription.can_read && !accessAccountPath)
+      fail(403,'El plazo de 14 días para consultar y descargar terminó. Activa tu plan o solicita recuperación de datos en contacto@luspace.cl. Tus datos no se han eliminado.');
+    if (familySubscription && !familySubscription.can_write && ['POST','PUT','PATCH','DELETE'].includes(method) && !accessAccountPath && path!=='export')
+      fail(403,'Tu período terminó. Solo puedes consultar y descargar durante 14 días; activa tu plan para realizar cambios.');
     if(path==='subscription' && method==='GET') return json(familySubscription);
     if(path==='billing' && method==='GET')return json(await billingStatus(env,a));
     if(path==='billing/connection' && method==='GET'){
@@ -670,6 +673,29 @@ export async function handle(req, env) {
         }
         fail(405,'Método no permitido.');
       }
+      const accessRoute=path.match(/^platform\/families\/([^/]+)\/access$/);
+      if(accessRoute && method==='POST'){
+        const familyId=accessRoute[1];
+        if(!await first(db,'SELECT id FROM familias WHERE id=?',familyId))fail(404,'Familia no encontrada.');
+        await limit(db,'platform-access:'+a.id);
+        const b=await body(req),reason=text(b.reason||'',500);
+        if(reason.length<5)fail(400,'Indica un motivo de al menos 5 caracteres.');
+        const credential=await first(db,'SELECT password_hash FROM credenciales_plataforma WHERE usuario_id=?',a.id);
+        if(!await verify(text(b.admin_password||'',128),credential.password_hash))fail(401,'Contraseña administrativa incorrecta.');
+        const dates=['read_until','write_until'].map(key=>{
+          if(b[key]===null||b[key]==='')return null;
+          if(typeof b[key]!=='string')fail(400,'Fecha inválida.');
+          const date=new Date(b[key]);
+          if(!Number.isFinite(date.getTime())||date.getTime()<=Date.now()||date.getTime()>Date.now()+366*86400000)fail(400,'La excepción debe vencer en el futuro, dentro de un año.');
+          return date.toISOString();
+        });
+        const before=await first(db,'SELECT read_until,write_until FROM family_access_exceptions WHERE familia_id=?',familyId);
+        await db.batch([
+          stmt(db,'INSERT INTO family_access_exceptions(familia_id,read_until,write_until) VALUES(?,?,?) ON CONFLICT(familia_id) DO UPDATE SET read_until=excluded.read_until,write_until=excluded.write_until,updated_at=CURRENT_TIMESTAMP',familyId,...dates),
+          stmt(db,'INSERT INTO auditoria_plataforma(id,usuario_id,accion,descripcion) VALUES(?,?,?,?)',uid(),a.id,'UPDATE_ACCESS_EXCEPTION',JSON.stringify({familia_id:familyId,motivo:reason,antes:before,despues:{read_until:dates[0],write_until:dates[1]}}))
+        ]);
+        return json({ok:true,access:await subscription(db,familyId,env)});
+      }
       const familyRoute=path.match(/^platform\/families\/([^/]+)(?:\/users\/([^/]+)\/(reset-password|active|close-sessions|visibility))?$/);
       if(familyRoute) {
         const [,familyId,userId,operation]=familyRoute;
@@ -680,7 +706,7 @@ export async function handle(req, env) {
         if(method==='GET'&&!userId) {
           const members=await all(db,"SELECT u.id,u.nombre,u.correo,u.rol,u.activo,u.audit_visible,u.ai_visible,EXISTS(SELECT 1 FROM administradores_plataforma p WHERE p.usuario_id=u.id AND p.activo=1) AS platform_protected,(SELECT COUNT(*) FROM sesiones s WHERE s.usuario_id=u.id AND s.expira_at>?) AS sesiones FROM usuarios u WHERE u.familia_id=? ORDER BY u.created_at",new Date().toISOString(),familyId);
           await platformAudit('VIEW_FAMILY_PARAMETERS','Consulta de soporte administrativo',{}).run();
-          return json({family,controls:{blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0},members});
+          return json({family,access:await subscription(db,familyId,env),controls:{blocked_modules:controls?JSON.parse(controls.modulos_bloqueados_json):[],ai_enabled:controls?.ai_enabled!==0,uploads_enabled:controls?.uploads_enabled!==0,reports_enabled:controls?.reports_enabled!==0},members});
         }
         if(method!=='PUT'&&method!=='POST') fail(405,"Método no permitido.");
         const b=await body(req),reason=text(b.reason||'',500);

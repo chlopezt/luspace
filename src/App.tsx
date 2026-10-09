@@ -454,6 +454,7 @@ function FamilyApp() {
         return;
       }
       setMe(user);
+      if(user.subscription?.can_read===false){setChildren([]);setChildId('');setGuestToken('');return;}
       const list = await api("children");
       setChildren(list);
       setChildId((id) =>
@@ -532,6 +533,7 @@ function FamilyApp() {
     }
   }
   const subscription = useSubscription(me?.subscription,!!me?.guest);
+  useEffect(()=>{if(me && subscription.canRead && !loading)void reloadChildren().catch(()=>{});},[subscription.canRead]);
   useStartupLoading(loading);
   const child = children.find((n) => n.id === childId),
     roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
@@ -672,7 +674,7 @@ function FamilyApp() {
               <span>Credencial RND</span>
             </button>
           ) : null}
-          {view !== "plataforma" && child && me.platform_controls?.reports_enabled!==false && (
+          {view !== "plataforma" && subscription.canRead && child && me.platform_controls?.reports_enabled!==false && (
             <button
               className="secondary header-pdf"
               aria-label="Descargar informe PDF"
@@ -688,9 +690,9 @@ function FamilyApp() {
         </header>
         <SiteBanner/>
         <main id="main" className="content" key={childId}>
-          {!me.guest && !subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu prueba gratuita de 14 días ha terminado. Activa tu plan para continuar, con pago único o suscripción.</p><p>Puedes consultar y descargar tu información. No se han eliminado tus datos.</p><button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button></div>}
+          {!subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu período terminó. Activa tu plan para continuar.</p><p>{subscription.canRead ? `Puedes consultar y descargar tu información hasta ${new Date(subscription.value?.read_access_ends_at).toLocaleString('es-CL')}. Realiza el pago para mantener el acceso o descarga un respaldo antes de esa fecha.` : 'El plazo de 14 días para consultar y descargar terminó. Tus datos no se han eliminado automáticamente.'}</p>{!me.guest && <button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button>} <a href="mailto:contacto@luspace.cl">Solicitar recuperación de datos</a></div>}
           <ErrorNote error={error} />
-          {!child ? (
+          {!subscription.canRead ? <section className="card"><h1>Reactiva tu plan</h1><p>El acceso a los módulos está bloqueado. Puedes gestionar el pago o solicitar recuperación de tus datos.</p></section> : !child ? (
             <section className="card welcome">
               <h1>Comencemos con su perfil</h1>
               <p className="muted">
@@ -839,6 +841,7 @@ function FamilyApp() {
         </main>
       </div>
       {subscriptionInfo && <Billing close={()=>setSubscriptionInfo(false)}/>}
+      {subscription.canRead && <>
       {profile && (
         <Modal
           title={profile.id ? "Editar perfil" : "Nuevo perfil"}
@@ -884,6 +887,7 @@ function FamilyApp() {
           close={() => { setReport(false); setPdfResume(null); }}
         />
       )}
+      </>}
     </div></FileUploadEnabled.Provider>
   );
 }

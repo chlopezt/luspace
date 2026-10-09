@@ -34,6 +34,7 @@ export default function PlatformFamilyManager({
     setData(await api("platform/families/" + encodeURIComponent(id)));
   }
   const [visibility, setVisibility] = useState<Row | null>(null);
+  const [accessEdit,setAccessEdit]=useState(false),[readUntil,setReadUntil]=useState(''),[writeUntil,setWriteUntil]=useState('');
   useEffect(() => {
     let live = true;
     api("platform/families/" + encodeURIComponent(id))
@@ -60,7 +61,8 @@ export default function PlatformFamilyManager({
     setNotice("");
     try {
       const auth = { reason, admin_password: adminPassword };
-      if (userAction)
+      if(accessEdit)await api('platform/families/'+encodeURIComponent(id)+'/access','POST',{...auth,read_until:readUntil?new Date(readUntil).toISOString():null,write_until:writeUntil?new Date(writeUntil).toISOString():null});
+      else if (userAction)
         await api(
           "platform/families/" +
             encodeURIComponent(id) +
@@ -87,6 +89,7 @@ export default function PlatformFamilyManager({
       setNewPassword("");
       setReason("");
       setUserAction(null);
+      setAccessEdit(false);
       await load();
       changed();
       setNotice(
@@ -123,7 +126,19 @@ export default function PlatformFamilyManager({
             </p>
             <form onSubmit={submit}>
               <fieldset disabled={busy}>
-                {!userAction ? (
+                {!userAction && <section className="card">
+                  <h3>Acceso y vencimiento</h3>
+                  <p><strong>Estado: </strong>{({active:'Vigente',grace:'Consulta y descarga',locked:'Bloqueada',temporary:'Acceso temporal'} as Record<string,string>)[data.access?.access_phase]||'Sin información'}</p>
+                  <p>Vencimiento: {data.access?.access_expires_at?new Date(data.access.access_expires_at).toLocaleString('es-CL'):'Sin vencimiento'}</p>
+                  <p>Consulta y descarga hasta: {data.access?.read_access_ends_at?new Date(data.access.read_access_ends_at).toLocaleString('es-CL'):'Sin fecha'}</p>
+                  {!data.access?.can_write && data.access?.can_read && <p>Días restantes: {Math.max(0,Math.ceil((Date.parse(data.access.read_access_ends_at)-Date.now())/86400000))}</p>}
+                  <button type="button" className="secondary" onClick={()=>{setAccessEdit(!accessEdit);setReadUntil(localDate(data.access?.access_exception?.read_until||''));setWriteUntil(localDate(data.access?.access_exception?.write_until||''));}}> {accessEdit?'Volver a parámetros':'Configurar excepción de acceso'}</button>
+                  {accessEdit && <><div className="platform-manager-grid">
+                    <label>Ampliar consulta y descarga hasta<input type="datetime-local" value={readUntil} onChange={e=>setReadUntil(e.target.value)}/></label>
+                    <label>Activar edición temporal hasta<input type="datetime-local" value={writeUntil} onChange={e=>setWriteUntil(e.target.value)}/></label>
+                  </div><p className="muted">Vacía ambas fechas para retirar la excepción y aplicar la regla automática. Al vencer la excepción no se añaden otros 14 días. No registra pagos ni cambia Mercado Pago. Guarda con motivo y contraseña; si el 2FA venció, confírmalo en Seguridad de mi cuenta.</p></>}
+                </section>}
+                {!userAction && !accessEdit ? (
                   <>
                     <h3>
                       <Settings2 size={18} /> Parámetros de la familia
@@ -306,7 +321,7 @@ export default function PlatformFamilyManager({
                       administrador familiar.
                     </p>
                   </>
-                ) : (
+                ) : userAction ? (
                   <div className="platform-action-confirm">
                     <h3>
                       {userAction.operation === "reset-password"
@@ -352,7 +367,7 @@ export default function PlatformFamilyManager({
                       Cancelar acción de cuenta
                     </button>
                   </div>
-                )}
+                ) : null}
                 <div className="platform-manager-confirm">
                   <label>
                     Motivo del cambio
@@ -382,7 +397,7 @@ export default function PlatformFamilyManager({
                       ? "Aplicando…"
                       : userAction
                         ? "Confirmar acción"
-                        : "Guardar parámetros"}
+                        : accessEdit ? "Guardar excepción de acceso" : "Guardar parámetros"}
                   </button>
                 </div>
               </fieldset>

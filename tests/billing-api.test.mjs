@@ -139,7 +139,7 @@ test('isolated subscription flow: scope, checkout, approved payment, renewal, st
     // Refund both periods; canceled paid access ends, but records are not deleted.
     for(const id of ['inv1','inv2']){const p=payments.get('pay'+id);payments.set('pay'+id,{...p,status:'refunded',date_last_updated:stamp()});assert.equal((await webhook(id)).status,200);}
     assert.equal((await call('subscription')).body.can_write,false);
-    assert.equal((await call('children')).status,200);
+    assert.equal((await call('children')).status,403,'expired trial plus refunded paid periods cannot read indefinitely');
     assert.equal((await call('billing','GET',undefined,twoCookie)).body.payments.length,0);
     env.LUSPACE_BILLING_MODE='production';env.LUSPACE_BILLING_LIVE_APPROVED='true';
     assert.equal((await call('billing/checkout','POST',{})).status,503,'this phase never allows live charges');
