@@ -33,6 +33,7 @@ import { modules } from "../shared/models.js";
 import { reportGroups, selectionModules, documentSelection } from '../shared/report-selection.js';
 import Dashboard from "./Dashboard";
 import ChildAvatar from './ChildAvatar';
+import TrialCard from './TrialCard';
 import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
@@ -625,7 +626,7 @@ function FamilyApp() {
               </button>
             ))}
         </nav>
-        {!me.guest && subscription.trial && <div className="subscription-badge"><span>Prueba gratis: Te quedan {subscription.daysLeft} días</span><button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button></div>}
+        {!me.guest && subscription.trial && <TrialCard daysLeft={subscription.daysLeft} onActivate={()=>setSubscriptionInfo(true)}/>}
         <div className="profile">
           <span>{me.nombre.slice(0, 1)}</span>
           <div>

@@ -1,0 +1,25 @@
+.trial-card {
+  --trial-bg: linear-gradient(125deg,#e6fbef,#dff2f7);
+  --trial-text: #17434b;
+  --trial-border: #bbdad2;
+  --trial-label: linear-gradient(110deg,#bfe9d9,#bee4ed);
+  --trial-track: #bddde0;
+  display: grid; gap: 17px; padding: 19px 16px; min-width: 0;
+  border: 1px solid var(--trial-border); border-radius: 22px;
+  background: var(--trial-bg); color: var(--trial-text);
+  box-shadow: 0 4px 12px #164e4310;
+}
+.trial-card-label { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 5px 9px; border-radius: 9px; font-size: 12px; font-weight: 700; background: var(--trial-label); }
+.trial-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.trial-card-heading strong { font-size: 20px; line-height: 1.25; letter-spacing: -.4px; overflow-wrap: anywhere; }
+.trial-card-heading svg { flex-shrink: 0; }
+.trial-card-track { height: 6px; border-radius: 999px; overflow: hidden; background: var(--trial-track); }
+.trial-card-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#55b98d,#249db5); transition: width .4s ease; }
+.trial-card .trial-card-action { justify-self: end; min-height: 44px; padding: 9px 19px; border: 0; border-radius: 999px; background: linear-gradient(115deg,#079f9b,#087da2); color: white; font-size: 14px; font-weight: 700; box-shadow: none; }
+.trial-card .trial-card-action:hover { background: linear-gradient(115deg,#078981,#086887); }
+.trial-card .trial-card-action:focus-visible { outline: 3px solid #8270d8; outline-offset: 3px; }
+html[data-theme="dark"] .trial-card { --trial-bg: linear-gradient(125deg,#193c36,#1b3545); --trial-text:#e1faf3; --trial-border:#31574f; --trial-label:linear-gradient(110deg,#285b4d,#285463); --trial-track:#37605e; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .trial-card { --trial-bg: linear-gradient(125deg,#193c36,#1b3545); --trial-text:#e1faf3; --trial-border:#31574f; --trial-label:linear-gradient(110deg,#285b4d,#285463); --trial-track:#37605e; }
+}
+@media (prefers-reduced-motion: reduce) { .trial-card-track span { transition: none; } }
