@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Syringe, Plus, Pencil, Trash2, ShieldCheck } from "lucide-react";
 import { api, dateLabel, type Row } from "./lib";
 import { Modal, RecordForm, ErrorNote } from "./components";
@@ -31,18 +31,21 @@ export default function VaccinationCard({
   const can = (action: string) =>
     !readonly && (user.rol === "superadmin" || actions.includes(action));
   const endpoint = `records/vacunas?child=${encodeURIComponent(child.id)}`;
+  const request=useRef(0);
   async function reload() {
+    const version=++request.current;setLoading(true);
     setError("");
     try {
-      setRows(await api(endpoint));
+      const result=await api(endpoint);if(version===request.current)setRows(result);
     } catch (e) {
-      setError((e as Error).message);
+      if(version===request.current)setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if(version===request.current)setLoading(false);
     }
   }
   useEffect(() => {
     void reload();
+    return()=>{request.current++;};
   }, [child.id]);
   const applied = rows.filter((r) => r.estado === "Administrada").length;
   const percent = rows.length ? Math.round((applied / rows.length) * 100) : 0;
@@ -79,7 +82,7 @@ export default function VaccinationCard({
           </button>
         )}
       </div>
-      <div className="card vaccine-summary">
+      {!loading && !error && <div className="card vaccine-summary">
         <ShieldCheck size={26} />
         <div>
           <strong>
@@ -97,7 +100,7 @@ export default function VaccinationCard({
             value={percent}
           />
         </div>
-      </div>
+      </div>}
       <p className="vaccine-reference">
         <a href={vaccinationSource} target="_blank" rel="noreferrer">
           {vaccinationVersion}

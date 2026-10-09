@@ -27,6 +27,7 @@ export default function Anamnesis({
     inflight = useRef(false);
   useEffect(() => {
     let live = true;
+    setReady(false);setState("Cargando…");setError("");
     api("anamnesis?child=" + child.id)
       .then((r) => {
         if (live) {
@@ -37,7 +38,7 @@ export default function Anamnesis({
           setState("Guardado");
         }
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {if(live)setError(e.message);});
     return () => {
       live = false;
       onDirty(false);
@@ -102,22 +103,23 @@ export default function Anamnesis({
         <div>
           <h2>Anamnesis pediátrica</h2>
           <p className="muted">
-            {completed} de 7 secciones con información ·{" "}
+            {ready ? `${completed} de 7 secciones con información · ` : ""}
             <span role="status">{readonly ? "Solo lectura" : state}</span>
           </p>
         </div>
         {!readonly && (
           <button
             className="secondary"
-            disabled={uploadBusy}
+            disabled={uploadBusy || !ready}
             onClick={() => void save()}
           >
             Guardar ahora
           </button>
         )}
       </div>
-      <progress value={completed} max={7} aria-label="Secciones completadas" />
+      {ready && <progress value={completed} max={7} aria-label="Secciones completadas" />}
       <ErrorNote error={error} />
+      {!ready && !error && <p role="status">Cargando…</p>}
       <div className="anamnesis-sections">
         {anamnesisSections.map(([sectionKey, title, sectionFields]) => {
           const key = String(sectionKey),

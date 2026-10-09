@@ -38,8 +38,12 @@ export default function Dashboard({
     [schedule, setSchedule] = useState<Row[]>([]),
     [sos, setSos] = useState<Row[]>([]),
     [error, setError] = useState(""),
+    [loading, setLoading] = useState(true),
     [now, setNow] = useState(Date.now());
   useEffect(() => {
+    let live = true;
+    setLoading(true);
+    setError("");
     const tables = [
       "registros_crecimiento",
       "medicamentos",
@@ -50,6 +54,7 @@ export default function Dashboard({
     ];
     Promise.all(tables.map((t) => api(`records/${t}?child=${child.id}`)))
       .then(([g, m, v, d, s, doses]) => {
+        if (!live) return;
         setGrowth(
           g.sort((a: Row, b: Row) =>
             b.fecha_medicion.localeCompare(a.fecha_medicion),
@@ -61,9 +66,10 @@ export default function Dashboard({
         setSchedule(s);
         setSos(doses);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {if(live)setError(e.message);})
+      .finally(()=>{if(live)setLoading(false);});
     const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    return () => {live=false;clearInterval(timer);};
   }, [child.id]);
   const weight = growth.find((r) => r.peso_kg),
     height = growth.find((r) => r.talla_cm),
@@ -96,6 +102,8 @@ export default function Dashboard({
       time: date.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
     };
   };
+  if(loading)return <section className="card" role="status" aria-live="polite">Cargando…</section>;
+  if(error)return <ErrorNote error={error}/>;
   return (
     <>
       <section className="intro home-intro">

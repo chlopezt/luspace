@@ -371,8 +371,8 @@ export const models = {
     module: "escolar",
     single: true,
     fields: [
-      f("colegio_actual", "Colegio actual"),
-      f("curso", "Curso"),
+      f("colegio_actual", "Institución o modalidad de cuidado", "text", {placeholder:"Hogar, familiar, sala cuna, jardín, colegio…"}),
+      f("curso", "Nivel, etapa o curso", "text", {placeholder:"Lactante, sala cuna, kínder, 1° básico, no aplica…"}),
       f("pie_paci_activo", "PIE / PACI activo", "checkbox"),
       f("fortalezas", "Fortalezas e intereses", "textarea"),
       f("detonantes", "Detonantes sensoriales y ansiedad", "textarea"),
@@ -390,13 +390,13 @@ export const models = {
     ],
   },
   historial_colegios: {
-    title: "Historial de colegios",
+    title: "Historial de instituciones y modalidades de cuidado",
     module: "escolar",
     fields: [
-      f("establecimiento", "Establecimiento", "text", { required: true }),
+      f("establecimiento", "Institución o modalidad de cuidado", "text", { required: true, placeholder:"Hogar, sala cuna, jardín, colegio…" }),
       f("periodo_desde", "Desde", "date"),
       f("periodo_hasta", "Hasta", "date"),
-      f("cursos_realizados", "Cursos realizados"),
+      f("cursos_realizados", "Niveles, etapas o cursos realizados"),
       f("motivo_retiro", "Motivo de retiro o cambio", "textarea", {
         required: true,
       }),

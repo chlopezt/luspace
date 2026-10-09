@@ -955,18 +955,23 @@ export function Records({
     [visitCategory, setVisitCategory] = useState("upcoming"),
     [visitNow, setVisitNow] = useState(Date.now());
   const endpoint = `records/${table}?child=${child.id}`;
+  const request = useRef(0);
   async function reload() {
+    const version = ++request.current;
+    setLoading(true);
     setError("");
     try {
-      setRows(await api(endpoint));
+      const result = await api(endpoint);
+      if(version===request.current)setRows(result);
     } catch (e) {
-      setError((e as Error).message);
+      if(version===request.current)setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if(version===request.current)setLoading(false);
     }
   }
   useEffect(() => {
     void reload();
+    return()=>{request.current++;};
   }, [table, child.id]);
   async function save(v: Row) {
     await api(
@@ -1015,6 +1020,7 @@ export function Records({
         {!readonly && (
           <button
             className="secondary"
+            disabled={loading}
             onClick={() => setEdit(config.single ? rows[0] || {} : {})}
           >
             <Plus size={16} />
@@ -1049,7 +1055,7 @@ export function Records({
       )}
       {loading ? (
         <p role="status">Cargando registros…</p>
-      ) : !shownRows.length ? (
+      ) : error ? null : !shownRows.length ? (
         <Empty>
           {isVisit
             ? visitCategory === "upcoming"
@@ -1306,16 +1312,23 @@ export function Attachments({
   readonly?: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>([]),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [loading,setLoading]=useState(true);
+  const request=useRef(0);
   async function load() {
+    const version=++request.current;setLoading(true);setError("");
     try {
-      setRows(await api(`files?child=${child.id}&module=${module}`));
+      const result=await api(`files?child=${child.id}&module=${module}`);
+      if(version===request.current)setRows(result);
     } catch (e) {
-      setError((e as Error).message);
+      if(version===request.current)setError((e as Error).message);
+    } finally {
+      if(version===request.current)setLoading(false);
     }
   }
   useEffect(() => {
     void load();
+    return()=>{request.current++;};
   }, [child.id, module]);
   return (
     <section className="card attachments">
@@ -1378,7 +1391,7 @@ export function Attachments({
           </li>
         ))}
       </ul>
-      {!rows.length && <p className="muted">Sin documentos adjuntos.</p>}
+      {loading ? <p role="status">Cargando…</p> : !error && !rows.length && <p className="muted">Sin documentos adjuntos.</p>}
     </section>
   );
 }

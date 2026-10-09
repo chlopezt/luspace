@@ -32,6 +32,7 @@ import {
 import { modules } from "../shared/models.js";
 import { reportGroups, selectionModules, documentSelection } from '../shared/report-selection.js';
 import Dashboard from "./Dashboard";
+import ChildAvatar from './ChildAvatar';
 import ConsultationPrep from "./ConsultationPrep";
 import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
@@ -648,6 +649,7 @@ function FamilyApp() {
           </button>
           {view === "plataforma" ? <strong>Administración de plataforma</strong> : <label className="child-selector">
             <span className="sr-only">Perfil seleccionado</span>
+            <ChildAvatar child={subscription.canRead ? child : undefined}/>
             <select
               value={childId}
               onChange={(e) => {
@@ -766,7 +768,7 @@ function FamilyApp() {
                       : [
                           "Manual de apoyo",
                           "Adecuaciones PIE / PACI",
-                          "Historial de colegios",
+                          "Historial de cuidado y educación",
                           "Bitácora diaria",
                           "Horario / Rutina diaria",
                         ]

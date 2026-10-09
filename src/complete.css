@@ -37,7 +37,10 @@ html[data-theme="dark"] {
 .sidebar nav button.selected, .sidebar nav .selected, .home-shell .sidebar nav button.selected { color: #079d91; background: #e6fbf8; }
 .page > header, .page > header.home-topbar { min-height: 74px; height: 74px; padding: 0 38px; background: #fff; border-bottom: 1px solid #e8edf2; }
 .page > header .child-selector, .page > header.home-topbar .child-selector { height: 100%; margin-left: auto; margin-right: 0; order: 1; display: flex !important; flex-direction: row !important; align-items: center !important; max-width: none; }
-.page > header .child-selector::before, .page > header.home-topbar .child-selector::before { content: "L"; display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #d9f7f3; color: #078d84; font-weight: 800; margin-right: 9px; }
+.page > header .child-selector::before, .page > header.home-topbar .child-selector::before { content: none; }
+.selected-child-avatar { display: inline-grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 50%; background: #d9f7f3; color: #078d84; font-weight: 800; margin-right: 9px; overflow: hidden; }
+.selected-child-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 760px) { .selected-child-avatar { width: 28px; height: 28px; flex-basis: 28px; margin-right: 3px; } }
 .page > header .child-selector select, .page > header.home-topbar .child-selector select { width: 128px; min-width: 128px; height: 44px; border: 0; background: transparent; color: #132949; font-size: 16px; font-weight: 700; }
 .page > header .rnd, .page > header.home-topbar .rnd { order: 2; border-left: 1px solid #edf1f5; padding-left: 17px; }
 .page > header .rnd > svg { display: block; flex: 0 0 20px; width: 20px; height: 20px; }
@@ -359,7 +362,7 @@ small {
 .home-shell .content { max-width: 1280px; padding: 33px 38px 50px; }
 .home-topbar { min-height: 74px; border-bottom: 1px solid #edf1f5; background: #fff; padding: 0 38px; }
 .home-topbar .child-selector { margin-left: auto; margin-right: 0; order: 2; }
-.home-topbar .child-selector::before { content: "L"; display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #d9f7f3; color: #078d84; font-weight: 800; margin-right: 9px; }
+.home-topbar .child-selector::before { content: none; }
 .home-topbar .child-selector select { font-size: 16px; color: #132949; }
 .home-topbar .rnd { order: 3; border-left: 1px solid #edf1f5; padding-left: 17px; }
 .home-topbar .header-pdf { display: none; }
