@@ -16,5 +16,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run test:billing
       - run: npm run build
       - run: npx wrangler pages functions build --outdir .wrangler/functions-build

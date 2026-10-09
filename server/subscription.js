@@ -10,6 +10,11 @@ export async function subscription(db,familyId,env={}) {
     const stamp=new Date().toISOString();
     const paid=await db.prepare("SELECT MAX(p.period_end) AS until FROM billing_payments p JOIN billing_subscriptions s ON s.id=p.subscription_id WHERE s.familia_id=? AND s.environment=? AND p.state='approved' AND p.period_start<=? AND p.period_end>?").bind(familyId,mode,stamp,stamp).first();
     if(paid?.until){row.subscription_status='active';row.billing_paid_until=paid.until;}
+    const oneoffExists=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='billing_orders'").first();
+    if(oneoffExists){
+      const once=await db.prepare("SELECT MAX(p.period_end) AS until FROM billing_order_payments p JOIN billing_orders o ON o.id=p.order_id WHERE o.familia_id=? AND o.environment=? AND p.state='approved' AND p.period_start<=? AND p.period_end>?").bind(familyId,mode,stamp,stamp).first();
+      if(once?.until){row.subscription_status='active';row.billing_paid_until=[row.billing_paid_until,once.until].filter(Boolean).sort().at(-1);}
+    }
   }
   if(Date.parse(row.manual_paid_until)>Date.now())row.subscription_status='active';
   return {...row,can_write:!!row.commercial_exempt || row.subscription_status==='active' || (row.subscription_status==='trial' && Date.parse(row.trial_ends_at)>Date.now())};
