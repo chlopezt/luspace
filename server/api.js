@@ -15,7 +15,7 @@ import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js'
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
 import {fileCatalog} from './file-catalog.js';
-import {billingStatus,billingConnection,createCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus,reconcileBillingJob} from './billing.js';
+import {billingStatus,billingConnection,createCheckout,createOneoffCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus,reconcileBillingJob} from './billing.js';
 
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -616,6 +616,10 @@ export async function handle(req, env) {
     if(path==='billing/checkout' && method==='POST'){
       await limit(db,'billing-checkout:'+a.id);
       return json(await createCheckout(env,a,await req.json()),201);
+    }
+    if(path==='billing/oneoff' && method==='POST'){
+      await limit(db,'billing-checkout:'+a.id);
+      return json(await createOneoffCheckout(env,a,await req.json()),201);
     }
     if(path==='billing/refresh' && method==='POST'){
       await limit(db,'billing-refresh:'+a.id);

@@ -92,11 +92,14 @@ export async function billingStatus(env,a){
   const config=activeBilling(env),mode=env.LUSPACE_BILLING_MODE==='production'?'production':'test';
   const subscriptions=await all(env.DB,"SELECT id,state,amount_clp,currency,paid_until,created_at,updated_at FROM billing_subscriptions WHERE familia_id=? AND environment=? ORDER BY created_at DESC LIMIT 20",a.familia_id,mode);
   const payments=await all(env.DB,"SELECT p.id,p.state,p.amount_clp,p.currency,p.period_start,p.period_end,p.created_at FROM billing_payments p JOIN billing_subscriptions s ON s.id=p.subscription_id WHERE s.familia_id=? AND s.environment=? ORDER BY p.created_at DESC LIMIT 50",a.familia_id,mode);
-  return {enabled:config.enabled,mode:config.mode,amount:config.amount||null,can_manage:!a.guest&&a.rol==='superadmin',subscriptions,payments};
+  const orders=await all(env.DB,"SELECT o.id,o.state,o.amount_clp,o.created_at,p.period_end AS paid_until FROM billing_orders o LEFT JOIN billing_order_payments p ON p.order_id=o.id WHERE o.familia_id=? AND o.environment=? ORDER BY o.created_at DESC LIMIT 20",a.familia_id,mode);
+  const once=await all(env.DB,"SELECT p.id,p.state,p.amount_clp,p.period_start,p.period_end,p.created_at FROM billing_order_payments p JOIN billing_orders o ON o.id=p.order_id WHERE o.familia_id=? AND o.environment=? ORDER BY p.created_at DESC LIMIT 50",a.familia_id,mode);
+  return {enabled:config.enabled,oneoff_enabled:config.enabled&&config.mode==='production',mode:config.mode,amount:config.amount||null,can_manage:!a.guest&&a.rol==='superadmin',subscriptions,orders,payments:[...payments.map(p=>({...p,kind:'recurring'})),...once.map(p=>({...p,kind:'oneoff'}))].sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,50)};
 }
 
 export async function createCheckout(env,a,consent){
   owner(a);const config=requireTest(env),sellerId=await seller(env),db=env.DB;
+  await assertNoOneoffCoverage(env,a);
   // Resuming an existing checkout does not create a new contract. Its consent
   // was checked before reserving it; still require fresh consent for new ones.
   const open=await first(db,"SELECT * FROM billing_subscriptions WHERE familia_id=? AND environment=? AND state IN ('pending','authorized','paused')",a.familia_id,config.mode);
@@ -118,7 +121,7 @@ export async function createCheckout(env,a,consent){
   if(back.protocol!=='https:'&&!((back.hostname==='127.0.0.1'||back.hostname==='localhost')&&env.LOCAL_DEV===true))fail(503,'La URL de retorno debe ser segura.');
   if(back.search||back.hash||back.username||back.password)fail(503,'La URL de retorno no debe incluir parámetros.');
   const id=uid(),reference=uid();
-  try{await sql(db,"INSERT INTO billing_subscriptions(id,familia_id,environment,external_reference,amount_clp) VALUES(?,?,?,?,?)",id,a.familia_id,config.mode,reference,config.amount).run();}
+  try{const reserved=await sql(db,"INSERT INTO billing_subscriptions(id,familia_id,environment,external_reference,amount_clp) SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM billing_orders o LEFT JOIN billing_order_payments p ON p.order_id=o.id WHERE o.familia_id=? AND o.environment=? AND (o.state='pending' OR (p.state='approved' AND p.period_end>?)))",id,a.familia_id,config.mode,reference,config.amount,a.familia_id,config.mode,now()).run();if(!reserved.meta.changes)fail(409,'Ya hay un pago único pendiente o vigente. Actualiza el estado.');}
   catch(error){if(String(error.message).includes('UNIQUE'))fail(409,'Ya hay una solicitud en curso. Actualiza el estado.');throw error;}
   // Keep the reservation on timeout/error. No blind second POST after an uncertain result.
   const provider=await mp(env,'/preapproval','POST',{reason:config.mode==='production'?'LuSpace · Suscripción mensual':'LuSpace · Suscripción mensual de prueba',external_reference:reference,payer_email:payerEmail,auto_recurring:{frequency:1,frequency_type:'months',transaction_amount:config.amount,currency_id:'CLP'},back_url:back.href,status:'pending'},id);
@@ -126,6 +129,99 @@ export async function createCheckout(env,a,consent){
   const url=checkoutUrl(provider.init_point);
   await sql(db,"UPDATE billing_subscriptions SET provider_id=?,checkout_url=?,state=?,provider_updated_at=?,updated_at=? WHERE id=? AND familia_id=?",String(provider.id),url,provider.status,iso(provider.last_modified),now(),id,a.familia_id).run();
   return {url,existing:false};
+}
+
+function oneoffUrl(value){
+  let url;try{url=new URL(value);}catch{fail(502,'Enlace de pago inválido.');}
+  if(url.protocol!=='https:'||url.hostname!=='www.mercadopago.cl'||url.username||url.password||url.pathname!=='/checkout/v1/redirect'||!url.searchParams.get('pref_id'))fail(502,'Enlace de pago no autorizado.');
+  return url.href;
+}
+async function assertNoOneoffCoverage(env,a){
+  const row=await first(env.DB,"SELECT o.id FROM billing_orders o LEFT JOIN billing_order_payments p ON p.order_id=o.id WHERE o.familia_id=? AND o.environment=? AND (o.state='pending' OR (p.state='approved' AND p.period_end>?)) LIMIT 1",a.familia_id,billingMode(env),now());
+  if(row)fail(409,'Hay un pago único pendiente o un mes pagado vigente. Actualiza el estado; podrás cambiar de modalidad al vencer ese período.');
+}
+function assertPreference(record,p,sellerId){
+  if(String(p.id)!==record.preference_id||String(p.collector_id)!==String(sellerId)||p.external_reference!==record.external_reference||p.items?.length!==1||p.items[0].quantity!==1||p.items[0].currency_id!=='CLP'||p.items[0].unit_price!==record.amount_clp)fail(400,'La orden de pago no coincide con la familia y el importe registrados.');
+}
+export async function createOneoffCheckout(env,a,consent){
+  owner(a);const config=requireTest(env),db=env.DB;
+  if(config.mode!=='production')fail(503,'El pago único no está habilitado en este entorno.');
+  if(consent?.accepted!==true||consent?.amount_clp!==config.amount)fail(400,'Confirma el importe del pago único antes de continuar.');
+  if(await first(db,"SELECT id FROM billing_subscriptions WHERE familia_id=? AND environment=? AND state IN ('pending','authorized','paused')",a.familia_id,config.mode))fail(409,'Primero cancela la renovación automática o resuelve la suscripción pendiente. Tu período ya pagado se conserva.');
+  const sellerId=await seller(env);
+  const existing=await first(db,"SELECT * FROM billing_orders WHERE familia_id=? AND environment=? AND state='pending'",a.familia_id,config.mode);
+  if(existing){
+    // Never automatically create a second preference after an uncertain POST.
+    if(!existing.preference_id||!existing.checkout_url||Date.parse(existing.expires_at)<=Date.now())fail(409,'Hay un pago pendiente de revisión. Actualiza el estado o contacta a soporte; no se creará otro cobro.');
+    return {url:oneoffUrl(existing.checkout_url),existing:true};
+  }
+  await assertNoOneoffCoverage(env,a);
+  const job=await first(db,'SELECT last_finished_at,failures FROM billing_job_status WHERE id=1');
+  if(!job?.last_finished_at||Date.now()-Date.parse(job.last_finished_at)>4*3600000||job.failures)fail(503,'La verificación automática de pagos requiere revisión. No se creó un pago.');
+  const id=uid(),reference=uid(),expires=new Date(Date.now()+5*86400000).toISOString();
+  try{const reserved=await sql(db,"INSERT INTO billing_orders(id,familia_id,environment,external_reference,amount_clp,expires_at) SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM billing_subscriptions WHERE familia_id=? AND environment=? AND state IN ('pending','authorized','paused'))",id,a.familia_id,config.mode,reference,config.amount,expires,a.familia_id,config.mode).run();if(!reserved.meta.changes)fail(409,'Hay una suscripción en curso. Actualiza el estado.');}
+  catch(e){if(String(e.message).includes('UNIQUE'))fail(409,'Ya hay un pago en curso. Actualiza el estado.');throw e;}
+  const provider=await mp(env,'/checkout/preferences','POST',{
+    items:[{id:'luspace-month',title:'LuSpace · Un mes sin renovación',quantity:1,currency_id:'CLP',unit_price:config.amount}],
+    external_reference:reference,metadata:{luspace_order_id:id},
+    back_urls:{success:env.MP_BILLING_BACK_URL,pending:env.MP_BILLING_BACK_URL,failure:env.MP_BILLING_BACK_URL},auto_return:'approved',
+    notification_url:'https://luspace.cl/api/billing/webhook',expires:true,expiration_date_to:expires,
+    payment_methods:{installments:1}
+  },id);
+  resource(provider.id);assertPreference({preference_id:String(provider.id),external_reference:reference,amount_clp:config.amount},provider,sellerId);
+  const url=oneoffUrl(provider.init_point);
+  await sql(db,'UPDATE billing_orders SET preference_id=?,checkout_url=? WHERE id=? AND familia_id=?',String(provider.id),url,id,a.familia_id).run();
+  return {url,existing:false};
+}
+async function saveOneoffPayment(env,order,payment,sellerId){
+  assertTestPaymentMode(env,payment,sellerId);
+  if(payment.external_reference!==order.external_reference||payment.currency_id!=='CLP'||payment.transaction_amount!==order.amount_clp||String(payment.collector_id)!==String(sellerId))fail(400,'El pago no coincide con la orden de la familia.');
+  if(payment.order?.type!=='mercadopago'||!payment.order.id)fail(400,'Falta la orden comercial del pago.');
+  const commercial=await mp(env,'/merchant_orders/'+resource(payment.order.id));
+  if(String(commercial.id)!==String(payment.order.id)||String(commercial.collector?.id)!==String(sellerId)||commercial.external_reference!==order.external_reference||commercial.preference_id!==order.preference_id||!commercial.payments?.some(p=>String(p.id)===String(payment.id)))fail(400,'La orden comercial no corresponde al pago único registrado.');
+  if(commercial.application_id!==undefined&&String(commercial.application_id)!==expectedApp(env))fail(400,'La orden comercial no corresponde a la aplicación configurada.');
+  const saved=await first(env.DB,'SELECT * FROM billing_order_payments WHERE order_id=?',order.id);
+  if(saved&&saved.provider_payment_id!==String(payment.id)){
+    if(payment.status==='approved')fail(409,'Se detectó un segundo pago para la misma orden. Requiere revisión del operador.');
+    return;
+  }
+  // Pending/rejected/authorized payments never unlock access. Reuse the preference.
+  if(!['approved','refunded','charged_back'].includes(payment.status))return;
+  const updated=iso(payment.date_last_updated);
+  if(saved&&updated<=saved.provider_updated_at)return;
+  if(!saved&&payment.status!=='approved')return;
+  let period=saved?{start:saved.period_start,end:saved.period_end}:null;
+  if(!period){
+    const family=await first(env.DB,'SELECT trial_ends_at,subscription_status,manual_paid_until FROM familias WHERE id=?',order.familia_id);
+    const paid=await first(env.DB,"SELECT MAX(p.period_end) AS until FROM billing_payments p JOIN billing_subscriptions s ON s.id=p.subscription_id WHERE s.familia_id=? AND s.environment=? AND p.state='approved'",order.familia_id,order.environment);
+    // Keep trial and previously paid time: the purchased month begins afterwards.
+    const start=[iso(payment.date_approved),family.subscription_status==='trial'?family.trial_ends_at:null,family.manual_paid_until,paid?.until].filter(v=>v&&Number.isFinite(Date.parse(v))).map(v=>new Date(v).toISOString()).sort().at(-1);
+    period=billingPeriod(start);
+  }
+  await env.DB.batch([
+    sql(env.DB,"INSERT INTO billing_order_payments(id,order_id,provider_payment_id,state,amount_clp,period_start,period_end,provider_updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(order_id) DO UPDATE SET state=excluded.state,provider_updated_at=excluded.provider_updated_at WHERE billing_order_payments.provider_payment_id=excluded.provider_payment_id AND excluded.provider_updated_at>billing_order_payments.provider_updated_at",uid(),order.id,String(payment.id),payment.status,order.amount_clp,period.start,period.end,updated),
+    sql(env.DB,'UPDATE billing_orders SET state=(SELECT state FROM billing_order_payments WHERE order_id=?),last_reconciled_at=? WHERE id=?',order.id,now(),order.id)
+  ]);
+}
+async function syncOneoff(env,order,sellerId){
+  if(!order.preference_id)fail(409,'El proveedor no confirmó la creación del pago. Requiere revisión antes de reintentar.');
+  const preference=await mp(env,'/checkout/preferences/'+resource(order.preference_id));assertPreference(order,preference,sellerId);
+  const saved=await first(env.DB,'SELECT provider_payment_id FROM billing_order_payments WHERE order_id=?',order.id);
+  if(saved){const payment=await mp(env,'/v1/payments/'+resource(saved.provider_payment_id));if(String(payment.id)!==saved.provider_payment_id)fail(400,'El identificador del pago no coincide.');await saveOneoffPayment(env,order,payment,sellerId);}
+  else{
+    const result=await mp(env,'/v1/payments/search?external_reference='+encodeURIComponent(order.external_reference)+'&limit=50');
+    if(!Array.isArray(result.results)||!Number.isSafeInteger(result.paging?.total)||result.paging.total!==result.results.length||result.paging.total>50)fail(502,'El historial de este pago requiere revisión.');
+    for(const summary of result.results){const payment=await mp(env,'/v1/payments/'+resource(summary.id));if(String(payment.id)!==String(summary.id))fail(400,'El identificador del pago no coincide.');await saveOneoffPayment(env,order,payment,sellerId);}
+    if(preference.expires===true&&Date.parse(preference.expiration_date_to)<=Date.now()&&Date.parse(order.expires_at)<=Date.now()&&result.results.every(p=>['rejected','cancelled'].includes(p.status)))await sql(env.DB,"UPDATE billing_orders SET state='expired' WHERE id=? AND state='pending'",order.id).run();
+  }
+  await sql(env.DB,'UPDATE billing_orders SET last_reconciled_at=? WHERE id=?',now(),order.id).run();
+}
+async function reconcileOneoffEvent(env,paymentId,sellerId){
+  const payment=await mp(env,'/v1/payments/'+resource(paymentId));
+  if(String(payment.id)!==String(paymentId))fail(400,'El identificador del pago no coincide.');
+  const order=await first(env.DB,'SELECT * FROM billing_orders WHERE external_reference=? AND environment=?',payment.external_reference||'',billingMode(env));
+  if(!order)return false;
+  await saveOneoffPayment(env,order,payment,sellerId);return true;
 }
 
 export function billingPeriod(value){
@@ -192,6 +288,8 @@ export async function reconcileFamily(env,a){
   owner(a);requireTest(env);const sellerId=await seller(env);
   const records=await all(env.DB,"SELECT * FROM billing_subscriptions WHERE familia_id=? AND environment=? ORDER BY created_at DESC LIMIT 20",a.familia_id,billingMode(env));
   for(const record of records)await syncRecord(env,record,sellerId);
+  const orders=await all(env.DB,"SELECT * FROM billing_orders WHERE familia_id=? AND environment=? AND state!='expired' ORDER BY created_at DESC LIMIT 5",a.familia_id,billingMode(env));
+  for(const order of orders)await syncOneoff(env,order,sellerId);
   return billingStatus(env,a);
 }
 export async function cancelSubscription(env,a,id){
@@ -241,6 +339,9 @@ export async function receiveBillingWebhook(req,env){
       record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment=?",String(invoice.preapproval_id),mode);
       if(record){const subscription=await mp(env,'/preapproval/'+resource(record.provider_id));assertProviderSubscription(record,subscription,sellerId,expectedApp(env));await saveInvoice(env,record,invoice,sellerId);}
     } else {
+      if(await reconcileOneoffEvent(env,message.resourceId,sellerId)){
+        await sql(db,"UPDATE billing_webhook_inbox SET state='processed',lease_until=NULL WHERE id=?",event.id).run();return {ok:true};
+      }
       const invoices=await mp(env,'/authorized_payments/search?payment_id='+resource(message.resourceId));
       if(invoices.results?.length===1&&invoices.paging?.total===1){const invoice=invoices.results[0];record=await first(db,"SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment=?",String(invoice.preapproval_id),mode);}
     }
@@ -261,7 +362,8 @@ export async function platformBillingStatus(env){
   const rows=await all(env.DB,"SELECT s.id,f.nombre AS family,s.environment,s.state,s.amount_clp,s.paid_until,s.updated_at FROM billing_subscriptions s JOIN familias f ON f.id=s.familia_id ORDER BY s.created_at DESC LIMIT 100");
   const inbox=await first(env.DB,"SELECT COUNT(*) AS pending FROM billing_webhook_inbox WHERE state!='processed'");
   const job=await first(env.DB,'SELECT last_started_at,last_finished_at,failures,processed FROM billing_job_status WHERE id=1');
-  return {mode:activeBilling(env).mode,enabled:activeBilling(env).enabled,subscriptions:rows,pending_notifications:inbox.pending,job};
+  const orders=await all(env.DB,'SELECT o.id,f.nombre AS family,o.environment,o.state,o.amount_clp,p.period_end AS paid_until FROM billing_orders o JOIN familias f ON f.id=o.familia_id LEFT JOIN billing_order_payments p ON p.order_id=o.id ORDER BY o.created_at DESC LIMIT 100');
+  return {mode:activeBilling(env).mode,enabled:activeBilling(env).enabled,subscriptions:rows,orders,pending_notifications:inbox.pending,job};
 }
 
 // Scheduled reconciliation only reads provider resources: never creates or cancels a contract, nor issues charges.
@@ -292,12 +394,20 @@ export async function reconcileBillingJob(req,env){
         await sql(db,'UPDATE billing_subscriptions SET last_reconciled_at=? WHERE id=?',now(),record.id).run();
       }
     }
+    const orders=await all(db,"SELECT * FROM billing_orders WHERE environment=? AND state!='expired' ORDER BY COALESCE(last_reconciled_at,'') ASC,created_at ASC LIMIT 2",billingMode(env));
+    for(const order of orders){
+      try{await syncOneoff(jobEnv,order,sellerId);processed++;}
+      catch{failures++;await sql(db,'UPDATE billing_orders SET last_reconciled_at=? WHERE id=?',now(),order.id).run();}
+    }
     // Recover durable failed notifications independently of provider delivery.
     // Never mark an unknown resource processed or grant access from its payload.
     const events=await all(db,"SELECT * FROM billing_webhook_inbox WHERE environment=? AND (state IN ('queued','failed') OR (state='processing' AND lease_until<?)) ORDER BY attempts ASC,received_at ASC LIMIT 4",billingMode(env),now());
     for(const event of events){
       try{
         let record,invoice;
+        if(event.topic==='payment'&&await reconcileOneoffEvent(jobEnv,event.resource_id,sellerId)){
+          await sql(db,"UPDATE billing_webhook_inbox SET state='processed',lease_until=NULL,attempts=attempts+1 WHERE id=?",event.id).run();processed++;continue;
+        }
         if(event.topic==='subscription_preapproval')record=await first(db,'SELECT * FROM billing_subscriptions WHERE provider_id=? AND environment=?',event.resource_id,billingMode(env));
         else{
           if(event.topic==='subscription_authorized_payment')invoice=await mp(jobEnv,'/authorized_payments/'+resource(event.resource_id));
@@ -324,5 +434,4 @@ export async function reconcileBillingJob(req,env){
   if(failures)fail(503,'La verificación automática encontró operaciones pendientes de revisar.');
   return {ok:true,processed};
 }
-
 

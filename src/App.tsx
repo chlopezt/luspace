@@ -622,7 +622,7 @@ function FamilyApp() {
               </button>
             ))}
         </nav>
-        {!me.guest && subscription.trial && <div className="subscription-badge"><span>Prueba gratis: Te quedan {subscription.daysLeft} días</span><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
+        {!me.guest && subscription.trial && <div className="subscription-badge"><span>Prueba gratis: Te quedan {subscription.daysLeft} días</span><button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button></div>}
         <div className="profile">
           <span>{me.nombre.slice(0, 1)}</span>
           <div>
@@ -688,7 +688,7 @@ function FamilyApp() {
         </header>
         <SiteBanner/>
         <main id="main" className="content" key={childId}>
-          {!me.guest && !subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu prueba gratuita de 14 días ha terminado. Suscríbete para continuar organizando la salud de tu familia.</p><p>Puedes consultar y descargar tu información. No se han eliminado tus datos.</p><button onClick={()=>setSubscriptionInfo(true)}>Activar suscripción</button></div>}
+          {!me.guest && !subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu prueba gratuita de 14 días ha terminado. Activa tu plan para continuar, con pago único o suscripción.</p><p>Puedes consultar y descargar tu información. No se han eliminado tus datos.</p><button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button></div>}
           <ErrorNote error={error} />
           {!child ? (
             <section className="card welcome">

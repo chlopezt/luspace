@@ -76,6 +76,10 @@ export function localEnv(directory = process.env.LUSPACE_DATA_DIR || ".local") {
   if(!sqlite.prepare('SELECT name FROM schema_migrations WHERE name=?').get(billingMigration)){
     sqlite.exec('BEGIN');try{sqlite.exec(readFileSync(new URL('../db/'+billingMigration,import.meta.url),'utf8'));sqlite.prepare('INSERT INTO schema_migrations(name) VALUES(?)').run(billingMigration);sqlite.exec('COMMIT');}catch(e){sqlite.exec('ROLLBACK');throw e;}
   }
+  const oneoffMigration='migrations/0032_billing_oneoff.sql';
+  if(!sqlite.prepare('SELECT name FROM schema_migrations WHERE name=?').get(oneoffMigration)){
+    sqlite.exec('BEGIN');try{sqlite.exec(readFileSync(new URL('../db/'+oneoffMigration,import.meta.url),'utf8'));sqlite.prepare('INSERT INTO schema_migrations(name) VALUES(?)').run(oneoffMigration);sqlite.exec('COMMIT');}catch(e){sqlite.exec('ROLLBACK');throw e;}
+  }
   const prepared = (sql, args = []) => ({
     sql,
     args,
