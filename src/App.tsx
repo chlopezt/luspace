@@ -37,6 +37,7 @@ import VaccinationCard from "./VaccinationCard";
 import AdminPortal from "./AdminPortal";
 import Landing from './Landing';
 import MyFiles from './MyFiles';
+import Billing from './Billing';
 import SiteBanner from './SiteBanner';
 import LegalPage from './LegalPage';
 import {LEGAL_VERSION} from '../shared/legal.js';
@@ -413,7 +414,7 @@ export default function App() {
   return location.pathname === "/admin" || location.pathname.startsWith("/admin/") ? <AdminPortal /> : <FamilyApp />;
 }
 function FamilyApp() {
-  const [subscriptionInfo,setSubscriptionInfo]=useState(false);
+  const [subscriptionInfo,setSubscriptionInfo]=useState(()=>{const returned=sessionStorage.getItem('luspace-billing-return')==='1';sessionStorage.removeItem('luspace-billing-return');return returned;});
   const [profileAccess,setProfileAccess]=useState(false);
   const [pdfResume, setPdfResume] = useState<PdfResume | null>(() => takePdfResume());
   const [me, setMe] = useState<Row | null>(null),
@@ -837,7 +838,7 @@ function FamilyApp() {
           )}
         </main>
       </div>
-      {subscriptionInfo && <Modal title="Activar suscripción" close={()=>setSubscriptionInfo(false)}><p>La contratación y los pagos aún no están habilitados. No se realizará ningún cobro desde esta ventana.</p><p>Tu información seguirá disponible para consulta y descarga.</p>{subscription.value && <p>Almacenamiento: {(subscription.value.storage_used_bytes/1048576).toFixed(1)} MB de {(subscription.value.storage_limit_bytes/1048576).toFixed(0)} MB.</p>}</Modal>}
+      {subscriptionInfo && <Billing close={()=>setSubscriptionInfo(false)}/>}
       {profile && (
         <Modal
           title={profile.id ? "Editar perfil" : "Nuevo perfil"}
@@ -886,3 +887,4 @@ function FamilyApp() {
     </div></FileUploadEnabled.Provider>
   );
 }
+

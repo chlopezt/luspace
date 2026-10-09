@@ -3,6 +3,7 @@ import {Receipt,Gift,CheckCircle2,XCircle,RefreshCw,Clock} from 'lucide-react';
 import {api,dateLabel,type Row} from './lib';
 import {Modal,ErrorNote} from './components';
 import './platform-payments.css';
+import {PlatformBilling} from './Billing';
 const money=(n:number)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n);
 function estimatedEnd(until:string|undefined,record:Row){const start=new Date(Math.max(Date.now(),Date.parse(until||'')||0)),end=new Date(start);if(record.tipo==='cortesia')end.setUTCDate(end.getUTCDate()+record.dias_cortesia);else{const day=end.getUTCDate();end.setUTCDate(1);end.setUTCMonth(end.getUTCMonth()+1);const last=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()+1,0)).getUTCDate();end.setUTCDate(Math.min(day,last));}return end.toISOString();}
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -22,6 +23,7 @@ export default function PlatformPayments(){
  const selected=(data?.families||[]).find((f:Row)=>f.id===(review?.familia_id||form?.familia_id));
  return <section className="platform-dashboard platform-payments"><div className="platform-page-heading"><div><p className="eyebrow">ADMINISTRACIÓN PRIVADA</p><h1><Receipt/> Pagos y acceso</h1><p className="muted">Transferencias y cortesías por familia. No crea ni cancela suscripciones de Mercado Pago.</p></div><button disabled={busy} onClick={()=>{setError('');load().catch(e=>setError(e.message));}}><RefreshCw size={17}/> Actualizar</button></div>
  <ErrorNote error={!form?error:''}/>{notice&&<p className="card" role="status">{notice}</p>}
+ <PlatformBilling/>
  <div className="card payment-toolbar"><span><Clock size={18}/> {data?.pending??'…'} registros pendientes</span><button className="primary" disabled={!data} onClick={()=>open('transferencia')}><Receipt size={18}/> Registrar transferencia</button><button disabled={!data} onClick={()=>open('cortesia')}><Gift size={18}/> Dar días de cortesía</button></div>
  <div className="card payment-filters"><label className="field">Buscar familia<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Nombre de la familia"/></label><label className="field">Familia<select value={family} onChange={e=>setFamily(e.target.value)}><option value="">Todas</option>{families.map((f:Row)=><option key={f.id} value={f.id}>{f.nombre}</option>)}</select></label><label className="field">Estado<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">Todos</option>{Object.entries(labels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label></div>
  <article className="card"><h2>Acceso de las familias</h2><div className="payment-family-grid">{families.filter((f:Row)=>!family||family===f.id).map((f:Row)=><div key={f.id}><strong>{f.nombre}</strong><p>{f.commercial_exempt?'Acceso exento':f.subscription_status==='trial'?'En prueba':f.subscription_status==='active'?'Activa':'Revisar acceso'}</p><small>Período manual hasta: {f.manual_paid_until?dateLabel(f.manual_paid_until):'Sin período manual'}</small><small>Cuota asignada: {(f.storage_limit_bytes/1048576).toFixed(0)} MiB</small></div>)}</div></article>
@@ -33,3 +35,4 @@ export default function PlatformPayments(){
  <label className="field">{review?'Motivo de la revisión':'Observación / motivo'}<textarea required minLength={5} maxLength={1000} value={form.notas} onChange={e=>edit('notas',e.target.value)}/></label><label className="field">Contraseña administrativa<input type="password" required maxLength={128} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="primary" type="submit">{busy?'Guardando…':review?(review.action==='confirmado'?'Confirmar acceso':'Rechazar registro'):'Registrar como pendiente'}</button></fieldset></form></Modal>}
  </section>;
 }
+

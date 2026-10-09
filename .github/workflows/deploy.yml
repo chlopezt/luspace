@@ -20,6 +20,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run test:billing
       - run: npm run build
       - name: Preparar D1, R2 y configuracion
         shell: bash
@@ -37,3 +38,4 @@ jobs:
       - run: npx wrangler d1 migrations apply luspace-db --remote --config wrangler.deploy.toml
       - run: npx wrangler pages project create luspace-app --production-branch main || true
       - run: cp wrangler.deploy.toml wrangler.toml && npx wrangler pages deploy dist --project-name luspace-app --branch main --commit-dirty=true
+
