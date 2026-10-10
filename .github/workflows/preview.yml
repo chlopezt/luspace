@@ -29,3 +29,5 @@ jobs:
       - run: npm run build
       - name: Publicar únicamente la vista previa aislada
         run: node scripts/deploy-preview.mjs
+      - name: Verificar el enlace publicado con la cuenta ficticia
+        run: node scripts/verify-preview.mjs
