@@ -53,7 +53,6 @@ const directory = resolve('.private-wrangler/preview');
 mkdirSync(directory, { recursive: true });
 const config = resolve(directory, 'wrangler.toml');
 writeFileSync(config, `name = "${project}"
-account_id = "${account}"
 compatibility_date = "2026-10-01"
 pages_build_output_dir = "../../dist"
 
