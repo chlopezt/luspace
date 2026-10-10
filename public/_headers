@@ -13,3 +13,15 @@
 
 /index.html
   Cache-Control: no-cache, must-revalidate
+
+/favicon.ico
+  Cache-Control: no-cache, must-revalidate
+
+/favicon-*.png
+  Cache-Control: no-cache, must-revalidate
+
+/apple-touch-icon.png
+  Cache-Control: no-cache, must-revalidate
+
+/manifest.json
+  Cache-Control: no-cache, must-revalidate
