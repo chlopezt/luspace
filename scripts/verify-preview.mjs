@@ -24,8 +24,11 @@ const chromePath = ['/usr/bin/google-chrome', '/usr/bin/chromium'].find(existsSy
 const browser = await chromium.launch({ ...(chromePath ? { executablePath: chromePath } : {}) });
 try {
   const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
   await page.goto(origin + '/login');
-  await page.locator('input[type="email"]').fill('familia@preview.luspace.test');
+  try { await page.locator('input[type="email"]').fill('familia@preview.luspace.test', { timeout: 15000 }); }
+  catch { throw new Error(`Login no disponible: ${page.url()} · ${(await page.locator('body').innerText()).slice(0, 1500)} · ${pageErrors.join('; ')}`); }
   await page.locator('input[type="password"]').fill('VistaPrevia!2026');
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   const card = page.locator('article.medicine');
