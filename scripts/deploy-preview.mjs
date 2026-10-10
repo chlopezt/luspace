@@ -70,8 +70,9 @@ database_id = "${dbId}"
 migrations_dir = "../../db/migrations"
 `);
 const run = args => {
-  const result = spawnSync('npx', ['wrangler', ...args], { stdio: 'inherit', env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } });
-  if (result.status !== 0) throw new Error('Wrangler falló: ' + args[0]);
+  const result = spawnSync('npx', ['wrangler', ...args], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } });
+  process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || '');
+  if (result.status !== 0) throw new Error('Wrangler falló: ' + args[0] + '\n' + ((result.stderr || '') + (result.stdout || '')).slice(-5000));
 };
 run(['d1', 'migrations', 'apply', database, '--remote', '--config', config]);
 if (created) {
