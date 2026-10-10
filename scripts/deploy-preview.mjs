@@ -7,6 +7,13 @@ import { previewFixtureSql } from './preview-fixture.mjs';
 const project = 'luspace-review', database = 'luspace-review-db';
 const productionBranch = 'preview-disabled', previewBranch = 'review';
 const token = process.env.CLOUDFLARE_API_TOKEN;
+// Make deployment failures visible through GitHub checks even when log downloads
+// are unavailable from the cloud workspace. Never include the credential.
+process.on('uncaughtException', error => {
+  const message = String(error.message).replaceAll(token || '\0', '[redacted]').replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+  console.error('::error::' + message);
+  process.exitCode = 1;
+});
 if (!token) throw new Error('Falta CLOUDFLARE_API_TOKEN para publicar únicamente la vista previa.');
 if (process.env.GITHUB_REF === 'refs/heads/main') throw new Error('La vista previa debe publicarse desde una rama independiente.');
 async function cf(path, method = 'GET', data) {
