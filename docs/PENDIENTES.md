@@ -1,5 +1,19 @@
 # Pendientes de LuSpace
 
+## Recuperación de contraseña por correo electrónico — añadido (10/10/2026)
+
+Estado: pendiente de implementación. Registrar esta tarea no configura servicios, envía correos ni autoriza su publicación en producción.
+
+- [ ] Incorporar «¿Olvidaste tu contraseña?» en el login y una pantalla para solicitar el enlace de recuperación.
+- [ ] Enviar enlaces de recuperación por correo electrónico.
+- [ ] Implementar tokens criptográficamente seguros, de un solo uso y con expiración de **30 minutos**; guardar únicamente su hash e invalidarlos después del cambio de contraseña.
+- [ ] Crear una pantalla para establecer y confirmar una nueva contraseña, con validación en el servidor y revocación de las sesiones existentes al completar la recuperación.
+- [ ] Integrar un proveedor de correo como **Resend**.
+- [ ] Configurar y verificar el dominio de envío **luspace.cl**, los registros DNS requeridos por el proveedor y los secretos correspondientes en Cloudflare, sin guardar credenciales en el repositorio.
+- [ ] Mantener respuestas que no revelen si un correo tiene cuenta y limitar los intentos de solicitud y validación.
+- [ ] Realizar pruebas con cuentas y correos de prueba antes de publicar: envío y errores del proveedor, enlace válido, token inválido, expirado o reutilizado, contraseña nueva, sesiones revocadas y conservación de permisos y aislamiento familiar.
+- [ ] Revisar el resultado en la vista previa y publicar únicamente después de la aprobación explícita del propietario.
+
 ## Registro: términos, privacidad y consentimiento — retomado (08/10/2026)
 
 Retomado por solicitud del usuario y autorizado para publicación como versión inicial. Se implementaron páginas públicas, dos casillas desmarcadas, validación de servidor y registro transaccional versionado por correo/Google. Responsable confirmado: Christian López. `contacto@luspace.cl` todavía no recibe mensajes; se informa en las páginas. Sigue pendiente revisión legal y habilitar un canal efectivo de privacidad. Detalle: `TERMINOS_PRIVACIDAD.md`.
