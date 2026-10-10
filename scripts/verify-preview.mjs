@@ -26,9 +26,16 @@ try {
   const page = await browser.newPage({ viewport: { width: 375, height: 900 } });
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  await page.goto(origin + '/login');
-  try { await page.locator('input[type="email"]').fill('familia@preview.luspace.test', { timeout: 15000 }); }
-  catch { throw new Error(`Login no disponible: ${page.url()} · ${(await page.locator('body').innerText()).slice(0, 1500)} · ${pageErrors.join('; ')}`); }
+  // A deployment alias may briefly serve the prior HTML while assets propagate.
+  // Retry navigation only; login and dashboard assertions remain mandatory.
+  let formReady = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto(origin + '/login');
+    try { await page.locator('input[type="email"]').waitFor({ timeout: 15000 }); formReady = true; break; }
+    catch { await new Promise(resolve => setTimeout(resolve, 2000)); }
+  }
+  if (!formReady) throw new Error(`Login no disponible: ${page.url()} · ${(await page.locator('body').innerText()).slice(0, 1500)} · ${pageErrors.join('; ')}`);
+  await page.locator('input[type="email"]').fill('familia@preview.luspace.test');
   await page.locator('input[type="password"]').fill('VistaPrevia!2026');
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   const card = page.locator('article.medicine');

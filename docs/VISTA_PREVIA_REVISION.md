@@ -13,6 +13,8 @@ Cuenta exclusivamente ficticia:
 
 No introducir datos personales, médicos ni contraseñas reales. El sitio es una demostración pública con una cuenta compartida; sus registros pueden ser modificados por quienes tengan estas credenciales.
 
+La compilación de revisión activa el aviso existente «Vista previa · Datos ficticios · Producción sin cambios». Esta variable se usa únicamente en el workflow de revisión.
+
 ## Aislamiento
 
 El script `scripts/deploy-preview.mjs` usa únicamente el proyecto `luspace-review`, la rama de Pages `review` y la base D1 `luspace-review-db`. Nunca lee `wrangler.toml` para obtener los bindings de producción ni despliega desde main. La base debe ser nueva o estar marcada expresamente como sintética. Si detecta un recurso existente sin la marca esperada, aborta.

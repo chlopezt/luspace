@@ -27,6 +27,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          VITE_LUSPACE_PREVIEW: 'true'
       - name: Publicar únicamente la vista previa aislada
         run: node scripts/deploy-preview.mjs
       - name: Verificar el enlace publicado con la cuenta ficticia
