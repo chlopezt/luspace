@@ -5,7 +5,20 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {localEnv} from '../server/local.js';
 import {handle} from '../server/api.js';
-import {todaySchedule,nextSosDose,sosReminders,careValidation} from '../shared/care.js';
+import {todaySchedule,nextSosDose,sosReminders,careValidation,recentSosDoses} from '../shared/care.js';
+test('SOS history preserves administered doses independently of reminder intervals and limits the latest records', () => {
+ const rows = [
+  {id:'missing-date',medicamento:'Legacy',dosis:'Recorded'},
+  {id:'old',medicamento:'Same',fecha:'2026-10-01T12:00:00Z',dosis:'Old dose'},
+  {id:'recent',medicamento:'Same',fecha:'2026-10-10T12:00:00Z',dosis:'Recent dose'},
+  {id:'middle',medicamento:'Other',fecha:'2026-10-09T12:00:00Z',intervalo_horas:6},
+ ];
+ assert.deepEqual(recentSosDoses(rows).map(row=>row.id),['recent','middle','old','missing-date']);
+ assert.deepEqual(recentSosDoses(rows,2).map(row=>row.id),['recent','middle']);
+ assert.equal(rows[0].id,'missing-date');
+ assert.deepEqual(recentSosDoses([]),[]);
+ assert.equal(sosReminders(rows,Date.parse('2026-10-12T12:00:00Z')).length,0);
+});
 test('Santiago school weekdays, weekends, sorting and prescribed SOS intervals',()=>{
  const rows=[{dia:'Lunes',hora_inicio:'10:00'},{dia:'Lunes',hora_inicio:'08:00'}];
  assert.equal(todaySchedule(rows,new Date('2026-10-05T12:00:00Z'))[0].hora_inicio,'08:00');

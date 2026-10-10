@@ -29,7 +29,7 @@ import "./contextual-records.css";
 import MultiFiles, { FileGallery, fileIds } from "./RecordFiles";
 import { api, dateLabel, today, type Row } from "./lib";
 import {AccessActor} from "./AccessPolicy";
-import {fieldAllowed} from "../shared/access-policy.js";
+import {fieldAllowed, canAccess} from "../shared/access-policy.js";
 import { models as definitions, fieldVisible } from "../shared/models.js";
 import { weekdays, moneyCLP } from '../shared/care.js';
 import SosReminders from './SosReminders';
@@ -942,17 +942,20 @@ export function Records({
   readonly = false,
   onChange,
   onlyFields,
+  initialCreate = false,
 }: {
   table: string;
   child: Row;
   readonly?: boolean;
   onChange?: () => void;
   onlyFields?: string[];
+  initialCreate?: boolean;
 }) {
+  const actor = useContext(AccessActor);
   const [rows, setRows] = useState<Row[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
-    [edit, setEdit] = useState<Row | null>(null),
+    [edit, setEdit] = useState<Row | null>(() => initialCreate && !readonly && canAccess(actor, models[table].module) && canAccess(actor, models[table].module, 'crear') ? {} : null),
     [remove, setRemove] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [visitCategory, setVisitCategory] = useState("upcoming"),
@@ -1020,7 +1023,7 @@ export function Records({
     <section className={'record-section' + (['dosis_sos','urgencias','horario_escolar','sesiones_terapia','gastos_medicos','turnos_cuidadores'].includes(table) ? ' care-records' : '')}>
       <div className="section-heading">
         <h2>{onlyFields ? "Adecuaciones PIE / PACI" : config.title}</h2>
-        {!readonly && (
+        {!readonly && canAccess(actor, config.module, config.single && rows.length ? 'editar' : 'crear') && (
           <button
             className="secondary"
             disabled={loading}

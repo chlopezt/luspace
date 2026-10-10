@@ -1,0 +1,35 @@
+.medicine .medicine-secondary { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 15px; border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line)); border-radius:14px; background:color-mix(in srgb,var(--accent) 10%,var(--surface)); color:var(--accent); font-size:14px; font-weight:650; text-decoration:none; transition:background .18s ease,border-color .18s ease,transform .18s ease; }
+.medicine .medicine-secondary:hover { background:color-mix(in srgb,var(--accent) 17%,var(--surface)); border-color:var(--accent); }
+.medicine .medicine-secondary:active { transform:translateY(1px); background:color-mix(in srgb,var(--accent) 23%,var(--surface)); }
+.medicine .medicine-secondary:focus-visible,.medicine .sos-toggle:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.medicine .treatments-action { align-self:flex-start; margin-top:16px; }
+.medicine .section-heading { gap:12px; flex-wrap:wrap; }
+.medicine .section-heading h2 { min-width:0; }
+.dashboard-sos { margin-top:18px; padding-top:12px; border-top:1px solid var(--line); min-width:0; }
+.medicine .sos-toggle { display:flex; align-items:center; gap:9px; width:100%; min-height:48px; padding:10px 4px; border:0; border-radius:10px; background:transparent; color:var(--ink); text-align:left; font-weight:650; }
+.sos-toggle>svg:first-child { color:var(--accent); flex-shrink:0; }
+.sos-toggle>span:first-of-type { flex:1; min-width:0; }
+.sos-toggle:hover { background:var(--soft); }
+.sos-toggle:active { background:color-mix(in srgb,var(--accent) 9%,var(--surface)); }
+.sos-count { padding:2px 8px; border-radius:999px; background:color-mix(in srgb,var(--accent) 14%,var(--surface)); color:var(--accent); font-size:12px; }
+.sos-chevron { flex-shrink:0; color:var(--muted); transition:transform .22s ease; }
+.sos-toggle[aria-expanded="true"] .sos-chevron { transform:rotate(180deg); }
+.sos-collapse { display:grid; grid-template-rows:0fr; opacity:0; visibility:hidden; transition:grid-template-rows .22s ease,opacity .22s ease,visibility .22s; }
+.sos-collapse.is-open { grid-template-rows:1fr; opacity:1; visibility:visible; }
+.sos-collapse-inner { overflow:hidden; min-height:0; }
+.sos-panel { padding:14px; border:1px solid var(--line); border-radius:14px; background:var(--soft); }
+.sos-history { list-style:none; display:grid; gap:8px; margin:0; padding:0; max-height:300px; overflow-y:auto; overscroll-behavior:contain; }
+.sos-history:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+.medicine .home-add { min-height:44px; }
+.sos-history-card { display:flex; align-items:flex-start; gap:10px; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.sos-history-card>svg { flex-shrink:0; margin-top:2px; color:var(--accent); }
+.sos-history-card>div { min-width:0; overflow-wrap:anywhere; }
+.sos-history-card strong { display:block; color:var(--ink); font-size:14px; }
+.sos-history-card time,.sos-history-card span { display:block; margin-top:4px; font-size:12px; color:var(--muted); }
+.sos-history-card p { margin:6px 0 0; font-size:13px; color:var(--ink); }
+.sos-caption,.sos-message { margin:0 0 10px; font-size:13px; color:var(--muted); }
+.sos-error p { margin-top:0; font-size:13px; color:var(--ink); }
+.sos-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+.sos-actions:empty { display:none; }
+@media(max-width:600px) { .medicine .treatments-action,.sos-actions .medicine-secondary { width:100%; } .sos-panel { padding:10px; } .sos-history { max-height:260px; } }
+@media(prefers-reduced-motion:reduce) { .medicine .medicine-secondary,.sos-chevron,.sos-collapse { transition:none; } }

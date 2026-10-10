@@ -458,7 +458,9 @@ function FamilyApp() {
     [rndAvailable, setRndAvailable] = useState(false),
     [report, setReport] = useState(false),
     [tab, setTab] = useState(0),
+    [recordCreate, setRecordCreate] = useState(false),
     [dirty, setDirty] = useState(false);
+  useEffect(() => { if (recordCreate) setRecordCreate(false); }, [recordCreate]);
   useEffect(()=>{if(!profile)setProfileAccess(false);},[profile]);
   const [guestToken, setGuestToken] = useState(() =>
     location.pathname.startsWith("/invitado")
@@ -531,7 +533,7 @@ function FamilyApp() {
   useEffect(() => {
     void refreshRnd();
   }, [childId, me?.id]);
-  function go(next: string) {
+  function go(next: string, nextTab = 0, create = false) {
     if (
       dirty &&
       !window.confirm(
@@ -541,7 +543,8 @@ function FamilyApp() {
       return;
     setDirty(false);
     setView(next);
-    setTab(0);
+    setTab(nextTab);
+    setRecordCreate(create);
     setMenu(false);
   }
   async function logout() {
@@ -809,7 +812,7 @@ function FamilyApp() {
                         key={s}
                         className={tab === i ? "selected" : ""}
                         aria-pressed={tab === i}
-                        onClick={() => setTab(i)}
+                        onClick={() => { setRecordCreate(false); setTab(i); }}
                       >
                         {s}
                       </button>
@@ -824,6 +827,7 @@ function FamilyApp() {
                     }
                     child={child}
                     readonly={readonly}
+                    initialCreate={recordCreate}
                     onlyFields={
                       view === "escolar" && tab === 1
                         ? ["pie_paci_activo", "adecuaciones_json", "paec_json", "adecuaciones_adjuntos_json"]

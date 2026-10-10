@@ -1,7 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+import { defaultSiteConfig } from "../../shared/site-config.js";
 async function fixture(page: Page, readonly = false) {
   await page.clock.setFixedTime(new Date("2026-10-06T12:00:00Z"));
   await page.route("**/api/**", (r) => r.fulfill({ json: [] }));
+  await page.route("**/api/site-config", (r) => r.fulfill({ json: { config: defaultSiteConfig } }));
   await page.route("**/api/status", (r) =>
     r.fulfill({ json: { setup: false, registration: true } }),
   );
@@ -20,8 +22,9 @@ async function fixture(page: Page, readonly = false) {
         id: "qa",
         nombre: "QA",
         familia: "QA",
-        rol: readonly ? "readonly" : "editor",
+        rol: readonly ? "lector" : "editor",
         permisos_json: JSON.stringify({
+          modules: ["perfil", "salud", "escolar"],
           acciones: readonly
             ? ["ver"]
             : ["ver", "crear", "editar", "eliminar", "adjuntar", "descargar"],
@@ -102,6 +105,7 @@ async function fixture(page: Page, readonly = false) {
       json: [
         {
           id: "pdf",
+          nino_id: "child",
           nombre: "Examen pediátrico.pdf",
           mime: "application/pdf",
           bytes: 25,

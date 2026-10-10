@@ -1,4 +1,13 @@
 export const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+// History is independent of prescribed interval reminders: never discard a dose
+// just because its interval is missing or the reminder has expired.
+export function recentSosDoses(rows, limit = 5) {
+  const timestamp = row => Number.isFinite(Date.parse(row.fecha)) ? Date.parse(row.fecha) : -Infinity;
+  return [...rows].sort((a, b) => {
+    const left = timestamp(a), right = timestamp(b);
+    return left === right ? 0 : left < right ? 1 : -1;
+  }).slice(0, limit);
+}
 export function nextSosDose(row) {
   const start = Date.parse(row.fecha), hours = Number(row.intervalo_horas);
   return Number.isFinite(start) && Number.isFinite(hours) && hours > 0 ? start + hours * 3600000 : null;
