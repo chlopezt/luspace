@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { localEnv } from '../server/local.js';
 import { handle } from '../server/api.js';
-import { hash, token } from '../server/security.js';
+import { hash, token, password } from '../server/security.js';
 import { modules } from '../shared/models.js';
 import { permissionActions, projectRecord } from '../shared/access-policy.js';
 
@@ -254,4 +254,94 @@ test('existing guest links and sessions cannot retain permissions revoked from t
     .bind(JSON.stringify({ modules: ['salud'], acciones: ['ver', 'descargar'], privacidad: ['rut'] }), f.me.id).run();
   assert.equal((await f.call('me', 'GET', undefined, guest)).status, 401);
   assert.equal((await f.call('guest/exchange', 'POST', { token: bearer }, '')).status, 403);
+});
+
+test('synthetic user matrix covers reading, CRUD, document download, export and administrative isolation', async t => {
+  for (const kind of ['owner', 'additional-family-admin', 'limited-member', 'guest', 'unassigned-member']) {
+    await t.test(kind, async t => {
+      const f = await fixture(t);
+      let cookie = f.owner;
+      if (kind === 'additional-family-admin') cookie = await f.user('{}', 'superadmin');
+      if (kind === 'limited-member') cookie = await f.user({ modules: ['salud'], acciones: ['ver', 'crear', 'editar', 'descargar'] });
+      if (kind === 'unassigned-member') cookie = await f.user('{}');
+      if (kind === 'guest') {
+        const share = await f.call('guests?child=' + f.child, 'POST', { nombre: 'Synthetic guest', hours: 24, modules: ['salud'] });
+        assert.equal(share.status, 201);
+        const exchange = await f.call('guest/exchange', 'POST', { token: share.body.url.split('#')[1] }, '');
+        assert.equal(exchange.status, 200);
+        cookie = exchange.cookie;
+      }
+      const admin = ['owner', 'additional-family-admin'].includes(kind);
+      const readable = kind !== 'unassigned-member';
+      const writable = admin || kind === 'limited-member';
+      const downloadable = writable;
+      const path = 'records/registros_crecimiento?child=' + f.child;
+      assert.equal((await f.call('me', 'GET', undefined, cookie)).status, 200);
+      assert.equal((await f.call(path, 'GET', undefined, cookie)).status, readable ? 200 : 403);
+      assert.equal((await f.call('records/horario_escolar?child=' + f.child, 'GET', undefined, cookie)).status, admin ? 200 : 403);
+      const created = await f.call(path, 'POST', { fecha_medicion: '2026-10-10', peso_kg: 22 }, cookie);
+      assert.equal(created.status, writable ? 201 : 403);
+      const recordId = created.body.id || (await f.call(path, 'POST', { fecha_medicion: '2026-10-10', peso_kg: 23 })).body.id;
+      const recordPath = 'records/registros_crecimiento/' + recordId + '?child=' + f.child;
+      assert.equal((await f.call(recordPath, 'PUT', { fecha_medicion: '2026-10-10', peso_kg: 24 }, cookie)).status, writable ? 200 : 403);
+      assert.equal((await f.call(recordPath, 'DELETE', undefined, cookie)).status, admin ? 200 : 403);
+      assert.equal((await f.call('files/' + f.file + '?download=1', 'GET', undefined, cookie)).status, downloadable ? 200 : 403);
+      assert.equal((await f.call('export', 'POST', { child: f.child, modules: ['salud'] }, cookie)).status, readable ? 200 : 403);
+      assert.equal((await f.call('files/' + f.file, 'DELETE', undefined, cookie)).status, admin ? 200 : 403);
+      for (const restricted of ['users', 'backup', 'admin/storage-metrics'])
+        assert.equal((await f.call(restricted, 'GET', undefined, cookie)).status, admin ? 200 : 403);
+      assert.equal((await f.call('platform/overview', 'GET', undefined, cookie)).status, 401);
+      if (kind === 'guest') assert.equal((await f.call('password', 'PUT', { actual: 'irrelevant', nueva: 'SyntheticPassword2026!' }, cookie)).status, 403);
+      assert.equal((await f.call('records/consultas_medicas?child=' + f.foreign, 'GET', undefined, cookie)).status, 404);
+    });
+  }
+});
+
+test('restricted document deletion cannot bypass privacy or sensitive category permissions', async t => {
+  const f = await fixture(t);
+  for (const restrictions of [{ privacidad: ['archivos'] }, { sensibles: [] }]) {
+    const cookie = await f.user({ modules: ['salud'], acciones: ['ver', 'eliminar'], ...restrictions });
+    assert.equal((await f.call('files/' + f.file, 'DELETE', undefined, cookie)).status, 403);
+    assert.ok(await f.env.DB.prepare('SELECT id FROM archivos WHERE id=?').bind(f.file).first());
+  }
+  assert.equal((await f.call('files/' + f.file, 'DELETE')).status, 200);
+});
+
+test('unassigned members can change only their own password without gaining data permissions', async t => {
+  const f = await fixture(t);
+  const cookie = await f.user('{}');
+  const member = (await f.call('me', 'GET', undefined, cookie)).body;
+  await f.env.DB.prepare('INSERT INTO credenciales_usuario(usuario_id,password_hash) VALUES(?,?)')
+    .bind(member.id, await password('SyntheticOldPassword2026!')).run();
+  assert.equal((await f.call('password', 'PUT', { actual: 'wrong', nueva: 'SyntheticNewPassword2026!' }, cookie)).status, 403);
+  assert.equal((await f.call('password', 'PUT', { actual: 'SyntheticOldPassword2026!', nueva: 'SyntheticNewPassword2026!' }, cookie)).status, 200);
+  assert.equal((await f.call('me', 'GET', undefined, cookie)).status, 401);
+  const login = await f.call('login', 'POST', { correo: member.correo, password: 'SyntheticNewPassword2026!' }, '');
+  assert.equal(login.status, 200);
+  assert.deepEqual((await f.call('children', 'GET', undefined, login.cookie)).body, []);
+  assert.equal((await f.call('users', 'GET', undefined, login.cookie)).status, 403);
+  assert.equal((await f.call('records/consultas_medicas?child=' + f.child, 'GET', undefined, login.cookie)).status, 403);
+});
+
+test('administrative permission updates reject malformed restrictions and preserve omitted privacy settings', async t => {
+  const f = await fixture(t);
+  const original = { modules: ['perfil'], acciones: ['ver'], sensibles: ['diagnosticos'], privacidad: ['rut'] };
+  const cookie = await f.user(original);
+  const member = (await f.call('me', 'GET', undefined, cookie)).body;
+  for (const policy of [
+    { modules: ['toString'], acciones: ['ver'] },
+    { modules: ['perfil'], acciones: ['ver'], privacidad: 'rut' },
+    { modules: ['perfil'], acciones: ['ver'], privacidad: ['unknown'] },
+    { modules: ['perfil'], acciones: ['ver'], sensibles: null },
+    { modules: ['perfil'], acciones: ['ver'], sensibles: ['unknown'] },
+  ]) {
+    assert.equal((await f.call('users/' + member.id, 'PUT', { permisos_json: policy })).status, 400);
+    assert.deepEqual(JSON.parse((await f.env.DB.prepare('SELECT permisos_json FROM usuarios WHERE id=?').bind(member.id).first()).permisos_json), original);
+    assert.equal((await f.call('me', 'GET', undefined, cookie)).status, 200);
+  }
+  assert.equal((await f.call('users/' + member.id, 'PUT', { permisos_json: { modules: ['perfil', 'salud'], acciones: ['ver', 'descargar'] } })).status, 200);
+  const saved = JSON.parse((await f.env.DB.prepare('SELECT permisos_json FROM usuarios WHERE id=?').bind(member.id).first()).permisos_json);
+  assert.deepEqual(saved.sensibles, original.sensibles);
+  assert.deepEqual(saved.privacidad, original.privacidad);
+  assert.equal((await f.call('me', 'GET', undefined, cookie)).status, 401);
 });

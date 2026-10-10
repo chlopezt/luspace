@@ -14,7 +14,7 @@ import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
-import { permissions, canAccess, canShare, recordAllowed, fieldAllowed, projectRecord, projectChild, projectAnamnesis, permissionActions } from "../shared/access-policy.js";
+import { permissions, canAccess, canShare, recordAllowed, fieldAllowed, projectRecord, projectChild, projectAnamnesis, permissionActions, sensitiveCategories, privacyCategories } from "../shared/access-policy.js";
 import {fileCatalog} from './file-catalog.js';
 import {billingStatus,billingConnection,createCheckout,createOneoffCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus,reconcileBillingJob} from './billing.js';
 
@@ -1338,11 +1338,15 @@ export async function handle(req, env) {
       if (b.permisos_json !== undefined) {
         let p;
         try { p = typeof b.permisos_json === "string" ? JSON.parse(b.permisos_json) : b.permisos_json; } catch { fail(400, "Permisos inválidos."); }
-        if (!Array.isArray(p?.modules) || !Array.isArray(p?.acciones) || p.modules.some((m) => !modules[m]) || p.acciones.some((x) => !["ver", "crear", "editar", "eliminar", "descargar", "adjuntar"].includes(x)))
+        const validList = (value, choices) => Array.isArray(value) && value.every(x => typeof x === 'string' && choices.includes(x));
+        if (!validList(p?.modules, Object.keys(modules)) || !validList(p?.acciones, permissionActions)
+          || (Object.hasOwn(p, 'sensibles') && !validList(p.sensibles, sensitiveCategories))
+          || (Object.hasOwn(p, 'privacidad') && !validList(p.privacidad, privacyCategories)))
           fail(400, "Permisos inválidos.");
-        const sensitive = Array.isArray(p.sensibles) ? p.sensibles.filter((x) => ["rnd", "anamnesis", "diagnosticos", "examenes", "recetas", "foto_perfil"].includes(x)) : [];
-        const privateFields = Array.isArray(p.privacidad) ? p.privacidad.filter((x) => ["rut", "telefono", "direccion", "diagnosticos", "archivos"].includes(x)) : [];
-        ops.push(stmt(db, "UPDATE usuarios SET permisos_json=? WHERE id=?", JSON.stringify({ modules: [...new Set(p.modules)], acciones: [...new Set(p.acciones)], sensibles: [...new Set(sensitive)], privacidad: [...new Set(privateFields)] }), id));
+        const previous = permissions(target);
+        const sensitive = Object.hasOwn(p, 'sensibles') ? p.sensibles : previous.sensibles;
+        const privateFields = Object.hasOwn(p, 'privacidad') ? p.privacidad : previous.privacidad;
+        ops.push(stmt(db, "UPDATE usuarios SET permisos_json=? WHERE id=?", JSON.stringify({ modules: [...new Set(p.modules)], acciones: [...new Set(p.acciones)], ...(Array.isArray(sensitive) ? { sensibles: [...new Set(sensitive)] } : {}), privacidad: [...new Set(privateFields || [])] }), id));
       }
       ops.push(
         stmt(db, "DELETE FROM sesiones WHERE usuario_id=?", id),
@@ -1358,7 +1362,7 @@ export async function handle(req, env) {
       return json({ ok: true });
     }
     if (path === "password" && method === "PUT") {
-      member(a);
+      if (a.guest) fail(403, "El acceso de invitado no permite cambiar contraseñas.");
       await limit(db, "password:" + a.id);
       const b = await body(req),
         c = await first(
@@ -1686,6 +1690,9 @@ export async function handle(req, env) {
       const f = await first(db, "SELECT * FROM archivos WHERE id=? AND familia_id=?", id, a.familia_id);
       if (!f) fail(404, "Archivo no encontrado.");
       member(a, f.modulo, "eliminar");
+      await child(db, a, f.nino_id);
+      if (!(await fileCatalog(db, a, permissions(a), [f.modulo])).some(entry => entry.id === f.id))
+        fail(403, "Tu cuenta no tiene permiso para eliminar este documento.");
       for(const [table,model] of Object.entries(models)){
         if(model.module!==f.modulo)continue;
         for(const field of model.fields.filter(field=>field.type==='files')){

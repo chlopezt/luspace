@@ -3,6 +3,8 @@
 Base revisada: `20566ba0f0e3ea0b41b43f4b9c5412c22665ab69`.
 Rama: `fix/p0-authorization-privacy`.
 
+Este documento registra la entrega inicial `c67a317`. La validación posterior, correcciones adicionales y cifras actualizadas están en [VALIDACION_SEGURIDAD_P0.md](VALIDACION_SEGURIDAD_P0.md).
+
 ## Vulnerabilidades corregidas
 
 - Los permisos requeridos ausentes, vacíos, malformados o desconocidos ya no conceden acceso por defecto. Cada operación exige acceso de lectura al módulo y el permiso de acción correspondiente; se respetan los bloqueos de plataforma.

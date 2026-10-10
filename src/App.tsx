@@ -640,7 +640,7 @@ function FamilyApp() {
             .filter(([k]) => k !== 'recordatorios' || remindersEnabled)
             .filter(([k]) =>
               readonly
-                ? available.includes(k) || (k === 'inicio' && !me.guest) || (k === 'archivos' && !me.guest)
+                ? available.includes(k) || (['inicio', 'archivos', 'usuarios'].includes(k) && !me.guest)
                 : k !== "auditoria" || (me.rol === "superadmin" && !!me.audit_visible),
             )
             .map(([key, label, Icon]) => (
@@ -660,7 +660,7 @@ function FamilyApp() {
           <span>{me.nombre.slice(0, 1)}</span>
           <div>
             <strong>{me.familia}</strong>
-            <small>{readonly ? "Invitado · solo lectura" : me.nombre}</small>
+            <small>{me.guest ? "Invitado · solo lectura" : me.nombre}</small>
           </div>
         </div>
         <button className="link-button" onClick={() => void logout()}>
@@ -724,7 +724,9 @@ function FamilyApp() {
         <main id="main" className="content" key={childId}>
           {!subscription.canWrite && <div className="subscription-banner" role="status"><p>Tu período terminó. Activa tu plan para continuar.</p><p>{subscription.canRead ? `Puedes consultar y descargar tu información hasta ${new Date(subscription.value?.read_access_ends_at).toLocaleString('es-CL')}. Realiza el pago para mantener el acceso o descarga un respaldo antes de esa fecha.` : 'El plazo de 14 días para consultar y descargar terminó. Tus datos no se han eliminado automáticamente.'}</p>{!me.guest && <button onClick={()=>setSubscriptionInfo(true)}>Activar plan</button>} <a href="mailto:contacto@luspace.cl">Solicitar recuperación de datos</a></div>}
           <ErrorNote error={error} />
-          {!subscription.canRead ? <section className="card"><h1>Reactiva tu plan</h1><p>El acceso a los módulos está bloqueado. Puedes gestionar el pago o solicitar recuperación de tus datos.</p></section> : view==='recordatorios'&&remindersEnabled ? <Reminders children={children} readonly={readonly}/> : !child ? (
+          {view === 'usuarios' && !me.guest ? <Users me={me} onLogout={() => { setMe(null); setChildren([]); }}/> : !subscription.canRead ? <section className="card"><h1>Reactiva tu plan</h1><p>El acceso a los módulos está bloqueado. Puedes gestionar el pago o solicitar recuperación de tus datos.</p></section> : view==='recordatorios'&&remindersEnabled ? <Reminders children={children} readonly={readonly}/> : !me.guest && !available.length ? (
+            <section className="card"><h1>Acceso pendiente de autorización</h1><p>Tu cuenta no tiene módulos de lectura habilitados. Pide al administrador de tu familia que revise tus permisos.</p></section>
+          ) : !child ? (
             <section className="card welcome">
               <h1>Comencemos con su perfil</h1>
               <p className="muted">
@@ -857,15 +859,6 @@ function FamilyApp() {
                 </>
               )}
               {view === "invitados" && !readonly && <Guests child={child} />}{" "}
-              {view === "usuarios" && !roleReadonly && (
-                <Users
-                  me={me}
-                  onLogout={() => {
-                    setMe(null);
-                    setChildren([]);
-                  }}
-                />
-              )}
               {view === "auditoria" && me.rol === "superadmin" && !!me.audit_visible && <Audit />}
               {view === "archivos" && !me.guest && <MyFiles children={children}/>}
             </>

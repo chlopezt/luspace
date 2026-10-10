@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { api, dateLabel, download, type Row } from "./lib";
 import { modules } from "../shared/models.js";
+import { permissions } from "../shared/access-policy.js";
 import { Empty, ErrorNote, Modal } from "./components";
 
 const allModules = Object.keys(modules);
@@ -791,17 +792,11 @@ function PermissionsModal({
   onSave: (permissions: Row) => Promise<void>;
   busy: boolean;
 }) {
-  const initial = (() => {
-    try {
-      return JSON.parse(user.permisos_json || "{}");
-    } catch {
-      return {};
-    }
-  })();
+  const initial: Row = permissions(user);
   const [p, setP] = useState<Row>({
-    modules: initial.modules || allModules,
-    acciones: initial.acciones || ["ver"],
-    sensibles: initial.sensibles || [],
+    modules: initial.modules,
+    acciones: initial.acciones,
+    sensibles: initial.sensibles || sensitiveItems.map(([key]) => key),
     privacidad: initial.privacidad || [],
   });
   const toggle = (key: string, value: string) =>
@@ -838,7 +833,6 @@ function PermissionsModal({
               <input
                 type="checkbox"
                 checked={p.acciones.includes(a)}
-                disabled={a === "ver"}
                 onChange={() => toggle("acciones", a)}
               />
               {a}
@@ -874,7 +868,7 @@ function PermissionsModal({
       </div>
       <button
         className="primary"
-        disabled={busy || !p.modules.length || !p.acciones.includes("ver")}
+        disabled={busy}
         onClick={() => void onSave(p)}
       >
         Guardar permisos
