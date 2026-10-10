@@ -19,7 +19,6 @@ import {
   Mail,
   LockKeyhole,
   ArrowRight,
-  CircleHelp,
   Gift,
   UserRoundPlus,
 } from "lucide-react";
@@ -121,7 +120,6 @@ export function Auth({
   return (
     <div className={'auth-page auth-minimal-page'+(showcase?' auth-login-showcase':'')+((showcase||register)?' auth-entry':'')}>
       <div className="auth-theme">
-        {showcase&&<button className="login-top-help" type="button" onClick={()=>setRecoveryOpen(true)}><CircleHelp size={18}/>¿Necesitas ayuda?</button>}
         <Theme />
       </div>
       {showcase&&<><div className="login-organic login-organic-mint" aria-hidden="true"/><div className="login-organic login-organic-lilac" aria-hidden="true"/><div className="login-wave" aria-hidden="true"/><div className="login-leaves" aria-hidden="true"><i/><i/><i/></div></>}

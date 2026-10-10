@@ -21,3 +21,19 @@ body:has(.auth-entry){min-width:0}
 @media(max-width:900px){.auth-entry .auth-welcome{display:none}.auth-page.auth-login-showcase.auth-entry{padding:76px 16px 32px;gap:0}.auth-entry .auth-card.auth-minimal{padding:24px}.auth-entry .auth-home-logo{width:min(200px,100%)}.auth-entry .login-subtitle{margin-bottom:20px}.auth-entry .auth-divider{margin:20px 0}.auth-entry .auth-route-selector{margin-bottom:16px}}
 @media(max-width:480px){.auth-page.auth-login-showcase.auth-entry{padding-inline:12px}.auth-entry .auth-card.auth-minimal{padding:22px 18px}.auth-entry .auth-home-logo{width:min(180px,100%)}.auth-entry .auth-route-selector a{font-size:12px;padding:8px 9px;gap:5px}.auth-entry .auth-route-selector svg{width:15px;flex:0 0 15px}.auth-entry .login-register-button{font-size:14px;min-height:54px;padding:12px;gap:7px}.auth-entry .auth-legal-link{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.auth-entry .auth-route-selector a,.auth-entry .login-register-button{transition:none}}
+/* Compact family login card; registration and authentication are unchanged. */
+.auth-login-showcase.auth-entry .auth-card.auth-minimal{max-width:520px;padding:28px 30px 22px}
+.auth-login-showcase.auth-entry .auth-route-selector{margin-bottom:14px}
+.auth-login-showcase.auth-entry .auth-home-logo{width:min(220px,100%);margin-bottom:12px!important}
+.auth-login-showcase.auth-entry .auth-back{margin-bottom:8px}
+.auth-login-showcase.auth-entry .login-subtitle{font-size:16px;margin-bottom:20px}
+.auth-login-showcase.auth-entry .field{margin-bottom:12px}
+.auth-login-showcase.auth-entry .field input{min-height:52px;padding-top:12px;padding-bottom:12px}
+.auth-login-showcase.auth-entry .login-options{margin:0 0 14px}
+.auth-login-showcase.auth-entry .auth-card .primary{min-height:52px;font-size:16px}
+.auth-login-showcase.auth-entry .auth-divider{margin:17px 0}
+.auth-login-showcase.auth-entry .google-signin{min-height:50px}
+.auth-login-showcase.auth-entry .login-register-action{margin-top:14px}
+.auth-login-showcase.auth-entry .login-register-button{min-height:52px;font-size:14px}
+@media(max-width:900px){.auth-login-showcase.auth-entry .auth-card.auth-minimal{max-width:460px;padding:22px}.auth-login-showcase.auth-entry .auth-home-logo{width:min(190px,100%)}}
+@media(max-width:480px){.auth-login-showcase.auth-entry .auth-card.auth-minimal{padding:20px 18px}.auth-login-showcase.auth-entry .auth-home-logo{width:min(175px,100%)}.auth-login-showcase.auth-entry .field input{min-height:50px}.auth-login-showcase.auth-entry .auth-divider{margin:15px 0}}
