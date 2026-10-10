@@ -4,7 +4,7 @@ import { api, age, today, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
 import Growth from "./Growth";
 import { todaySchedule } from '../shared/care.js';
-import SosReminders from './SosReminders';
+import DashboardSos from './DashboardSos';
 import Reminders from './Reminders';
 import {AccessActor} from './AccessPolicy';
 import {canAccess} from '../shared/access-policy.js';
@@ -34,7 +34,7 @@ export default function Dashboard({
   available=[],
 }: {
   child: Row;
-  go: (v: string) => void;
+  go: (v: string, tab?: number, create?: boolean) => void;
   readonly?: boolean;
   remindersEnabled?: boolean;
   available?: string[];
@@ -45,7 +45,6 @@ export default function Dashboard({
     [visits, setVisits] = useState<Row[]>([]),
     [diary, setDiary] = useState<Row[]>([]),
     [schedule, setSchedule] = useState<Row[]>([]),
-    [sos, setSos] = useState<Row[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [now, setNow] = useState(Date.now());
@@ -59,10 +58,9 @@ export default function Dashboard({
       "consultas_medicas",
       "bitacora_escolar_diaria",
       "horario_escolar",
-      "dosis_sos",
     ];
     Promise.all(tables.map((t) => (models[t as keyof typeof models].module==='salud'?health:school) ? api(`records/${t}?child=${child.id}`) : Promise.resolve([])))
-      .then(([g, m, v, d, s, doses]) => {
+      .then(([g, m, v, d, s]) => {
         if (!live) return;
         setGrowth(
           g.sort((a: Row, b: Row) =>
@@ -73,7 +71,6 @@ export default function Dashboard({
         setVisits(v);
         setDiary(d);
         setSchedule(s);
-        setSos(doses);
       })
       .catch((e) => {if(live)setError(e.message);})
       .finally(()=>{if(live)setLoading(false);});
@@ -172,14 +169,14 @@ export default function Dashboard({
         {health && <article className="card medicine dashboard-panel home-panel">
           <div className="section-heading">
             <h2><Pill size={19} /> Medicamentos activos</h2>
-            <button className="home-add" disabled={readonly || !canAccess(actor,'salud','crear')} onClick={() => go("salud")}>＋ Agregar</button>
+            <button className="home-add" disabled={readonly || !canAccess(actor,'salud','crear')} onClick={() => go("salud", 1, true)}>＋ Agregar</button>
           </div>
           {activeMeds.length ? (
             <ul className="dashboard-list medication-list">
               {activeMeds.map((med) => (
                 <li key={med.id}>
                   <Pill size={17} aria-hidden="true" />
-                  <button className="link-button" onClick={() => go("salud")}>{med.nombre}</button>
+                  <button className="link-button" onClick={() => go("salud", 1)}>{med.nombre}</button>
                   <span className="dose">{med.dosis || "Dosis sin registrar"}</span>
                   <time>{timeLabel(med.next)}</time>
                 </li>
@@ -188,10 +185,10 @@ export default function Dashboard({
           ) : (
             <p className="empty-state">Sin tratamientos activos programados.</p>
           )}
-          <button className="soft-action" onClick={() => go("salud")}>
-            Ver tratamientos
+          <button className="medicine-secondary treatments-action" onClick={() => go("salud", 1)}>
+            <Pill size={18} aria-hidden="true"/> Ver tratamientos
           </button>
-          {sos.length > 0 && <details><summary>Dosis SOS recientes</summary><SosReminders rows={sos} now={now}/></details>}
+          <DashboardSos key={child.id} childId={child.id} readonly={readonly} go={go}/>
         </article>}
         {school && <article className="card school dashboard-panel home-panel">
           <div className="section-heading">

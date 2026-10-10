@@ -1,0 +1,31 @@
+name: Vista previa LuSpace
+
+on:
+  push:
+    branches: ['fix/**', 'feat/**', 'preview/**']
+
+permissions:
+  contents: read
+
+# One shared synthetic preview; serialize updates to its database and deployment.
+concurrency:
+  group: luspace-synthetic-preview
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Publicar únicamente la vista previa aislada
+        run: node scripts/deploy-preview.mjs
