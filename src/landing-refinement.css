@@ -1,0 +1,63 @@
+/* Scoped refinements: original content, layout and public theme tokens retained. */
+.lp .lp-original-logo{display:flex;align-items:center;justify-content:center;width:145px;height:38px;flex:0 0 145px;max-width:100%}
+.lp .lp-original-logo img{display:block;width:100%;height:auto;object-fit:contain}
+.lp .lp-hero{position:relative;isolation:isolate}
+.lp .lp-hero::before,.lp .lp-final::before{content:'';position:absolute;pointer-events:none;z-index:-1;inset:0;border-radius:inherit;background:radial-gradient(ellipse at 90% 25%,color-mix(in srgb,var(--lp-violet) 75%,transparent),transparent 45%),radial-gradient(ellipse at 10% 80%,var(--lp-soft),transparent 45%)}
+.lp .lp-final{position:relative;isolation:isolate;overflow:hidden}
+.lp .lp-preview{box-shadow:0 18px 45px #18333b12,0 3px 10px #0d948808}
+.lp .lp-price{background:linear-gradient(135deg,var(--lp-card) 55%,var(--lp-soft));border-color:color-mix(in srgb,var(--lp-accent) 22%,var(--lp-border))}
+.lp .lp-price li{padding:8px 0;margin:6px 0;line-height:1.6}
+.lp .lp-audience-card{display:flex;flex-direction:column}
+.lp .lp-audience-card h3{min-height:2.9em}
+.lp .lp-security li{gap:14px;line-height:1.7;padding:5px 0}
+.lp .lp-security li svg{margin-top:3px}
+.lp .lp-faq summary{display:flex;align-items:center;justify-content:space-between;gap:16px;list-style:none}
+.lp .lp-faq summary::-webkit-details-marker{display:none}
+.lp .lp-faq summary svg{flex:0 0 18px;color:var(--lp-accent)}
+.lp .lp-faq details[open] summary svg{transform:rotate(180deg)}
+.lp .lp-faq details{transition:background-color .25s,border-color .25s}
+.lp .lp-faq details:hover{background:color-mix(in srgb,var(--lp-card) 90%,var(--lp-soft))}
+.lp .testimonial-controls>button{background:var(--lp-soft);border-color:var(--lp-border);color:var(--lp-accent)}
+.lp .testimonial-dots button.active::after{background:var(--lp-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--lp-accent) 15%,transparent)}
+.lp .testimonial-controls button:focus-visible{outline:3px solid var(--lp-accent);outline-offset:3px}
+@media(prefers-reduced-motion:no-preference){
+ .lp .lp-motion-card{transition:opacity .55s ease-out var(--lp-reveal-delay,0ms),translate .55s ease-out var(--lp-reveal-delay,0ms),box-shadow .25s ease,border-color .25s ease,background-color .25s ease}
+ .lp .lp-motion-pending{translate:0 14px}
+ .lp .lp-illustration{animation:none}
+ .lp .lp-orbit{animation:lp-orbit-drift 18s ease-in-out infinite}
+ .lp .lp-floating{animation:lp-badge-drift 16s ease-in-out -4s infinite}
+ .lp .lp-button,.lp .lp-login,.lp .lp-nav nav a,.lp .testimonial-controls button{transition:background-color .25s,color .25s,box-shadow .25s,transform .25s}
+ .lp .lp-feature-icon svg,.lp .lp-audience-icon svg,.lp .lp-security li svg,.lp .lp-faq summary svg{transition:transform .25s ease}
+ .lp .lp-faq details[open]>p{animation:lp-answer-enter .25s ease-out}
+ .lp .testimonial-track{scroll-behavior:smooth}
+ /* Native details remain accessible; supporting browsers animate both directions. */
+ @supports (interpolate-size:allow-keywords){
+  .lp .lp-faq details{interpolate-size:allow-keywords}
+  .lp .lp-faq details::details-content{block-size:0;overflow:clip;transition:block-size .3s ease,content-visibility .3s;transition-behavior:allow-discrete}
+  .lp .lp-faq details[open]::details-content{block-size:auto}
+ }
+ @media(hover:hover) and (pointer:fine){
+  .lp .lp-features article:hover{transform:translateY(-4px);box-shadow:0 10px 25px #0d948812;border-color:color-mix(in srgb,var(--lp-accent) 30%,var(--lp-border))}
+  .lp .lp-features article{transition:opacity .55s ease-out var(--lp-reveal-delay,0ms),translate .55s ease-out var(--lp-reveal-delay,0ms),transform .25s,box-shadow .25s,border-color .25s}
+  .lp .lp-feature-icon:hover svg,.lp .lp-features article:hover svg,.lp .lp-audience-card:hover svg{transform:scale(1.04)}
+  .lp .lp-audience-card:hover{box-shadow:0 8px 24px #0d948810;border-color:color-mix(in srgb,var(--lp-accent) 25%,var(--lp-border))}
+  .lp .lp-security li:hover svg{transform:scale(1.04)}
+  .lp .lp-button:hover{box-shadow:0 7px 20px #0d948824;transform:translateY(-2px)}
+  .lp .testimonial-controls>button:not(:disabled):hover{transform:translateY(-2px);background:color-mix(in srgb,var(--lp-soft) 80%,var(--lp-accent))}
+ }
+}
+@keyframes lp-orbit-drift{0%,100%{transform:translate(0,0) rotate(-14deg)}50%{transform:translate(8px,-10px) rotate(-14deg)}}
+@keyframes lp-badge-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes lp-answer-enter{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:768px){
+ .lp .lp-nav .lp-original-logo{width:112px;height:32px;flex-basis:112px}
+ .lp .lp-footer>.lp-original-logo{grid-column:1/-1}
+ .lp .lp-audience-card h3{min-height:0}
+ .lp .lp-orbit,.lp .lp-floating{animation:none}
+}
+@media(max-width:360px){.lp .lp-nav .lp-original-logo{width:104px;flex-basis:104px}}
+@media(prefers-reduced-motion:reduce){
+ .lp .lp-orbit,.lp .lp-floating,.lp .lp-faq details[open]>p{animation:none}
+ .lp .lp-button,.lp .lp-faq details,.lp .lp-faq summary svg,.lp .testimonial-controls button,.lp .testimonial-dots button::after{transition:none}
+ .lp .testimonial-track{scroll-behavior:auto}
+}

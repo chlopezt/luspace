@@ -1,5 +1,4 @@
-import {Activity, ArrowRight, BookOpen, CalendarDays, Check, FileHeart, Heart, LogIn, ShieldCheck, Stethoscope, Users, LockKeyhole} from 'lucide-react';
-import {Brand} from './components';
+import {Activity, ArrowRight, BookOpen, CalendarDays, Check, ChevronDown, FileHeart, Heart, LogIn, ShieldCheck, Stethoscope, Users, LockKeyhole} from 'lucide-react';
 import './landing.css';
 import Testimonials from './Testimonials';
 import AudiencePurpose from './AudiencePurpose';
@@ -9,6 +8,9 @@ import {useSiteConfig} from './useSiteConfig';
 import {BannerView} from './SiteBanner';
 import {useLandingMotion} from './useLandingMotion';
 import './landing-motion.css';
+import './landing-refinement.css';
+
+function LandingLogo(){return <span className="lp-original-logo"><img src="/brand/luspace-horizontal.png" alt="LuSpace" width="2172" height="724"/></span>;}
 
 const features = [
   {icon:FileHeart,title:'Su historia de salud, organizada',text:'Reúne consultas, tratamientos, exámenes y recetas. Encuentra lo que necesitas antes de la próxima consulta.'},
@@ -22,7 +24,7 @@ export default function Landing() {
   return <div className="lp" ref={motionRoot}>
     <a className="lp-skip" href="#contenido">Ir al contenido</a>
     <header className="lp-header"><div className="lp-nav">
-      <a href="/presentacion" aria-label="LuSpace, presentación"><Brand /></a>
+      <a href="/presentacion" aria-label="LuSpace, presentación"><LandingLogo /></a>
       <nav aria-label="Navegación pública"><a href="#caracteristicas">Características</a><a href="#precios">Precios</a><a href="#seguridad">Seguridad</a><a href="#preguntas">Preguntas frecuentes</a></nav>
       <div className="lp-actions"><ThemeControl/><a className="lp-login" href="/login"><LogIn size={17}/><span>Iniciar sesión</span></a><a className="lp-button" href="/registro">{config.registration_cta} <ArrowRight size={16}/></a></div>
     </div></header>
@@ -40,8 +42,8 @@ export default function Landing() {
       <section id="seguridad" className="lp-section lp-security"><div className="lp-wrap lp-security-grid"><div><p className="lp-eyebrow"><ShieldCheck size={16}/> PRIVACIDAD DESDE EL INICIO</p><h2>Compartir con confianza.<br/>Sin compartir de más.</h2><p className="lp-section-intro">La información de tu familia es privada y está separada de la de otras familias. Solo tú y las personas que autorices pueden acceder, según sus permisos. LuSpace utiliza infraestructura de Cloudflare para alojar la plataforma, su base de datos y sus archivos.</p></div><ul><li><LockKeyhole/> Otras familias no pueden ver tus datos ni tus documentos.</li><li><ShieldCheck/> Acceso autenticado y permisos para ver, editar o compartir.</li><li><Check/> Enlaces para profesionales con vencimiento y revocación.</li><li><ShieldCheck/> Infraestructura Cloudflare y conexión segura HTTPS.</li></ul></div></section>
       <Testimonials/>
       <section id="precios" className="lp-section lp-wrap"><p className="lp-eyebrow">EMPIEZA SIN COMPROMISO</p><h2>14 días para conocer LuSpace.</h2><div className="lp-price"><div><span className="lp-price-tag">PRUEBA GRATUITA · SIN COBRO INICIAL</span><h3>Tu espacio familiar</h3><p className="lp-price-number">$0 <span>durante 14 días</span></p><div className="lp-paid-plan"><strong>Después de la prueba</strong><p><b>$4.990</b> mensual + IVA</p><small>Precio en pesos chilenos (CLP). IVA no incluido.</small></div></div><div><ul><li><Check/> Registro de tu familia y perfiles infantiles</li><li><Check/> Módulos de salud, colegio y documentos</li><li><Check/> 50 MB para tus adjuntos durante la prueba</li><li><Check/> Consulta y descarga de datos al finalizar la prueba</li></ul><a className="lp-button lp-large" href="/registro">Probar 14 días a $0 <ArrowRight size={18}/></a></div></div></section>
-      {config.faqs.length>0&&<section id="preguntas" className="lp-section lp-wrap lp-faq"><p className="lp-eyebrow">RESOLVEMOS TUS DUDAS</p><h2>Preguntas frecuentes</h2>{config.faqs.map((faq,index)=><details key={index}><summary>{faq.question}</summary><p>{faq.answer}</p></details>)}</section>}
+      {config.faqs.length>0&&<section id="preguntas" className="lp-section lp-wrap lp-faq"><p className="lp-eyebrow">RESOLVEMOS TUS DUDAS</p><h2>Preguntas frecuentes</h2>{config.faqs.map((faq,index)=><details key={index}><summary><span>{faq.question}</span><ChevronDown size={18} aria-hidden="true"/></summary><p>{faq.answer}</p></details>)}</section>}
       <section className="lp-final lp-wrap"><Stethoscope size={30}/><h2>Más claridad para cuidar.<br/>Más tiempo para acompañar.</h2><a className="lp-button lp-large" href="/registro">{config.registration_cta} <ArrowRight size={18}/></a></section>
-    </main><footer className="lp-footer lp-wrap"><Brand/><p>Un espacio para acompañar a tu familia.</p><a href={'mailto:'+config.contact.email}>{config.contact.email}</a>{config.contact.whatsapp&&<a href={'https://wa.me/'+config.contact.whatsapp.replace(/\D/g,'')} target="_blank" rel="noopener noreferrer">WhatsApp</a>}{(['instagram','facebook','linkedin'] as const).map(key=>config.contact[key]&&<a key={key} href={config.contact[key]} target="_blank" rel="noopener noreferrer">{key}</a>)}<a href="/terminos">Términos y condiciones</a><a href="/privacidad">Política de privacidad</a><a href="/login">Iniciar sesión</a></footer>
+    </main><footer className="lp-footer lp-wrap"><LandingLogo/><p>Un espacio para acompañar a tu familia.</p><a href={'mailto:'+config.contact.email}>{config.contact.email}</a>{config.contact.whatsapp&&<a href={'https://wa.me/'+config.contact.whatsapp.replace(/\D/g,'')} target="_blank" rel="noopener noreferrer">WhatsApp</a>}{(['instagram','facebook','linkedin'] as const).map(key=>config.contact[key]&&<a key={key} href={config.contact[key]} target="_blank" rel="noopener noreferrer">{key}</a>)}<a href="/terminos">Términos y condiciones</a><a href="/privacidad">Política de privacidad</a><a href="/login">Iniciar sesión</a></footer>
   </div>;
 }
