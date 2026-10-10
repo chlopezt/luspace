@@ -28,6 +28,8 @@ import "./care-lists.css";
 import "./contextual-records.css";
 import MultiFiles, { FileGallery, fileIds } from "./RecordFiles";
 import { api, dateLabel, today, type Row } from "./lib";
+import {AccessActor} from "./AccessPolicy";
+import {fieldAllowed} from "../shared/access-policy.js";
 import { models as definitions, fieldVisible } from "../shared/models.js";
 import { weekdays, moneyCLP } from '../shared/care.js';
 import SosReminders from './SosReminders';
@@ -438,7 +440,8 @@ export function RecordForm({
   onManagePrivacy?: () => void;
   onlyFields?: string[];
 }) {
-  const config = models[table];
+  const accessActor = useContext(AccessActor);
+  const config = {...models[table], fields: models[table].fields.filter((f:any) => fieldAllowed(accessActor, table, f.key))};
   const isProfile = table === "ninos";
   const formRef = useRef<HTMLFormElement>(null),
     tabPrefix = useId();

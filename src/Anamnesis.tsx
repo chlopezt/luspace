@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useContext } from "react";
 import { api, type Row } from "./lib";
+import {AccessActor} from "./AccessPolicy";
+import {projectAnamnesis} from "../shared/access-policy.js";
 import { anamnesisSections } from "../shared/models.js";
 import { ErrorNote, FileUploadEnabled } from "./components";
 import MultiFiles from "./RecordFiles";
@@ -13,6 +15,9 @@ export default function Anamnesis({
   onDirty: (v: boolean) => void;
 }) {
   const uploadEnabled = useContext(FileUploadEnabled);
+  const actor = useContext(AccessActor);
+  const visible = projectAnamnesis(actor, Object.fromEntries(anamnesisSections.map(([key]) => [key, {archivos:[]}])));
+  const visibleSections = anamnesisSections.filter(([key]) => Object.hasOwn(visible, String(key)));
   const [doc, setDoc] = useState<Row>({}),
     [uploads, setUploads] = useState<Record<string, boolean>>({}),
     [ready, setReady] = useState(false),
@@ -94,7 +99,7 @@ export default function Anamnesis({
     const timer = setInterval(() => void save(), 2500);
     return () => clearInterval(timer);
   }, [dirty, error, ready, uploadBusy]);
-  const completed = anamnesisSections.filter(([k, , fs]) =>
+  const completed = visibleSections.filter(([k, , fs]) =>
     (fs as string[]).some((_, i) => doc[k as string]?.[i]?.trim()),
   ).length;
   return (
@@ -103,7 +108,7 @@ export default function Anamnesis({
         <div>
           <h2>Anamnesis pediátrica</h2>
           <p className="muted">
-            {ready ? `${completed} de 7 secciones con información · ` : ""}
+            {ready ? `${completed} de ${visibleSections.length} secciones con información · ` : ""}
             <span role="status">{readonly ? "Solo lectura" : state}</span>
           </p>
         </div>
@@ -117,11 +122,11 @@ export default function Anamnesis({
           </button>
         )}
       </div>
-      {ready && <progress value={completed} max={7} aria-label="Secciones completadas" />}
+      {ready && <progress value={completed} max={visibleSections.length} aria-label="Secciones completadas" />}
       <ErrorNote error={error} />
       {!ready && !error && <p role="status">Cargando…</p>}
       <div className="anamnesis-sections">
-        {anamnesisSections.map(([sectionKey, title, sectionFields]) => {
+        {visibleSections.map(([sectionKey, title, sectionFields]) => {
           const key = String(sectionKey),
             fields = sectionFields as string[];
           return (
@@ -161,7 +166,7 @@ export default function Anamnesis({
                       />
                     </label>
                   ))}
-                {ready && (
+                {ready && visible[key]?.archivos && (
                   <MultiFiles
                     child={child.id}
                     module="anamnesis"

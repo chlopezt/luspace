@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { Activity, AlertTriangle, Calendar, CalendarHeart, CheckCircle2, ChevronRight, GraduationCap, Pill, PencilLine, Ruler, Scale, Stethoscope } from "lucide-react";
 import { api, age, today, dateLabel, type Row } from "./lib";
 import { ErrorNote } from "./components";
@@ -6,6 +6,9 @@ import Growth from "./Growth";
 import { todaySchedule } from '../shared/care.js';
 import SosReminders from './SosReminders';
 import Reminders from './Reminders';
+import {AccessActor} from './AccessPolicy';
+import {canAccess} from '../shared/access-policy.js';
+import {models} from '../shared/models.js';
 export function nextDose(m: Row, now: number) {
   if (
     !m.activo ||
@@ -28,12 +31,15 @@ export default function Dashboard({
   go,
   readonly=false,
   remindersEnabled=false,
+  available=[],
 }: {
   child: Row;
   go: (v: string) => void;
   readonly?: boolean;
   remindersEnabled?: boolean;
+  available?: string[];
 }) {
+  const actor=useContext(AccessActor), health=available.includes('salud'), school=available.includes('escolar');
   const [growth, setGrowth] = useState<Row[]>([]),
     [meds, setMeds] = useState<Row[]>([]),
     [visits, setVisits] = useState<Row[]>([]),
@@ -55,7 +61,7 @@ export default function Dashboard({
       "horario_escolar",
       "dosis_sos",
     ];
-    Promise.all(tables.map((t) => api(`records/${t}?child=${child.id}`)))
+    Promise.all(tables.map((t) => (models[t as keyof typeof models].module==='salud'?health:school) ? api(`records/${t}?child=${child.id}`) : Promise.resolve([])))
       .then(([g, m, v, d, s, doses]) => {
         if (!live) return;
         setGrowth(
@@ -73,7 +79,7 @@ export default function Dashboard({
       .finally(()=>{if(live)setLoading(false);});
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => {live=false;clearInterval(timer);};
-  }, [child.id]);
+  }, [child.id, health, school]);
   const weight = growth.find((r) => r.peso_kg),
     height = growth.find((r) => r.talla_cm),
     activeMeds = meds
@@ -126,7 +132,7 @@ export default function Dashboard({
         </div>
       </section>
       <ErrorNote error={error} />
-      {allergyItems.length > 0 && (
+      {health && allergyItems.length > 0 && (
         <div className="allergy home-allergy">
           <AlertTriangle size={18} aria-hidden="true" />
           <strong>ALERGIAS REGISTRADAS:</strong>
@@ -142,7 +148,7 @@ export default function Dashboard({
           <strong className="age-value">{age(child.fecha_nacimiento)}</strong>
           <button className="link-button" onClick={() => go("perfil")}>Ver perfil <ChevronRight size={15} /></button>
         </article>
-        <article className="card stat teal home-kpi">
+        {health && <article className="card stat teal home-kpi">
           <span className="home-icon teal-icon"><Scale size={22} /></span><p>PESO RECIENTE</p>
           <strong>{weight ? weight.peso_kg + " kg" : "Sin registro"}</strong>
           <small>
@@ -150,8 +156,8 @@ export default function Dashboard({
               ? dateLabel(weight.fecha_medicion)
               : "Agrega su primera medición"}
           </small>
-        </article>
-        <article className="card stat violet home-kpi">
+        </article>}
+        {health && <article className="card stat violet home-kpi">
           <span className="home-icon violet-icon"><Ruler size={22} /></span><p>TALLA RECIENTE</p>
           <strong>{height ? height.talla_cm + " cm" : "Sin registro"}</strong>
           <small>
@@ -159,14 +165,14 @@ export default function Dashboard({
               ? dateLabel(height.fecha_medicion)
               : "Agrega su primera medición"}
           </small>
-        </article>
+        </article>}
       </section>
       <section className="grid home-grid">
-        <Growth child={child} rows={growth} />
-        <article className="card medicine dashboard-panel home-panel">
+        {health && <Growth child={child} rows={growth} />}
+        {health && <article className="card medicine dashboard-panel home-panel">
           <div className="section-heading">
             <h2><Pill size={19} /> Medicamentos activos</h2>
-            <button className="home-add" disabled={readonly} onClick={() => go("salud")}>＋ Agregar</button>
+            <button className="home-add" disabled={readonly || !canAccess(actor,'salud','crear')} onClick={() => go("salud")}>＋ Agregar</button>
           </div>
           {activeMeds.length ? (
             <ul className="dashboard-list medication-list">
@@ -186,8 +192,8 @@ export default function Dashboard({
             Ver tratamientos
           </button>
           {sos.length > 0 && <details><summary>Dosis SOS recientes</summary><SosReminders rows={sos} now={now}/></details>}
-        </article>
-        <article className="card school dashboard-panel home-panel">
+        </article>}
+        {school && <article className="card school dashboard-panel home-panel">
           <div className="section-heading">
             <h2><GraduationCap size={20} /> Hoy en el colegio</h2>
             <span className={mood ? "home-status done" : "home-status"}>{mood ? <><CheckCircle2 size={14} /> Completado</> : "Pendiente"}</span>
@@ -205,12 +211,12 @@ export default function Dashboard({
                 : "Sin sobrecarga registrada."
               : "Registra cómo estuvo su día y qué apoyos ayudaron."}
             </p>
-            <button className="primary" disabled={readonly} onClick={() => go("escolar")}>
+            <button className="primary" disabled={readonly || !canAccess(actor,'escolar','crear')} onClick={() => go("escolar")}>
               <PencilLine size={16} /> Registrar bitácora
             </button>
           </div>
-        </article>
-        <article className="card appointment dashboard-panel home-panel">
+        </article>}
+        {health && <article className="card appointment dashboard-panel home-panel">
           <div className="section-heading">
             <h2><Stethoscope size={20} /> Próximos controles médicos</h2>
             <CalendarHeart size={20} className="panel-heading-icon" />
@@ -236,7 +242,7 @@ export default function Dashboard({
           <button className="soft-action" onClick={() => go("salud")}>
             Gestionar consultas
           </button>
-        </article>
+        </article>}
       </section>
       {remindersEnabled&&<Reminders compact selectedChild={child.id} readonly={readonly} onViewAll={()=>go('recordatorios')}/>}
     </>

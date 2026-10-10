@@ -38,6 +38,8 @@ import {
 import { modules } from "../shared/models.js";
 import { reportGroups, selectionModules, documentSelection } from '../shared/report-selection.js';
 import Dashboard from "./Dashboard";
+import {AccessActor} from "./AccessPolicy";
+import {canAccess} from "../shared/access-policy.js";
 import SidebarLogo from './SidebarLogo';
 import Reminders from './Reminders';
 import ChildAvatar from './ChildAvatar';
@@ -503,7 +505,7 @@ function FamilyApp() {
     if (!childId && list.length) setChildId(list[0].id);
   }
   async function refreshRnd() {
-    if (!childId || !me) {
+    if (!childId || !me || !canAccess(me, "rnd")) {
       setRndAvailable(false);
       return;
     }
@@ -564,7 +566,7 @@ function FamilyApp() {
   const child = children.find((n) => n.id === childId),
     roleReadonly = !!me?.guest || (me?.rol !== "superadmin" && !JSON.parse(me?.permisos_json || "{}").acciones?.some((action: string) => ["crear", "editar", "eliminar"].includes(action))),
     readonly = roleReadonly || !subscription.canWrite,
-    available = (me?.guest ? me.modules : Object.keys(modules)).filter((m:string)=>!me?.platform_controls?.blocked_modules?.includes(m));
+    available = Object.keys(modules).filter(m => !!me && canAccess(me, m));
   const reminderPermissions=JSON.parse(me?.permisos_json || '{}');
   const remindersEnabled=!!me&&!me.guest&&available.includes('recordatorios')&&(me.rol==='superadmin'||reminderPermissions.modules?.includes('recordatorios')||(me.rol==='editor'&&!reminderPermissions.modules?.length));
   useEffect(() => {
@@ -618,7 +620,7 @@ function FamilyApp() {
       "turnos_cuidadores",
     ];
   return (
-    <FileUploadEnabled.Provider value={me.platform_controls?.uploads_enabled!==false}><div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
+    <AccessActor.Provider value={me}><FileUploadEnabled.Provider value={me.platform_controls?.uploads_enabled!==false}><div className={"app-shell" + (view === "inicio" ? " home-shell" : "")}>
       <a className="skip-link" href="#main">
         Saltar al contenido
       </a>
@@ -633,12 +635,12 @@ function FamilyApp() {
         <SidebarLogo />
         <nav>
           {navigation
-            .filter(([k]) => !me.platform_controls?.blocked_modules?.includes(k))
+            .filter(([k]) => !Object.hasOwn(modules,k) || available.includes(k))
             .filter(([k]) => k !== 'archivos' || !me.guest)
             .filter(([k]) => k !== 'recordatorios' || remindersEnabled)
             .filter(([k]) =>
               readonly
-                ? available.includes(k) || (k === 'archivos' && !me.guest)
+                ? available.includes(k) || (k === 'inicio' && !me.guest) || (k === 'archivos' && !me.guest)
                 : k !== "auditoria" || (me.rol === "superadmin" && !!me.audit_visible),
             )
             .map(([key, label, Icon]) => (
@@ -704,7 +706,7 @@ function FamilyApp() {
               <span>Credencial RND</span>
             </button>
           ) : null}
-          {view !== "plataforma" && subscription.canRead && child && me.platform_controls?.reports_enabled!==false && (
+          {view !== "plataforma" && subscription.canRead && child && available.some(m => canAccess(me, m, "descargar")) && me.platform_controls?.reports_enabled!==false && (
             <button
               className="secondary header-pdf"
               aria-label="Descargar informe PDF"
@@ -742,7 +744,7 @@ function FamilyApp() {
                   <span className="badge">Solo lectura</span>
                 </div>
               )}
-              {view === "inicio" && <Dashboard child={child} go={go} readonly={readonly} remindersEnabled={remindersEnabled} />}{" "}
+              {view === "inicio" && <Dashboard child={child} go={go} readonly={readonly} remindersEnabled={remindersEnabled} available={available} />}{" "}
               {view === "perfil" && (
                 <>
                   <div className="section-heading">
@@ -910,7 +912,7 @@ function FamilyApp() {
       {report && child && me.platform_controls?.reports_enabled!==false && (
         <Export
           child={child}
-          allowed={available}
+          allowed={available.filter(m => canAccess(me, m, "descargar"))}
           actor={me.id}
           canReload={!dirty && !profile}
           resume={pdfResume}
@@ -918,7 +920,7 @@ function FamilyApp() {
         />
       )}
       </>}
-    </div></FileUploadEnabled.Provider>
+    </div></FileUploadEnabled.Provider></AccessActor.Provider>
   );
 }
 

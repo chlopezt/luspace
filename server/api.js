@@ -14,6 +14,7 @@ import {consumption,notifications} from './platform-consumption.js';
 import { vaccinationCatalog, vaccinationToday } from '../shared/vaccinations.js';
 import { backupStatus } from './backup-status.js';
 import {validateRecordFiles} from './record-files.js';
+import { permissions, canAccess, canShare, recordAllowed, fieldAllowed, projectRecord, projectChild, projectAnamnesis, permissionActions } from "../shared/access-policy.js";
 import {fileCatalog} from './file-catalog.js';
 import {billingStatus,billingConnection,createCheckout,createOneoffCheckout,reconcileFamily,cancelSubscription,receiveBillingWebhook,platformBillingStatus,reconcileBillingJob} from './billing.js';
 
@@ -107,6 +108,15 @@ async function limit(db, key) {
   );
   if (v.cantidad > 10) fail(429, "Demasiados intentos. Espera 15 minutos.");
 }
+async function sharedModules(db, link) {
+  const creator = await first(db, `SELECT u.rol,u.permisos_json,c.modulos_bloqueados_json
+    FROM usuarios u LEFT JOIN plataforma_controles_familia c ON c.familia_id=u.familia_id
+    WHERE u.id=? AND u.familia_id=? AND u.activo=1`, link.creado_por_usuario_id, link.familia_id);
+  if (!creator) return [];
+  creator.platform_controls = {blocked_modules:JSON.parse(creator.modulos_bloqueados_json || '[]')};
+  const selected = JSON.parse(link.modulos_json);
+  return Array.isArray(selected) ? selected.filter(module => canShare(creator, module)) : [];
+}
 async function actor(req, db) {
   const raw = req.headers
     .get("cookie")
@@ -135,6 +145,8 @@ async function actor(req, db) {
     new Date().toISOString(),
   );
   if (!g) fail(401, "Este acceso venció o fue revocado.");
+  const shared = await sharedModules(db, g);
+  if (!shared.length) fail(401, "Los permisos de quien compartió el enlace cambiaron.");
   return {
     id: g.id,
     token_id: g.id,
@@ -143,40 +155,28 @@ async function actor(req, db) {
     nombre: g.destino_nombre,
     rol: "invitado",
     guest: true,
-    modules: JSON.parse(g.modulos_json),
+    modules: shared,
   };
 }
 function admin(a) {
   if (a.rol !== "superadmin")
     fail(403, "Solo la administración principal puede realizar esta acción.");
 }
-const fullEditorAccess = () => ({
-  modules: Object.keys(modules),
-  acciones: ["ver", "crear", "editar", "eliminar", "descargar", "adjuntar"],
-});
-function permissions(a) {
-  if (a.rol === "superadmin") return fullEditorAccess();
-  let p;
-  try { p = JSON.parse(a.permisos_json || "{}"); } catch { p = {}; }
-  if (a.rol === "editor" && (!Array.isArray(p?.modules) || !p.modules.length || !Array.isArray(p?.acciones) || !p.acciones.length))
-    return fullEditorAccess();
-  return p;
-}
 function member(a, module, action = "editar") {
   if (module) featureModule(a, module);
   if (a.guest) fail(403, "El acceso de invitado es de solo lectura.");
   const p = permissions(a);
-  if (!module && !p.acciones?.some((x) => ["crear", "editar", "eliminar"].includes(x)))
+  if (!module && !p.modules?.some(m => canAccess(a, m) && ["crear", "editar", "eliminar"].some(action => canAccess(a, m, action))))
     fail(403, "Tu cuenta es de solo lectura.");
-  if (module && (!p.modules?.includes(module) || !p.acciones?.includes(action)))
+  if (module && (!canAccess(a, module) || !canAccess(a, module, action)))
     fail(403, "Tu cuenta no tiene permiso para realizar esta acción.");
 }
 function allowed(a, module) {
   featureModule(a, module);
   if (a.guest && !a.modules.includes(module))
     fail(403, "El enlace no incluye este módulo.");
-  if (!a.guest && a.rol !== "superadmin" && !permissions(a).modules?.includes(module))
-    fail(403, "Tu cuenta no tiene acceso a este módulo.");
+  if (!canAccess(a, module))
+    fail(403, "Tu cuenta no tiene permiso para consultar este módulo.");
 }
 function featureModule(a, module) {
   if (a.platform_controls?.blocked_modules.includes(module))
@@ -209,13 +209,22 @@ async function session(db, who, expiry) {
   ).run();
   return raw;
 }
-async function validate(db, a, table, input, nino, preserveMissing = false) {
+async function validate(db, a, table, input, nino, preserveMissing = false, recordId) {
+  const prior = preserveMissing && !canAccess(a, models[table].module, 'adjuntar')
+    ? await first(db, table === 'ninos' ? 'SELECT * FROM ninos WHERE id=?' : `SELECT * FROM ${table} WHERE id=?`, recordId || nino)
+    : null;
+  const attachmentIds = value => { if (Array.isArray(value)) return value; try { const parsed=JSON.parse(value || '[]'); return Array.isArray(parsed)?parsed:[]; } catch { return value ? [value] : []; } };
   const values = {};
   for (const f of models[table].fields) {
+    if (!fieldAllowed(a, table, f.key)) continue;
+    if ((f.type === 'file' || f.type === 'files') && input[f.key] !== undefined && !canAccess(a, models[table].module, 'adjuntar')) {
+      const previous = attachmentIds(prior?.[f.key]);
+      if (attachmentIds(input[f.key]).some(id => !previous.includes(id))) fail(403, 'Tu cuenta no tiene permiso para adjuntar archivos.');
+    }
     // Older open forms do not know these new fields. Omission must not erase
     // values saved by a newer client; an explicit empty value still clears.
     if (preserveMissing && f.preserveIfMissing && input[f.key] === undefined) continue;
-    if(f.type==='files'){values[f.key]=JSON.stringify(await validateRecordFiles(db,a,input[f.key],nino,models[table].module));continue;}
+    if(f.type==='files'){values[f.key]=JSON.stringify(await validateRecordFiles(db,a,input[f.key],nino,models[table].module,prior?.[f.key]));continue;}
     let v = input[f.key];
     if (f.type === "select" && (v === undefined || v === null || v === ""))
       v = f.options?.[0] || "";
@@ -318,13 +327,11 @@ async function records(db, a, table, nino) {
   // El perfil usa `id` como clave; los demás módulos se relacionan por nino_id.
   // Sin esta distinción, exportar "Perfil clínico" provocaba un error SQL y
   // detenía por completo la descarga del informe.
-  if (table === "ninos")
-    return all(db, "SELECT * FROM ninos WHERE id=?", nino);
-  return all(
-    db,
-    `SELECT * FROM ${table} WHERE nino_id=? ORDER BY rowid DESC`,
-    nino,
-  );
+  if (!recordAllowed(a, table)) return [];
+  const rows = table === "ninos"
+    ? await all(db, "SELECT * FROM ninos WHERE id=?", nino)
+    : await all(db, `SELECT * FROM ${table} WHERE nino_id=? ORDER BY rowid DESC`, nino);
+  return rows.map(row => projectRecord(a, table, row));
 }
 
 export async function handle(req, env) {
@@ -524,6 +531,7 @@ export async function handle(req, env) {
       );
       if (!t || !t.activo || t.expira_at <= new Date().toISOString())
         fail(403, "Enlace vencido, revocado o inválido.");
+      if (!(await sharedModules(db, t)).length) fail(403, "Los permisos de quien compartió el enlace cambiaron.");
       await limit(db, "guest-token:" + t.id);
       if (t.pin_hash && !(await verify(text(b.pin || "", 4), t.pin_hash)))
         fail(403, "PIN incorrecto.");
@@ -957,24 +965,7 @@ export async function handle(req, env) {
         "SELECT * FROM ninos WHERE familia_id=? ORDER BY CASE WHEN id=(SELECT nino_principal_id FROM familia_configuracion WHERE familia_id=ninos.familia_id) THEN 0 ELSE 1 END,created_at,id",
         a.familia_id,
       );
-      return json(
-        a.platform_controls?.blocked_modules.includes('perfil')
-          ? rows.map(n=>({id:n.id,primer_nombre:n.primer_nombre,rnd_habilitado:!a.platform_controls.blocked_modules.includes('rnd')&&n.rnd_habilitado}))
-          : a.guest
-          ? rows
-              .filter((n) => n.id === a.nino_id)
-              .map((n) => ({
-                id: n.id,
-                primer_nombre: n.primer_nombre,
-                apodo: n.apodo,
-                fecha_nacimiento: n.fecha_nacimiento,
-                sexo_referencia: n.sexo_referencia,
-                rnd_habilitado: a.modules.includes("rnd")
-                  ? n.rnd_habilitado
-                  : 0,
-              }))
-          : rows,
-      );
+      return json(rows.map(row => projectChild(a, row)).filter(Boolean));
     }
     if (path === "children" && method === "POST") {
       member(a, "perfil", "crear");
@@ -1024,6 +1015,7 @@ export async function handle(req, env) {
       allowed(a, models[table].module);
       if (method === "GET") return json(await records(db, a, table, nino));
       member(a, models[table].module, method === "DELETE" ? "eliminar" : id ? "editar" : "crear");
+      if (!recordAllowed(a, table)) fail(403, "Tu cuenta no tiene acceso a estos datos sensibles.");
       if (
         id &&
         !(await first(
@@ -1058,7 +1050,7 @@ export async function handle(req, env) {
         return json({ ok: true });
       }
       if (method === "POST" || method === "PUT") {
-        const v = await validate(db, a, table, await body(req), nino, !!id);
+        const v = await validate(db, a, table, await body(req), nino, !!id, id);
         if (table === 'turnos_cuidadores' && !v.hora_fin) {
           const open = await first(db,"SELECT id FROM turnos_cuidadores WHERE nino_id=? AND hora_fin='' AND id<>?",nino,id || '');
           if (open) fail(409,'Ya hay un cuidador a cargo. Finaliza su turno antes de registrar el relevo.');
@@ -1073,6 +1065,7 @@ export async function handle(req, env) {
             await first(db, `SELECT id FROM ${table} WHERE nino_id=?`, nino)
           )?.id;
         if (rid) {
+          if (!id) member(a, models[table].module, 'editar');
           await db.batch([
             stmt(
               db,
@@ -1128,7 +1121,7 @@ export async function handle(req, env) {
       );
       if (method === "GET")
         return json({
-          documento: row ? JSON.parse(row.documento_json) : {},
+          documento: projectAnamnesis(a, row ? JSON.parse(row.documento_json) : {}),
           version: row?.version || 0,
         });
       if (method === "PUT") {
@@ -1140,11 +1133,14 @@ export async function handle(req, env) {
           typeof b.documento !== "object"
         )
           fail(400, "Anamnesis inválida.");
-        const doc = {};
+        const doc = {}, oldDoc = row ? JSON.parse(row.documento_json) : {};
+        const visible = projectAnamnesis(a, Object.fromEntries(anamnesisSections.map(([key]) => [key, { archivos: [] }])));
         for (const [key, , fields] of anamnesisSections) {
+          if (!Object.hasOwn(visible, key)) { if (oldDoc[key]) doc[key] = oldDoc[key]; continue; }
           doc[key] = {};
-          const oldDoc=row?JSON.parse(row.documento_json):{};
-          doc[key].archivos=await validateRecordFiles(db,a,b.documento[key]?.archivos??oldDoc[key]?.archivos??[],nino,'anamnesis');
+          doc[key].archivos = Object.hasOwn(visible[key], 'archivos')
+            ? await validateRecordFiles(db,a,b.documento[key]?.archivos??oldDoc[key]?.archivos??[],nino,'anamnesis',oldDoc[key]?.archivos)
+            : oldDoc[key]?.archivos || [];
           for (let i = 0; i < fields.length; i++)
             doc[key][i] = text(b.documento[key]?.[i] || "", 8000);
         }
@@ -1213,6 +1209,11 @@ export async function handle(req, env) {
           b.modules.some((m) => !modules[m])
         )
           fail(400, "Selecciona duración y módulos válidos.");
+        for (const module of b.modules) {
+          allowed(a, module);
+          if (!canShare(a, module))
+            fail(403, "No puedes compartir información que tus permisos restringen.");
+        }
         if (b.pin && !/^\d{4}$/.test(b.pin))
           fail(400, "El PIN debe tener 4 dígitos.");
         const raw = token(),
@@ -1286,7 +1287,7 @@ export async function handle(req, env) {
             name,
             email(b.correo),
             soloLectura ? "editor" : b.rol,
-            JSON.stringify(soloLectura ? { modules: Object.keys(modules), acciones: ["ver"] } : { modules: Object.keys(modules), acciones: ["ver", "crear", "editar", "eliminar"] }),
+            JSON.stringify(soloLectura ? { modules: Object.keys(modules), acciones: ["ver"] } : { modules: Object.keys(modules), acciones: permissionActions }),
           ),
           stmt(
             db,
@@ -1519,17 +1520,19 @@ export async function handle(req, env) {
         fail(400, "Selecciona módulos.");
       if (b.selection !== undefined && (!Array.isArray(b.selection) || !b.selection.length || b.selection.some(id=>!reportGroups.flatMap(g=>g.items.map(i=>i.id)).concat(documentSelection).includes(id)) || selectionModules(b.selection).some(m=>!b.modules.includes(m))))
         fail(400, 'Selección de informe inválida.');
+      const visibleChild = projectChild(a, n);
       const data = {
         child: {
-          primer_nombre: n.primer_nombre,
-          apellidos: n.apellidos,
-          fecha_nacimiento: n.fecha_nacimiento,
+          primer_nombre: visibleChild?.primer_nombre,
+          apellidos: visibleChild?.apellidos,
+          fecha_nacimiento: visibleChild?.fecha_nacimiento,
         },
         created: new Date().toISOString(),
         sections: {},
       };
       for (const m of b.modules) {
         allowed(a, m);
+        if (!canAccess(a, m, 'descargar')) fail(403, "Tu cuenta no tiene permiso para descargar informes.");
         if (m === "salud") {
           data.child.grupo_sanguineo = n.grupo_sanguineo;
           data.child.alergias = n.alergias;
@@ -1543,13 +1546,13 @@ export async function handle(req, env) {
             "SELECT documento_json FROM anamnesis WHERE nino_id=?",
             n.id,
           );
-          data.anamnesis = r ? JSON.parse(r.documento_json) : {};
+          data.anamnesis = projectAnamnesis(a, r ? JSON.parse(r.documento_json) : {});
         }
       }
       // Fixed identification card is separate from optional report sections.
       // Check module and private-field permissions before exposing each value.
       const permits = module => { try { allowed(a,module); return true; } catch(e) { if(e.status!==403) throw e; return false; } };
-      const privateFields = a.rol === 'superadmin' ? [] : JSON.parse(a.permisos_json || '{}').privacidad || [];
+      const privateFields = permissions(a).privacidad || [];
       data.patient_summary = {};
       if (permits('perfil')) {
         data.patient_summary.birth = n.fecha_nacimiento;
@@ -1563,10 +1566,10 @@ export async function handle(req, env) {
       }
       if (b.selection?.includes(documentSelection)) {
         data.documents = [];
-        for (const m of b.modules) {
-          const files = await all(db, 'SELECT nombre,mime,bytes,created_at FROM archivos WHERE familia_id=? AND nino_id=? AND modulo=? ORDER BY created_at DESC', a.familia_id, n.id, m);
-          data.documents.push(...files.map(f=>({...f,module:modules[m]})));
-        }
+        const files = await fileCatalog(db, a, permissions(a), b.modules);
+        data.documents = files.filter(f => f.nino_id === n.id).map(f => ({
+          nombre: f.nombre, mime: f.mime, bytes: f.bytes, created_at: f.created_at, module: modules[f.modulo],
+        }));
       }
       await audit(
         db,
@@ -1602,7 +1605,9 @@ export async function handle(req, env) {
         fail(413, "El archivo supera 10 MB.");
       const n = url.searchParams.get("child"),
         m = url.searchParams.get("module");
-      member(a, m, "crear");
+      member(a, m, "adjuntar");
+      allowed(a, m);
+      if (permissions(a).privacidad?.includes("archivos")) fail(403, "Tu cuenta no tiene permiso para adjuntar archivos.");
       await child(db, a, n);
       if (!modules[m]) fail(400, "Módulo inválido.");
       const file = (await req.formData()).get("file");
