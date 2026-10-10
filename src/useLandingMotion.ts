@@ -6,7 +6,7 @@ export function useLandingMotion() {
     const el=root.current;
     if(!el||!('IntersectionObserver' in window)) return;
     const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const cards=Array.from(el.querySelectorAll<HTMLElement>('.lp-hero>div:first-child>*,.lp-features article,.lp-audience-card,.testimonial-card,.lp-price,.lp-final,.lp-security-grid>div,.lp-security li'));
+    const cards=Array.from(el.querySelectorAll<HTMLElement>('.lp-hero>div:first-child>*,.lp-demo-card,.lp-features article,.lp-audience-card,.testimonial-card,.lp-price,.lp-final,.lp-security-grid>div,.lp-security li'));
     const chart=el.querySelector<HTMLElement>('.lp-mini-chart');
     let observer:IntersectionObserver|undefined;
     const show=(card:HTMLElement)=>{

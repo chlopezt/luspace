@@ -42,7 +42,7 @@ export default function AudiencePurpose() {
         LuSpace conecta la salud, la educación y el cuidado diario de los niños
         en un solo lugar, bajo el control absoluto de su familia.
       </p>
-      <div className="lp-audience-grid">
+      <div className="lp-purpose-composition"><div className="lp-audience-grid">
         {audiences.map(({ icon: Icon, title, text }) => (
           <article className="lp-audience-card" key={title}>
             <span className="lp-audience-icon">
@@ -52,7 +52,7 @@ export default function AudiencePurpose() {
             <p>{text}</p>
           </article>
         ))}
-      </div>
+      </div><div className="lp-purpose-child" aria-hidden="true"><p>Juntos por<br/>su futuro.</p><img src="/brand/login-boy-v2.webp" alt="" width="800" height="1200" loading="lazy" decoding="async"/></div></div>
       <aside className="lp-origin" aria-labelledby="origin-title">
         <span className="lp-origin-icon">
           <LockKeyhole size={27} strokeWidth={1.7} aria-hidden="true" />
