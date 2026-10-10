@@ -1,0 +1,38 @@
+name: Ensayo aislado de recuperación
+on:
+  push:
+    branches: ['recovery/cloudflare-drill']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: luspace-synthetic-recovery-drill
+  cancel-in-progress: false
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/recovery-drill.test.mjs tests/backups.test.mjs tests/authorization.test.mjs
+      - run: npm run build
+        env:
+          VITE_LUSPACE_PREVIEW: 'true'
+      - name: Restaurar y verificar únicamente datos ficticios en D1 y R2 nuevas
+        run: node scripts/cloudflare-recovery-drill.mjs
+      - name: Guardar informe sin datos, documentos ni credenciales
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-drill-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .private-backups/recovery-report/summary.json
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: ignore
