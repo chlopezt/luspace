@@ -2,6 +2,7 @@ name: Ensayo aislado de recuperación
 on:
   push:
     branches: ['recovery/cloudflare-drill']
+    paths: ['scripts/*recovery-drill*.mjs', 'tests/recovery-drill.test.mjs', '.github/workflows/recovery-drill.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,6 +26,8 @@ jobs:
       - run: npm run build
         env:
           VITE_LUSPACE_PREVIEW: 'true'
+      - name: Retirar recursos vacíos del primer intento fallido
+        run: node scripts/cloudflare-recovery-drill.mjs --cleanup-suffix 38085386734-1 --cleanup-database-id 05e6d8b9-a4c9-4ad7-ae93-ee1cb327a0bc
       - name: Restaurar y verificar únicamente datos ficticios en D1 y R2 nuevas
         run: node scripts/cloudflare-recovery-drill.mjs
       - name: Guardar informe sin datos, documentos ni credenciales

@@ -48,8 +48,8 @@ async function inventory(bucket) {
   } while (cursor);
   return bytes;
 }
-const run = (args, cwd = process.cwd()) => {
-  const result = spawnSync('npx', ['wrangler', ...args], { cwd, encoding: 'utf8', maxBuffer: 10_000_000,
+const run = (args, cwd = process.cwd(), input) => {
+  const result = spawnSync('npx', ['wrangler', ...args], { cwd, input, encoding: 'utf8', maxBuffer: 10_000_000,
     env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } });
   if (result.status !== 0) throw new Error('Wrangler: ' + redact((result.stderr || '') + (result.stdout || '')).slice(-3500));
 };
@@ -98,13 +98,16 @@ async function main() {
     guardDrillTarget(names, dbId); report.resources.database_id = dbId;
     await cf('r2/buckets', 'POST', { name: names.bucket }); createdBucket = true;
     check('El dominio público R2 está desactivado', (await cf(`r2/buckets/${names.bucket}/domains/managed`)).result.enabled === false);
-    const projects = { name: names.project, production_branch: 'production-disabled', deployment_configs: { preview: { env_vars: { RECOVERY_TEST_KEY: { type: 'secret_text', value: gate } } } } };
+    const projects = { name: names.project, production_branch: 'production-disabled' };
     await cf('pages/projects', 'POST', projects); createdProject = true;
   });
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const config = resolve(directory, 'wrangler.toml'), sqlPath = resolve(directory, 'restore.sql');
   writeFileSync(config, `name = "${names.project}"\ncompatibility_date = "2026-10-01"\npages_build_output_dir = "dist"\n[vars]\nLUSPACE_REGISTRATION_ENABLED = "false"\nLUSPACE_R2_ENABLED = "true"\nLUSPACE_AI_ENABLED = "false"\nLUSPACE_BILLING_MODE = "disabled"\n[[d1_databases]]\nbinding = "DB"\ndatabase_name = "${names.database}"\ndatabase_id = "${dbId}"\n[[r2_buckets]]\nbinding = "FILES"\nbucket_name = "${names.bucket}"\n`);
   writeFileSync(sqlPath, recoverySql(fixture.restored.db), { mode: 0o600 });
+  // Pages secret creation is a separate supported operation; provide its value
+  // on stdin, never as a command argument or a plaintext config variable.
+  run(['pages', 'secret', 'put', 'RECOVERY_TEST_KEY', '--project-name', names.project], directory, gate);
   phase = 'restore-d1';
   await timed('restore_d1', async () => run(['d1', 'execute', names.database, '--remote', '--config', config, '--file', sqlPath]));
   phase = 'restore-r2';
@@ -191,8 +194,40 @@ async function main() {
   });
   report.status = 'verified'; report.resources_removed = true;
 }
-try { await main(); }
+
+async function cleanPriorAttempt() {
+  // Explicitly identify only our previously reported failed resources. Never
+  // infer a database from ordering or accept an arbitrary production name.
+  const priorSuffix = process.argv[process.argv.indexOf('--cleanup-suffix') + 1];
+  const expectedId = process.argv[process.argv.indexOf('--cleanup-database-id') + 1];
+  const prior = drillNames(priorSuffix); guardDrillTarget(prior, expectedId);
+  const db = (await cf('d1/database?per_page=100')).result.find(db => db.uuid === expectedId);
+  if (db) assert.equal(db.name, prior.database, 'La base debe coincidir con el ensayo fallido registrado');
+  const project = (await cf('pages/projects')).result.find(project => project.name === prior.project);
+  if (project) { assert.equal(project.production_branch, 'production-disabled'); await cf('pages/projects/' + prior.project, 'DELETE'); }
+  const bucket = (await cf('r2/buckets')).result.buckets.find(bucket => bucket.name === prior.bucket);
+  if (bucket) {
+    assert.equal(await inventory(prior.bucket), 0, 'Esta limpieza solo acepta el bucket vacío del intento previo');
+    await cf('r2/buckets/' + prior.bucket, 'DELETE');
+  }
+  if (db) await cf('d1/database/' + expectedId, 'DELETE');
+  report.resources = prior; report.status = 'cleanup_completed'; report.resources_removed = true;
+}
+async function cleanFailedAttempt() {
+  if (!dbId) return;
+  guardDrillTarget(names, dbId);
+  const project = (await cf('pages/projects')).result.find(project => project.name === names.project);
+  if (project) { assert.equal(project.production_branch, 'production-disabled'); await cf('pages/projects/' + names.project, 'DELETE'); }
+  createdProject = false;
+  if (createdBucket) {
+    for (const key of storedKeys) await request(objectPath(key), { method: 'DELETE' });
+    await cf('r2/buckets/' + names.bucket, 'DELETE'); createdBucket = false;
+  }
+  await cf('d1/database/' + dbId, 'DELETE'); dbId = null;
+}
+try { if (process.argv.includes('--cleanup-suffix')) await cleanPriorAttempt(); else await main(); }
 catch (error) {
+  try { await timed('failure_cleanup', cleanFailedAttempt); } catch { console.error('::warning::Los recursos de ensayo requieren limpieza controlada; permanecen separados de producción.'); }
   report.status = 'failed'; report.failed_phase = phase; report.resources_removed = !dbId && !createdBucket && !createdProject;
   const message = redact(error.message).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
   console.error('::error::Ensayo de recuperación: ' + message); process.exitCode = 1;
