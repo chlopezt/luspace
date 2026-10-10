@@ -46,5 +46,5 @@ export async function verify(value, stored) {
   return d === 0;
 }
 export function cookie(req, value, age = 28800) {
-  return `luspace_session=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${new URL(req.url).protocol === "https:" ? "; Secure" : ""}`;
+  return `luspace_session=${value}; Path=/; HttpOnly; SameSite=Strict${age===null?'':`; Max-Age=${age}`}${new URL(req.url).protocol === "https:" ? "; Secure" : ""}`;
 }

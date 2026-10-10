@@ -511,7 +511,7 @@ export async function handle(req, env) {
         ),
       ]);
       return json({ ok: true }, 200, {
-        "Set-Cookie": cookie(req, await session(db, { user: u.id })),
+        "Set-Cookie": cookie(req, await session(db, { user: u.id }),b.remember===false?null:28800),
       });
     }
     if (path === "guest/exchange" && method === "POST") {

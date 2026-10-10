@@ -16,6 +16,10 @@ import {
   EyeOff,
   Files,
   ListTodo,
+  Mail,
+  LockKeyhole,
+  ArrowRight,
+  CircleHelp,
 } from "lucide-react";
 import { api, type Row } from "./lib";
 import {
@@ -48,6 +52,7 @@ import {LEGAL_VERSION} from '../shared/legal.js';
 import './legal.css';
 import Theme from './ThemeControl';
 import './auth-access.css';
+import AuthWelcome from './AuthWelcome';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import {useStartupLoading} from './StartupScreen';
@@ -57,7 +62,7 @@ import { loadPdfModule, PdfModuleError, recoverPdfDeployment, takePdfResume, typ
 function RegistrationNotice() {
   return <p className="registration-notice">Al crear tu cuenta, aceptas los <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos y condiciones</a> y la <a href="/privacidad" target="_blank" rel="noopener noreferrer">Política de privacidad</a> de LuSpace.</p>;
 }
-function Auth({
+export function Auth({
   setup,
   local,
   registration,
@@ -78,6 +83,7 @@ function Auth({
     [recoveryOpen, setRecoveryOpen] = useState(false);
   const register = !setup && !guestToken && registration && location.pathname === "/registro";
   const createAccount = setup || register;
+  const showcase = !setup && !register && !guestToken && location.pathname !== '/registro';
   async function continueGoogle(button: HTMLButtonElement) {
     const form = button.closest('form');
     const data = form ? Object.fromEntries(new FormData(form)) : {};
@@ -99,7 +105,7 @@ function Auth({
       await api(
         guestToken ? "guest/exchange" : register ? "register" : setup ? "setup" : "login",
         "POST",
-        guestToken ? { ...b, token: guestToken } : register ? {...b,...legalInput} : b,
+        guestToken ? { ...b, token: guestToken } : register ? {...b,...legalInput} : showcase ? {...b,remember:b.remember==='on'} : b,
       );
       if (guestToken || register) history.replaceState(null, "", "/");
       onDone();
@@ -110,10 +116,13 @@ function Auth({
     }
   }
   return (
-    <div className="auth-page auth-minimal-page">
+    <div className={'auth-page auth-minimal-page'+(showcase?' auth-login-showcase':'')}>
       <div className="auth-theme">
+        {showcase&&<button className="login-top-help" type="button" onClick={()=>setRecoveryOpen(true)}><CircleHelp size={18}/>¿Necesitas ayuda?</button>}
         <Theme />
       </div>
+      {showcase&&<><div className="login-organic login-organic-mint" aria-hidden="true"/><div className="login-organic login-organic-lilac" aria-hidden="true"/><div className="login-wave" aria-hidden="true"/><div className="login-leaves" aria-hidden="true"><i/><i/><i/></div></>}
+      {showcase && <AuthWelcome/>}
       <main className="auth-card auth-minimal">
         <a className="auth-home-logo" href="/presentacion" aria-label="LuSpace, volver al inicio"><Brand /></a>
         <a className="auth-back" href="/presentacion" aria-label="Volver al inicio">← Volver al inicio</a>
@@ -122,13 +131,14 @@ function Auth({
             ? "Acceso profesional"
             : createAccount
               ? "Crea tu cuenta"
-              : "Bienvenido a LuSpace"}
+              : showcase ? "Inicia sesión" : "Bienvenido a LuSpace"}
         </h1>
-        {!setup && !guestToken && registration && <p className="auth-trial-badge">Familias nuevas: 14 días gratis · $0</p>}
+        {showcase&&<p className="login-subtitle">Accede a tu espacio familiar</p>}
+        {!showcase && !setup && !guestToken && registration && <p className="auth-trial-badge">Familias nuevas: 14 días gratis · $0</p>}
         {guestToken && <p className="muted">Acceso compartido por tu familia.</p>}
         <form onSubmit={submit}>
           <fieldset disabled={busy}>
-            {!setup && !guestToken && <>
+            {!showcase && !setup && !guestToken && <>
               <button className="google-signin" type="button" disabled={!google || busy} onClick={e => continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/> <span>Continuar con Google</span></button>
               {!google && <p className="auth-hint">Google no está disponible todavía.</p>}
               <div className="auth-divider"><span>o continúa con tu correo</span></div>
@@ -154,18 +164,22 @@ function Auth({
             {!guestToken ? (
               <>
                 <label className="field">
-                  Correo
+                  {showcase?'Correo electrónico':'Correo'}
+                  <span className={showcase?'login-input-wrap':''}>
+                  {showcase&&<Mail size={20} aria-hidden="true"/>}
                   <input
                     name="correo"
                     type="email"
                     required
                     autoComplete="username"
-                    placeholder={register ? "tunombre@email.com" : undefined}
+                    placeholder={showcase ? 'Correo electrónico' : register ? "tunombre@email.com" : undefined}
                   />
+                  </span>
                 </label>
                 <label className="field">
                   Contraseña{createAccount ? " (mínimo 12 caracteres)" : ""}
                   <span className="password-field">
+                    {showcase&&<LockKeyhole size={20} className="login-lock" aria-hidden="true"/>}
                     <input
                       name="password"
                       type={showPassword ? "text" : "password"}
@@ -173,7 +187,7 @@ function Auth({
                       minLength={createAccount ? 12 : undefined}
                       maxLength={128}
                       autoComplete={createAccount ? "new-password" : "current-password"}
-                      placeholder={register ? "••••••••••••" : undefined}
+                      placeholder={showcase ? 'Contraseña' : register ? "••••••••••••" : undefined}
                     />
                     <button type="button" className="password-toggle" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -200,6 +214,7 @@ function Auth({
               </label>
             )}
             <ErrorNote error={error} />
+            {showcase&&<div className="login-options"><label title="Mantener la sesión en este navegador durante un máximo de 8 horas"><input type="checkbox" name="remember"/>Recordarme</label><button type="button" onClick={()=>setRecoveryOpen(true)}>¿Olvidaste tu contraseña?</button></div>}
             <button className="primary" disabled={busy}>
               {busy
                 ? "Ingresando…"
@@ -208,14 +223,18 @@ function Auth({
                   : createAccount
                     ? register ? "Comenzar prueba GRATIS de 14 días" : "Crear mi familia"
                     : "Iniciar sesión"}
+              {showcase&&<ArrowRight size={22} aria-hidden="true"/>}
             </button>
+            {showcase&&<><div className="auth-divider"><span>o</span></div><button className="google-signin" type="button" disabled={!google || busy} onClick={e=>continueGoogle(e.currentTarget)}><img src="/brand/google-g.png" alt="" width="20" height="20"/><span>Continuar con Google</span></button>{!google&&<p className="auth-hint">Google no está disponible todavía.</p>}</>}
             {register && <RegistrationNotice/>}
           </fieldset>
         </form>
-        {!createAccount && !guestToken && (
+        {!showcase && !createAccount && !guestToken && (
           <button type="button" className="auth-help" onClick={() => setRecoveryOpen(true)}>¿Olvidaste tu contraseña?</button>
         )}
-        {!setup && !guestToken && (register
+        {showcase&&<p className="login-contact">¿No tienes una cuenta? <a href="mailto:contacto@luspace.cl">Contáctanos</a></p>}
+        {showcase&&registration&&<p className="login-free-trial"><a href="/registro">Probar 14 días gratis · $0</a><span>Sin tarjeta</span></p>}
+        {!showcase && !setup && !guestToken && (register
           ? <p className="auth-alternate">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
           : registration
             ? <div className="auth-trial"><p>¿Tu familia aún no tiene cuenta?</p><a href="/registro">Probar LuSpace durante 14 días</a><span>$0 durante la prueba · Sin tarjeta</span></div>
