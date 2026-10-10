@@ -1,10 +1,9 @@
 import {Heart, BookOpen, ChartNoAxesColumnIncreasing, ShieldCheck, Sparkle} from 'lucide-react';
-import {Brand} from './components';
 import './auth-welcome.css';
 
 export default function AuthWelcome(){
   return <aside className="auth-welcome" aria-label="Bienvenida a LuSpace">
-    <a className="welcome-brand" href="/presentacion" aria-label="LuSpace, volver al inicio"><Brand/></a>
+    <a className="welcome-brand" href="/presentacion" aria-label="LuSpace, volver al inicio"><img className="auth-horizontal-logo" src="/brand/luspace-horizontal.png" alt="LuSpace" width="2172" height="724"/></a>
     <div className="welcome-copy">
       <span className="welcome-badge">Bienvenido a LuSpace</span>
       <h2>Un espacio para <br className="welcome-title-break"/>cada <span>etapa de</span> <em>su desarrollo</em></h2>

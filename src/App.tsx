@@ -20,6 +20,8 @@ import {
   LockKeyhole,
   ArrowRight,
   CircleHelp,
+  Gift,
+  UserRoundPlus,
 } from "lucide-react";
 import { api, type Row } from "./lib";
 import {
@@ -53,6 +55,7 @@ import './legal.css';
 import Theme from './ThemeControl';
 import './auth-access.css';
 import AuthWelcome from './AuthWelcome';
+import './auth-conversion.css';
 import { useSubscription } from './useSubscription';
 import Anamnesis from "./Anamnesis";
 import {useStartupLoading} from './StartupScreen';
@@ -116,7 +119,7 @@ export function Auth({
     }
   }
   return (
-    <div className={'auth-page auth-minimal-page'+(showcase?' auth-login-showcase':'')}>
+    <div className={'auth-page auth-minimal-page'+(showcase?' auth-login-showcase':'')+((showcase||register)?' auth-entry':'')}>
       <div className="auth-theme">
         {showcase&&<button className="login-top-help" type="button" onClick={()=>setRecoveryOpen(true)}><CircleHelp size={18}/>¿Necesitas ayuda?</button>}
         <Theme />
@@ -124,7 +127,8 @@ export function Auth({
       {showcase&&<><div className="login-organic login-organic-mint" aria-hidden="true"/><div className="login-organic login-organic-lilac" aria-hidden="true"/><div className="login-wave" aria-hidden="true"/><div className="login-leaves" aria-hidden="true"><i/><i/><i/></div></>}
       {showcase && <AuthWelcome/>}
       <main className="auth-card auth-minimal">
-        <a className="auth-home-logo" href="/presentacion" aria-label="LuSpace, volver al inicio"><Brand /></a>
+        {(showcase||register)&&registration&&<nav className="auth-route-selector" aria-label="Acceso a LuSpace"><a href="/registro" aria-current={register?'page':undefined}><UserRoundPlus size={17} aria-hidden="true"/><span>Probar 14 días gratis</span></a><a href="/login" aria-current={showcase?'page':undefined}>Entrar</a></nav>}
+        <a className="auth-home-logo" href="/presentacion" aria-label="LuSpace, volver al inicio">{showcase||register?<img className="auth-horizontal-logo" src="/brand/luspace-horizontal.png" alt="LuSpace" width="2172" height="724"/>:<Brand />}</a>
         <a className="auth-back" href="/presentacion" aria-label="Volver al inicio">← Volver al inicio</a>
         <h1>
           {guestToken
@@ -232,8 +236,7 @@ export function Auth({
         {!showcase && !createAccount && !guestToken && (
           <button type="button" className="auth-help" onClick={() => setRecoveryOpen(true)}>¿Olvidaste tu contraseña?</button>
         )}
-        {showcase&&<p className="login-contact">¿No tienes una cuenta? <a href="mailto:contacto@luspace.cl">Contáctanos</a></p>}
-        {showcase&&registration&&<p className="login-free-trial"><a href="/registro">Probar 14 días gratis · $0</a><span>Sin tarjeta</span></p>}
+        {showcase&&registration&&<div className="login-register-action"><a className="login-register-button" href="/registro"><Gift size={20} aria-hidden="true"/><span>Probar 14 días gratis · $0</span><ArrowRight size={20} aria-hidden="true"/></a><p>Sin tarjeta</p></div>}
         {!showcase && !setup && !guestToken && (register
           ? <p className="auth-alternate">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
           : registration

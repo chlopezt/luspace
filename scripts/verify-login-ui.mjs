@@ -12,11 +12,27 @@ try{
  const login=renderToStaticMarkup(React.createElement(Auth,props));
  for(const expected of ['Inicia sesión','Accede a tu espacio familiar','name="correo"','name="password"','name="remember"','¿Olvidaste tu contraseña?','Continuar con Google','/registro','/terminos','/privacidad'])assert.ok(login.includes(expected),expected);
  assert.ok(login.indexOf('type="email"')<login.indexOf('Continuar con Google'));
+ assert.ok(login.includes('href="/login" aria-current="page"'));
+ assert.ok(login.includes('href="/registro"'));
+ assert.ok(login.indexOf('auth-route-selector')<login.indexOf('auth-home-logo'));
+ assert.ok(login.includes('src="/brand/luspace-horizontal.png" alt="LuSpace"'));
+ assert.equal((login.match(/Probar 14 días gratis · \$0/g)||[]).length,1);
+ assert.ok(login.includes('class="login-register-button" href="/registro"'));
+ assert.ok(login.includes('<p>Sin tarjeta</p>'));
+ assert.ok(!login.includes('mailto:contacto@luspace.cl'));
+ assert.ok(!login.includes('Contáctanos'));
+ assert.ok(!login.includes('login-free-trial'));
  globalThis.location={pathname:'/registro',search:''};
  const registration=renderToStaticMarkup(React.createElement(Auth,props));
  for(const name of ['nombre','familia','correo','password','password_confirmation'])assert.ok(registration.includes(`name="${name}"`));
  assert.ok(!registration.includes('auth-login-showcase'));
  assert.ok(!registration.includes('name="remember"'));
  assert.ok(registration.includes('Comenzar prueba GRATIS de 14 días'));
+ assert.ok(registration.includes('href="/registro" aria-current="page"'));
+ assert.ok(registration.includes('src="/brand/luspace-horizontal.png" alt="LuSpace"'));
+ globalThis.location={pathname:'/login',search:''};
+ const disabled=renderToStaticMarkup(React.createElement(Auth,{...props,registration:false}));
+ assert.ok(!disabled.includes('login-register-button'));
+ assert.ok(!disabled.includes('auth-route-selector'));
  console.log('Acceso verificado: campos, Google, enlaces, orden y registro sin cambios.');
 }finally{globalThis.location=savedLocation;await server.close();}
