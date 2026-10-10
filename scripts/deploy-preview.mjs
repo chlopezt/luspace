@@ -1,5 +1,5 @@
 // Separate Pages project and D1 database. Never uses production bindings/config.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { previewFixtureSql } from './preview-fixture.mjs';
@@ -69,8 +69,8 @@ database_name = "${database}"
 database_id = "${dbId}"
 migrations_dir = "../../db/migrations"
 `);
-const run = args => {
-  const result = spawnSync('npx', ['wrangler', ...args], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } });
+const run = (args, cwd = process.cwd()) => {
+  const result = spawnSync('npx', ['wrangler', ...args], { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } });
   process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || '');
   if (result.status !== 0) throw new Error('Wrangler falló: ' + args[0] + '\n' + ((result.stderr || '') + (result.stdout || '')).slice(-5000));
 };
@@ -79,7 +79,10 @@ if (created) {
   // D1 batch executes the marker and generated fixture atomically.
   await query((await previewFixtureSql()) + '\nCREATE TABLE _luspace_preview_guard(marker TEXT NOT NULL); INSERT INTO _luspace_preview_guard VALUES(\'synthetic-only-v1\');');
 }
-run(['pages', 'deploy', 'dist', '--project-name', project, '--branch', previewBranch, '--config', config, '--commit-dirty=true']);
+// Pages accepts only a Wrangler file at the working directory root. Stage source
+// separately instead of replacing the repository's production configuration.
+for (const folder of ['functions', 'server', 'shared']) cpSync(resolve(folder), resolve(directory, folder), { recursive: true });
+run(['pages', 'deploy', '../../dist', '--project-name', project, '--branch', previewBranch, '--commit-dirty=true'], directory);
 const url = `https://${previewBranch}.${project}.pages.dev`;
 console.log(`Vista previa sintética: ${url}`);
 if (process.env.GITHUB_STEP_SUMMARY) {
