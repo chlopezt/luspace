@@ -15,3 +15,35 @@ html[data-theme=dark] .auth-page.auth-login-showcase{--ink:#e7f2ef;--muted:#aec8
 /* Keep decorative assets outside the reading column. */
 @media(min-width:1151px){.welcome-child{right:-190px}.welcome-rocket{right:-155px;top:140px;width:125px;height:150px}}
 @media(min-width:901px) and (max-width:1150px){.welcome-child{display:none}.welcome-rocket{right:-35px;top:320px;width:70px;height:90px}}
+
+/* Decorative motion only: no layout changes or moving photograph/copy. */
+@keyframes login-rocket-float{0%,100%{transform:translateY(-10px) rotate(-3deg)}50%{transform:translateY(10px) rotate(3deg)}}
+@keyframes login-spark-glow{0%,100%{transform:scale(.9);opacity:.7}50%{transform:scale(1.1);opacity:1}}
+@keyframes login-mint-drift{0%,100%{transform:translate(0,0) rotate(-28deg)}50%{transform:translate(-12px,12px) rotate(-28deg)}}
+@keyframes login-lilac-drift{0%,100%{transform:translate(0,0)}50%{transform:translate(12px,-12px)}}
+@keyframes login-card-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.auth-login-showcase .welcome-rocket{animation:login-rocket-float 5s ease-in-out infinite}
+.auth-login-showcase .welcome-spark-one{animation:login-spark-glow 5s ease-in-out infinite}
+.auth-login-showcase .welcome-spark-two{animation:login-spark-glow 7s ease-in-out -2.5s infinite}
+.auth-login-showcase .login-organic-mint{animation:login-mint-drift 20s ease-in-out infinite}
+.auth-login-showcase .login-organic-lilac{animation:login-lilac-drift 18s ease-in-out -6s infinite}
+.auth-login-showcase .auth-card.auth-minimal{animation:login-card-enter .55s ease-out both}
+.auth-login-showcase .welcome-features>div{transition:transform .225s ease,box-shadow .225s ease}
+.auth-login-showcase .welcome-features svg{transition:transform .225s ease}
+.auth-login-showcase .field input{transition:border-color .225s ease,box-shadow .225s ease}
+.auth-login-showcase .field input:focus{border-color:var(--accent);outline:2px solid color-mix(in srgb,var(--accent) 25%,transparent);outline-offset:2px;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+.auth-login-showcase .primary,.auth-login-showcase .google-signin{transition:box-shadow .225s ease,border-color .225s ease}
+@media(hover:hover) and (pointer:fine){
+  .auth-login-showcase .welcome-features>div:hover{transform:translateY(-3px);box-shadow:0 6px 15px #059f9810}
+  .auth-login-showcase .welcome-features>div:hover svg{transform:scale(1.04)}
+  .auth-login-showcase .primary:hover{box-shadow:0 7px 18px #06ad9d25}
+  .auth-login-showcase .google-signin:hover{border-color:var(--accent);box-shadow:0 3px 10px #06ad9d0d}
+}
+@media(max-width:900px){
+  .auth-login-showcase .login-organic{animation:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .auth-login-showcase .welcome-rocket,.auth-login-showcase .welcome-spark,.auth-login-showcase .login-organic,.auth-login-showcase .auth-card.auth-minimal{animation:none}
+  .auth-login-showcase .welcome-features>div,.auth-login-showcase .welcome-features svg,.auth-login-showcase .field input,.auth-login-showcase .primary,.auth-login-showcase .google-signin{transition:none}
+  .auth-login-showcase .welcome-features>div:hover,.auth-login-showcase .welcome-features>div:hover svg{transform:none}
+}
