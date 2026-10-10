@@ -38,6 +38,7 @@ import {
 import { modules } from "../shared/models.js";
 import { reportGroups, selectionModules, documentSelection } from '../shared/report-selection.js';
 import Dashboard from "./Dashboard";
+import SidebarLogo from './SidebarLogo';
 import Reminders from './Reminders';
 import ChildAvatar from './ChildAvatar';
 import TrialCard from './TrialCard';
@@ -629,7 +630,7 @@ function FamilyApp() {
         />
       )}
       <aside className={menu ? "sidebar open" : "sidebar"}>
-        <Brand />
+        <SidebarLogo />
         <nav>
           {navigation
             .filter(([k]) => !me.platform_controls?.blocked_modules?.includes(k))
