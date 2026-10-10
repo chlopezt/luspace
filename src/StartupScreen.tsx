@@ -15,5 +15,5 @@ export function StartupProvider({children}:{children:ReactNode}){
   const timer=setTimeout(()=>setVisible(false),duration);
   return()=>clearTimeout(timer);
  },[loading]);
- return <StartupContext.Provider value={setLoading}>{children}{visible&&<div className={'startup-screen'+(!loading?' is-leaving':'')} role="status" aria-live="polite" aria-label="Cargando LuSpace"><div className="startup-content"><div className="startup-brand"><img src="/brand/luspace-logo.png" alt="" onError={e=>{e.currentTarget.style.display='none';}}/><span className="startup-wordmark">Lu<span>Space</span></span></div><div className="startup-track" aria-hidden="true"><span/></div><p className="startup-copy">Abriendo tu espacio…</p></div></div>}</StartupContext.Provider>;
+ return <StartupContext.Provider value={setLoading}>{children}{visible&&<div className={'startup-screen'+(!loading?' is-leaving':'')} role="status" aria-live="polite" aria-label="Cargando LuSpace"><div className="startup-content"><div className="startup-brand"><img src="/brand/luspace-horizontal.png" alt="LuSpace" width="2172" height="724" onError={e=>{e.currentTarget.style.display='none';}}/></div><div className="startup-track" aria-hidden="true"><span/></div><p className="startup-copy">Abriendo tu espacio…</p></div></div>}</StartupContext.Provider>;
 }

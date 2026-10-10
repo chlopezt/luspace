@@ -41,22 +41,15 @@ html, body { background-color: var(--startup-bg); }
 .startup-screen.is-leaving { opacity: 0; pointer-events: none; }
 .startup-content { display:flex; flex-direction:column; align-items:center; text-align:center; transform:translateY(-12px); }
 .startup-brand { display:flex; align-items:center; justify-content:center; gap:14px; animation:startup-breathe 3.2s ease-in-out infinite; }
-.startup-brand img { display:block; width:88px; height:88px; object-fit:contain; border:0; border-radius:0; }
-.startup-wordmark { color:#0d9488; font-size:40px; font-weight:800; letter-spacing:-1.8px; line-height:1.2; }
-.startup-wordmark>span { color:#8b5cf6; }
-html[data-theme="dark"] .startup-wordmark { color:#7de1d2; }
-html[data-theme="dark"] .startup-wordmark>span { color:#b79aff; }
+.startup-brand { max-width:100%; }
+.startup-brand img { display:block; width:300px; max-width:100%; height:auto; object-fit:contain; border:0; border-radius:0; }
 .startup-track { width:144px; height:3px; margin:25px 0 19px; border-radius:99px; background:var(--startup-track); overflow:hidden; }
 .startup-track>span { display:block; height:100%; width:44%; border-radius:inherit; background:var(--startup-accent); animation:startup-progress 1.8s ease-in-out infinite; }
 .startup-copy { margin:0; color:var(--startup-copy); font-size:13px; line-height:1.6; letter-spacing:.15px; animation:startup-copy-pulse 3.2s ease-in-out infinite; }
 @keyframes startup-breathe { 0%,100%{opacity:.88;transform:scale(.99)} 50%{opacity:1;transform:scale(1.015)} }
 @keyframes startup-progress { 0%{transform:translateX(-105%)} 100%{transform:translateX(330%)} }
 @keyframes startup-copy-pulse { 0%,100%{opacity:.75} 50%{opacity:1} }
-@media(prefers-color-scheme:dark) {
-  html[data-theme="system"] .startup-wordmark { color:#7de1d2; }
-  html[data-theme="system"] .startup-wordmark>span { color:#b79aff; }
-}
-@media(max-width:480px) { .startup-brand{gap:10px}.startup-brand img{width:70px;height:70px}.startup-wordmark{font-size:34px}.startup-screen{padding:20px} }
+@media(max-width:480px) { .startup-brand img{width:220px}.startup-screen{padding:20px} }
 @media(prefers-reduced-motion:reduce) {
   .startup-brand,.startup-copy,.startup-track>span { animation:none; }
   .startup-track>span { width:100%; opacity:.6; }
