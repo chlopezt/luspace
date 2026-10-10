@@ -10,7 +10,8 @@ process.on('uncaughtException', error => {
 let status;
 for (let attempt = 0; attempt < 15; attempt++) {
   const response = await fetch(origin + '/api/status');
-  if (response.ok) { status = await response.json(); break; }
+  const revision = await fetch(origin + '/review-revision.json').then(response => response.json()).catch(() => null);
+  if (response.ok && revision?.synthetic === true && revision?.commit === process.env.GITHUB_SHA) { status = await response.json(); break; }
   await new Promise(resolve => setTimeout(resolve, 2000));
 }
 assert(status, 'La API del preview no respondió correctamente.');

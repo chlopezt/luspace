@@ -4,6 +4,8 @@ La automatización está en `.github/workflows/preview.yml`. Al subir un commit 
 
 URL prevista y estable: `https://review.luspace-review.pages.dev`. Confirmar que el último workflow **Vista previa LuSpace** terminó correctamente antes de revisar: una ejecución fallida deja visible la revisión anterior. El resumen del workflow muestra el enlace. Todas las ramas de revisión comparten esta vista previa; el último despliegue completado es el visible.
 
+Después de publicar, `scripts/verify-preview.mjs` comprueba el commit servido, la API de Functions, el bloqueo de registro público, la autenticación con la cuenta ficticia, las dosis SOS, la navegación a tratamientos y el ancho móvil mediante Chrome. Un fallo se muestra en el workflow aunque el despliegue ya haya terminado.
+
 Cuenta exclusivamente ficticia:
 
 - Correo: `familia@preview.luspace.test`

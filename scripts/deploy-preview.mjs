@@ -81,6 +81,7 @@ if (created) {
 // Pages accepts only a Wrangler file at the working directory root. Stage source
 // separately instead of replacing the repository's production configuration.
 for (const folder of ['functions', 'server', 'shared']) cpSync(resolve(folder), resolve(directory, folder), { recursive: true });
+writeFileSync(resolve('dist/review-revision.json'), JSON.stringify({ commit: process.env.GITHUB_SHA || null, synthetic: true }));
 run(['pages', 'deploy', '../../dist', '--project-name', project, '--branch', previewBranch, '--commit-dirty=true'], directory);
 const url = `https://${previewBranch}.${project}.pages.dev`;
 console.log(`Vista previa sintética: ${url}`);
